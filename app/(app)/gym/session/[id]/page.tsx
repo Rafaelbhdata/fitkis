@@ -85,6 +85,11 @@ export default function SessionPage() {
   }
 
   const loadSession = async () => {
+    if (!sessionId) {
+      router.push('/gym/history')
+      return
+    }
+
     setLoading(true)
     setViewMode(true)
 
