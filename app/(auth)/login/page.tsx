@@ -1,24 +1,40 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError(null)
 
-    // Aquí iría la lógica de autenticación con Supabase
-    // Por ahora redirigimos al dashboard
-    setTimeout(() => {
-      window.location.href = '/dashboard'
-    }, 1000)
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      setError(error.message === 'Invalid login credentials'
+        ? 'Email o contraseña incorrectos'
+        : error.message)
+      setLoading(false)
+      return
+    }
+
+    router.push('/dashboard')
+    router.refresh()
   }
 
   return (
@@ -61,6 +77,12 @@ export default function LoginPage() {
             </button>
           </div>
         </div>
+
+        {error && (
+          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+            {error}
+          </div>
+        )}
 
         <button
           type="submit"
