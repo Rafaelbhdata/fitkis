@@ -37,7 +37,7 @@ export default function SessionPage() {
   const supabase = useSupabase()
 
   const dayOfWeek = getDayOfWeek()
-  const routineType = getRoutineForDay(dayOfWeek) || 'upper_a'
+  const routineType = (getRoutineForDay(dayOfWeek) || 'upper_a') as RoutineType
   const exercises = ROUTINES[routineType]
 
   const [loading, setLoading] = useState(!isNew)
@@ -50,7 +50,7 @@ export default function SessionPage() {
   const [showEquipmentModal, setShowEquipmentModal] = useState(false)
   const [progressionSuggestions, setProgressionSuggestions] = useState<ProgressionSuggestion[]>([])
   const [viewMode, setViewMode] = useState(false)
-  const [sessionRoutineType, setSessionRoutineType] = useState<RoutineType>(routineType || 'upper_a')
+  const [sessionRoutineType, setSessionRoutineType] = useState<RoutineType>(routineType)
 
   const currentExercise = exercises[currentExerciseIndex]
   const currentData = exerciseData[currentExercise?.id] || {

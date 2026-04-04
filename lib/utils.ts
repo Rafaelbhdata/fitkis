@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { RoutineType } from '@/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -30,8 +31,8 @@ export function getDayOfWeek(): number {
   return new Date().getDay()
 }
 
-export function getRoutineForDay(dayOfWeek: number): string | null {
-  const routineMap: Record<number, string | null> = {
+export function getRoutineForDay(dayOfWeek: number): RoutineType | null {
+  const routineMap: Record<number, RoutineType | null> = {
     0: null,      // domingo - descanso
     1: 'upper_a', // lunes
     2: 'lower_a', // martes
@@ -43,7 +44,7 @@ export function getRoutineForDay(dayOfWeek: number): string | null {
   return routineMap[dayOfWeek]
 }
 
-export function getRoutineName(routineType: string): string {
+export function getRoutineName(routineType: RoutineType | string): string {
   const names: Record<string, string> = {
     upper_a: 'Upper A — Pecho, Hombro, Tríceps',
     upper_b: 'Upper B — Espalda, Bíceps',
