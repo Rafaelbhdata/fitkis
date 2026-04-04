@@ -54,7 +54,7 @@ export default function HabitsPage() {
         target_value: h.target_value,
         unit: h.unit,
       }))
-      await supabase.from('habits').insert(defaultHabits)
+      await (supabase.from('habits') as any).insert(defaultHabits)
       const { data } = await supabase.from('habits').select('*').eq('active', true).order('created_at')
       typedHabitsData = data as Habit[] | null
     }
@@ -92,9 +92,9 @@ export default function HabitsPage() {
     ))
 
     if (habit.logId) {
-      await supabase.from('habit_logs').update({ completed: newCompleted }).eq('id', habit.logId)
+      await (supabase.from('habit_logs') as any).update({ completed: newCompleted }).eq('id', habit.logId)
     } else {
-      const { data } = await supabase.from('habit_logs').insert({
+      const { data } = await (supabase.from('habit_logs') as any).insert({
         habit_id: habit.id,
         user_id: user.id,
         date: today,
@@ -102,7 +102,7 @@ export default function HabitsPage() {
       }).select().single()
       if (data) {
         setHabits(habits.map(h =>
-          h.id === habit.id ? { ...h, logId: data.id, completed: newCompleted } : h
+          h.id === habit.id ? { ...h, logId: (data as any).id, completed: newCompleted } : h
         ))
       }
     }
@@ -117,9 +117,9 @@ export default function HabitsPage() {
     ))
 
     if (habit.logId) {
-      await supabase.from('habit_logs').update({ value: newValue }).eq('id', habit.logId)
+      await (supabase.from('habit_logs') as any).update({ value: newValue }).eq('id', habit.logId)
     } else {
-      const { data } = await supabase.from('habit_logs').insert({
+      const { data } = await (supabase.from('habit_logs') as any).insert({
         habit_id: habit.id,
         user_id: user.id,
         date: today,
@@ -127,7 +127,7 @@ export default function HabitsPage() {
       }).select().single()
       if (data) {
         setHabits(habits.map(h =>
-          h.id === habit.id ? { ...h, logId: data.id, currentValue: newValue } : h
+          h.id === habit.id ? { ...h, logId: (data as any).id, currentValue: newValue } : h
         ))
       }
     }

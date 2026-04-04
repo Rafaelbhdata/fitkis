@@ -257,8 +257,8 @@ export default function SessionPage() {
       let sessionIdToUse = currentSessionId
 
       if (!sessionIdToUse) {
-        const { data: newSession, error: sessionError } = await supabase
-          .from('gym_sessions')
+        const { data: newSession, error: sessionError } = await (supabase
+          .from('gym_sessions') as any)
           .insert({
             user_id: user.id,
             date: getToday(),
@@ -274,8 +274,8 @@ export default function SessionPage() {
         setCurrentSessionId(sessionIdToUse)
       } else {
         // Update cardio if editing
-        await supabase
-          .from('gym_sessions')
+        await (supabase
+          .from('gym_sessions') as any)
           .update({
             cardio_minutes: cardioMinutes ? parseInt(cardioMinutes) : null,
             cardio_speed: cardioSpeed ? parseFloat(cardioSpeed) : null,
@@ -284,7 +284,7 @@ export default function SessionPage() {
       }
 
       // Delete existing sets and insert new ones
-      await supabase.from('session_sets').delete().eq('session_id', sessionIdToUse)
+      await (supabase.from('session_sets') as any).delete().eq('session_id', sessionIdToUse)
 
       // Prepare sets to insert
       const setsToInsert: Array<{
@@ -312,8 +312,8 @@ export default function SessionPage() {
       })
 
       if (setsToInsert.length > 0) {
-        const { error: setsError } = await supabase
-          .from('session_sets')
+        const { error: setsError } = await (supabase
+          .from('session_sets') as any)
           .insert(setsToInsert)
 
         if (setsError) throw setsError

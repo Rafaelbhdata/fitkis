@@ -46,7 +46,7 @@ export default function FoodPage() {
 
   const addFood = async (foodName: string) => {
     if (!user || !selectedGroup) return
-    await supabase.from('food_logs').insert({
+    await (supabase.from('food_logs') as any).insert({
       user_id: user.id,
       date: todayStr,
       meal: selectedMeal,
@@ -61,7 +61,7 @@ export default function FoodPage() {
   }
 
   const deleteFood = async (id: string) => {
-    await supabase.from('food_logs').delete().eq('id', id)
+    await (supabase.from('food_logs') as any).delete().eq('id', id)
     setFoodLogs(foodLogs.filter(f => f.id !== id))
   }
 

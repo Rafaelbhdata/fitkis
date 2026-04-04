@@ -41,7 +41,7 @@ export default function WeightPage() {
     if (!user || !weight) return
 
     setSaving(true)
-    const { error } = await supabase.from('weight_logs').insert({
+    const { error } = await (supabase.from('weight_logs') as any).insert({
       user_id: user.id,
       date: getToday(),
       weight_kg: parseFloat(weight),
