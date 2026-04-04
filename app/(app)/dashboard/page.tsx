@@ -34,10 +34,10 @@ export default function DashboardPage() {
       supabase.from('habits').select('*').eq('active', true),
       supabase.from('habit_logs').select('*').eq('date', todayStr),
     ])
-    if (foodRes.data) setFoodLogs(foodRes.data)
-    if (weightRes.data?.[0]) setLatestWeight(weightRes.data[0].weight_kg)
-    if (habitsRes.data) setHabits(habitsRes.data)
-    if (habitLogsRes.data) setHabitLogs(habitLogsRes.data)
+    if (foodRes.data) setFoodLogs(foodRes.data as FoodLog[])
+    if (weightRes.data?.[0]) setLatestWeight((weightRes.data[0] as WeightLog).weight_kg)
+    if (habitsRes.data) setHabits(habitsRes.data as Habit[])
+    if (habitLogsRes.data) setHabitLogs(habitLogsRes.data as HabitLog[])
     setLoading(false)
   }
 

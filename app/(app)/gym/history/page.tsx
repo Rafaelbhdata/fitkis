@@ -27,7 +27,7 @@ export default function HistoryPage() {
       .order('date', { ascending: false })
       .limit(30)
 
-    if (data) setSessions(data)
+    if (data) setSessions(data as GymSession[])
     setLoading(false)
   }
 

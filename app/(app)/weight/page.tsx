@@ -32,7 +32,7 @@ export default function WeightPage() {
       .limit(30)
 
     if (!error && data) {
-      setWeightLogs(data)
+      setWeightLogs(data as WeightLog[])
     }
     setLoading(false)
   }

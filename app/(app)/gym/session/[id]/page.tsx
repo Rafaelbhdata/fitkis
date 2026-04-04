@@ -95,14 +95,16 @@ export default function SessionPage() {
       .eq('id', sessionId)
       .single()
 
-    if (!session) {
+    const typedSession = session as GymSession | null
+
+    if (!typedSession) {
       router.push('/gym/history')
       return
     }
 
-    setSessionRoutineType(session.routine_type as RoutineType)
-    if (session.cardio_minutes) setCardioMinutes(String(session.cardio_minutes))
-    if (session.cardio_speed) setCardioSpeed(String(session.cardio_speed))
+    setSessionRoutineType(typedSession.routine_type as RoutineType)
+    if (typedSession.cardio_minutes) setCardioMinutes(String(typedSession.cardio_minutes))
+    if (typedSession.cardio_speed) setCardioSpeed(String(typedSession.cardio_speed))
 
     // Load sets
     const { data: sets } = await supabase
@@ -111,12 +113,14 @@ export default function SessionPage() {
       .eq('session_id', sessionId)
       .order('set_number')
 
+    const typedSets = sets as SessionSet[] | null
+
     // Organize sets by exercise
     const loadedData: Record<string, ExerciseData> = {}
-    const routineExercises = ROUTINES[session.routine_type as RoutineType]
+    const routineExercises = ROUTINES[typedSession.routine_type as RoutineType]
 
     routineExercises.forEach(ex => {
-      const exerciseSets = sets?.filter(s => s.exercise_id === ex.id) || []
+      const exerciseSets = typedSets?.filter(s => s.exercise_id === ex.id) || []
       const feeling = exerciseSets[0]?.feeling as Feeling | null
 
       loadedData[ex.id] = {
@@ -148,26 +152,30 @@ export default function SessionPage() {
       .order('date', { ascending: false })
       .limit(2)
 
-    if (!pastSessions || pastSessions.length < 2) return
+    const typedPastSessions = pastSessions as { id: string }[] | null
+
+    if (!typedPastSessions || typedPastSessions.length < 2) return
 
     // Get sets from these sessions
-    const sessionIds = pastSessions.map(s => s.id)
+    const sessionIds = typedPastSessions.map(s => s.id)
     const { data: pastSets } = await supabase
       .from('session_sets')
       .select('*')
       .in('session_id', sessionIds)
 
-    if (!pastSets) return
+    const typedPastSets = pastSets as SessionSet[] | null
+
+    if (!typedPastSets) return
 
     // Check each exercise for progression
     const suggestions: ProgressionSuggestion[] = []
 
     exercises.forEach(exercise => {
-      const exerciseSets = pastSets.filter(s => s.exercise_id === exercise.id)
+      const exerciseSets = typedPastSets.filter(s => s.exercise_id === exercise.id)
 
       // Group by session
-      const session1Sets = exerciseSets.filter(s => s.session_id === pastSessions[0].id)
-      const session2Sets = exerciseSets.filter(s => s.session_id === pastSessions[1].id)
+      const session1Sets = exerciseSets.filter(s => s.session_id === typedPastSessions[0].id)
+      const session2Sets = exerciseSets.filter(s => s.session_id === typedPastSessions[1].id)
 
       if (session1Sets.length === 0 || session2Sets.length === 0) return
 

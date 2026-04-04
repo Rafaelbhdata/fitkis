@@ -40,7 +40,7 @@ export default function FoodPage() {
       .select('*')
       .eq('date', todayStr)
       .order('created_at')
-    if (data) setFoodLogs(data)
+    if (data) setFoodLogs(data as FoodLog[])
     setLoading(false)
   }
 

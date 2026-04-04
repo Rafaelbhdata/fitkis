@@ -43,8 +43,10 @@ export default function HabitsPage() {
       .eq('active', true)
       .order('created_at')
 
+    let typedHabitsData = habitsData as Habit[] | null
+
     // Si no tiene hábitos, crear los predeterminados
-    if (!habitsData || habitsData.length === 0) {
+    if (!typedHabitsData || typedHabitsData.length === 0) {
       const defaultHabits = DEFAULT_HABITS.map(h => ({
         user_id: user.id,
         name: h.name,
@@ -54,7 +56,7 @@ export default function HabitsPage() {
       }))
       await supabase.from('habits').insert(defaultHabits)
       const { data } = await supabase.from('habits').select('*').eq('active', true).order('created_at')
-      habitsData = data
+      typedHabitsData = data as Habit[] | null
     }
 
     // Cargar logs de hoy
@@ -63,9 +65,11 @@ export default function HabitsPage() {
       .select('*')
       .eq('date', today)
 
+    const typedLogsData = logsData as HabitLog[] | null
+
     // Combinar hábitos con sus logs de hoy
-    const habitsWithLogs: HabitWithLog[] = (habitsData || []).map(habit => {
-      const log = logsData?.find(l => l.habit_id === habit.id)
+    const habitsWithLogs: HabitWithLog[] = (typedHabitsData || []).map(habit => {
+      const log = typedLogsData?.find(l => l.habit_id === habit.id)
       return {
         ...habit,
         logId: log?.id,
