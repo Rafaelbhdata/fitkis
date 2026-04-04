@@ -26,6 +26,9 @@ export default function FoodPage() {
   const [selectedMeal, setSelectedMeal] = useState<MealType>('desayuno')
   const [selectedGroup, setSelectedGroup] = useState<FoodGroup | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedFood, setSelectedFood] = useState<{ name: string; portion: string } | null>(null)
+  const [quantity, setQuantity] = useState(1)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -35,34 +38,59 @@ export default function FoodPage() {
 
   const loadFoodLogs = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('food_logs')
-      .select('*')
-      .eq('date', todayStr)
-      .order('created_at')
-    if (data) setFoodLogs(data as FoodLog[])
+    setError(null)
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('food_logs')
+        .select('*')
+        .eq('date', todayStr)
+        .order('created_at')
+      if (fetchError) throw fetchError
+      if (data) setFoodLogs(data as FoodLog[])
+    } catch (err) {
+      setError('Error al cargar alimentos')
+    }
     setLoading(false)
   }
 
-  const addFood = async (foodName: string) => {
-    if (!user || !selectedGroup) return
-    await (supabase.from('food_logs') as any).insert({
-      user_id: user.id,
-      date: todayStr,
-      meal: selectedMeal,
-      group_type: selectedGroup,
-      quantity: 1,
-      food_name: foodName,
-    })
-    await loadFoodLogs()
+  const selectFood = (food: { name: string; portion: string }) => {
+    setSelectedFood(food)
+    setQuantity(1)
+  }
+
+  const addFood = async () => {
+    if (!user || !selectedGroup || !selectedFood) return
+    try {
+      await (supabase.from('food_logs') as any).insert({
+        user_id: user.id,
+        date: todayStr,
+        meal: selectedMeal,
+        group_type: selectedGroup,
+        quantity: quantity,
+        food_name: selectedFood.name,
+      })
+      await loadFoodLogs()
+      closeModal()
+    } catch (err) {
+      setError('Error al agregar alimento')
+    }
+  }
+
+  const closeModal = () => {
     setShowAddModal(false)
     setSelectedGroup(null)
+    setSelectedFood(null)
     setSearchQuery('')
+    setQuantity(1)
   }
 
   const deleteFood = async (id: string) => {
-    await (supabase.from('food_logs') as any).delete().eq('id', id)
-    setFoodLogs(foodLogs.filter(f => f.id !== id))
+    try {
+      await (supabase.from('food_logs') as any).delete().eq('id', id)
+      setFoodLogs(foodLogs.filter(f => f.id !== id))
+    } catch (err) {
+      setError('Error al eliminar alimento')
+    }
   }
 
   // Calcular consumido por grupo
@@ -105,6 +133,15 @@ export default function FoodPage() {
           <Star className="w-6 h-6" />
         </Link>
       </header>
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Resumen del día */}
       <section className="card">
@@ -193,7 +230,10 @@ export default function FoodPage() {
                               className="w-2 h-2 rounded-full"
                               style={{ backgroundColor: FOOD_GROUP_COLORS[log.group_type] }}
                             />
-                            <span className="text-sm">{log.food_name || FOOD_GROUP_LABELS[log.group_type]}</span>
+                            <span className="text-sm">
+                              {log.quantity !== 1 && <span className="text-accent font-medium">{log.quantity}x </span>}
+                              {log.food_name || FOOD_GROUP_LABELS[log.group_type]}
+                            </span>
                           </div>
                           <button onClick={() => deleteFood(log.id)} className="p-1 text-muted hover:text-danger">
                             <Trash2 className="w-4 h-4" />
@@ -219,38 +259,88 @@ export default function FoodPage() {
           <div className="w-full bg-surface rounded-t-2xl p-6 max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-display text-xl font-semibold">
-                Agregar {FOOD_GROUP_LABELS[selectedGroup]}
+                {selectedFood ? selectedFood.name : `Agregar ${FOOD_GROUP_LABELS[selectedGroup]}`}
               </h2>
-              <button onClick={() => { setShowAddModal(false); setSelectedGroup(null); setSearchQuery(''); }}>
+              <button onClick={closeModal}>
                 <X className="w-6 h-6 text-muted" />
               </button>
             </div>
 
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
-              <input
-                type="text"
-                className="input pl-10"
-                placeholder="Buscar alimento..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-              />
-            </div>
+            {selectedFood ? (
+              /* Selector de cantidad */
+              <div className="space-y-6">
+                <div className="text-center">
+                  <p className="text-muted mb-2">Porción: {selectedFood.portion}</p>
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      onClick={() => setQuantity(Math.max(0.5, quantity - 0.5))}
+                      className="w-12 h-12 rounded-full bg-background border border-border flex items-center justify-center text-xl font-bold"
+                    >
+                      -
+                    </button>
+                    <span className="font-display text-4xl font-bold text-accent w-20 text-center">
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={() => setQuantity(quantity + 0.5)}
+                      className="w-12 h-12 rounded-full bg-accent text-background flex items-center justify-center text-xl font-bold"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="text-sm text-muted mt-2">equivalentes</p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSelectedFood(null)}
+                    className="flex-1 btn-secondary"
+                  >
+                    Cambiar
+                  </button>
+                  <button
+                    onClick={addFood}
+                    className="flex-1 btn-primary"
+                  >
+                    Agregar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Lista de alimentos */
+              <>
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
+                  <input
+                    type="text"
+                    className="input pl-10"
+                    placeholder="Buscar alimento..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    autoFocus
+                  />
+                </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2">
-              {filteredFoods.map((food) => (
-                <button
-                  key={food.name}
-                  onClick={() => addFood(food.name)}
-                  className="w-full text-left p-3 rounded-lg bg-background hover:bg-card-hover transition-colors"
-                >
-                  <p className="font-medium">{food.name}</p>
-                  <p className="text-sm text-muted">{food.portion}</p>
-                  {food.note && <p className="text-xs text-accent mt-1">{food.note}</p>}
-                </button>
-              ))}
-            </div>
+                <div className="flex-1 overflow-y-auto space-y-2">
+                  {filteredFoods.length > 0 ? (
+                    filteredFoods.map((food) => (
+                      <button
+                        key={food.name}
+                        onClick={() => selectFood(food)}
+                        className="w-full text-left p-3 rounded-lg bg-background hover:bg-border transition-colors"
+                      >
+                        <p className="font-medium">{food.name}</p>
+                        <p className="text-sm text-muted">{food.portion}</p>
+                        {food.note && <p className="text-xs text-accent mt-1">{food.note}</p>}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-center text-muted py-8">
+                      {searchQuery ? 'No se encontraron alimentos' : 'Escribe para buscar'}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

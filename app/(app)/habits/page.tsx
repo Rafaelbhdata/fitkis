@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Check, Droplets, BookOpen, Pill, Loader2 } from 'lucide-react'
+import { Plus, Check, Droplets, BookOpen, Pill, Loader2, X } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { DEFAULT_HABITS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -25,6 +25,7 @@ export default function HabitsPage() {
   const supabase = useSupabase()
   const [loading, setLoading] = useState(true)
   const [habits, setHabits] = useState<HabitWithLog[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -35,101 +36,128 @@ export default function HabitsPage() {
   const loadHabits = async () => {
     if (!user) return
     setLoading(true)
+    setError(null)
 
-    // Cargar hábitos del usuario
-    let { data: habitsData } = await supabase
-      .from('habits')
-      .select('*')
-      .eq('active', true)
-      .order('created_at')
+    try {
+      // Cargar hábitos del usuario
+      let { data: habitsData, error: habitsError } = await supabase
+        .from('habits')
+        .select('*')
+        .eq('active', true)
+        .order('created_at')
 
-    let typedHabitsData = habitsData as Habit[] | null
+      if (habitsError) throw habitsError
 
-    // Si no tiene hábitos, crear los predeterminados
-    if (!typedHabitsData || typedHabitsData.length === 0) {
-      const defaultHabits = DEFAULT_HABITS.map(h => ({
-        user_id: user.id,
-        name: h.name,
-        type: h.type,
-        target_value: h.target_value,
-        unit: h.unit,
-      }))
-      await (supabase.from('habits') as any).insert(defaultHabits)
-      const { data } = await supabase.from('habits').select('*').eq('active', true).order('created_at')
-      typedHabitsData = data as Habit[] | null
-    }
+      let typedHabitsData = habitsData as Habit[] | null
 
-    // Cargar logs de hoy
-    const { data: logsData } = await supabase
-      .from('habit_logs')
-      .select('*')
-      .eq('date', today)
-
-    const typedLogsData = logsData as HabitLog[] | null
-
-    // Combinar hábitos con sus logs de hoy
-    const habitsWithLogs: HabitWithLog[] = (typedHabitsData || []).map(habit => {
-      const log = typedLogsData?.find(l => l.habit_id === habit.id)
-      return {
-        ...habit,
-        logId: log?.id,
-        completed: log?.completed || false,
-        currentValue: log?.value || 0,
+      // Si no tiene hábitos, crear los predeterminados
+      if (!typedHabitsData || typedHabitsData.length === 0) {
+        const defaultHabits = DEFAULT_HABITS.map(h => ({
+          user_id: user.id,
+          name: h.name,
+          type: h.type,
+          target_value: h.target_value,
+          unit: h.unit,
+        }))
+        await (supabase.from('habits') as any).insert(defaultHabits)
+        const { data } = await supabase.from('habits').select('*').eq('active', true).order('created_at')
+        typedHabitsData = data as Habit[] | null
       }
-    })
 
-    setHabits(habitsWithLogs)
+      // Cargar logs de hoy
+      const { data: logsData, error: logsError } = await supabase
+        .from('habit_logs')
+        .select('*')
+        .eq('date', today)
+
+      if (logsError) throw logsError
+
+      const typedLogsData = logsData as HabitLog[] | null
+
+      // Combinar hábitos con sus logs de hoy
+      const habitsWithLogs: HabitWithLog[] = (typedHabitsData || []).map(habit => {
+        const log = typedLogsData?.find(l => l.habit_id === habit.id)
+        return {
+          ...habit,
+          logId: log?.id,
+          completed: log?.completed || false,
+          currentValue: log?.value || 0,
+        }
+      })
+
+      setHabits(habitsWithLogs)
+    } catch (err) {
+      setError('Error al cargar hábitos')
+    }
     setLoading(false)
   }
 
   const toggleHabit = async (habit: HabitWithLog) => {
     if (!user) return
     const newCompleted = !habit.completed
+    const previousState = habit.completed
 
     // Actualizar UI optimistamente
     setHabits(habits.map(h =>
       h.id === habit.id ? { ...h, completed: newCompleted } : h
     ))
 
-    if (habit.logId) {
-      await (supabase.from('habit_logs') as any).update({ completed: newCompleted }).eq('id', habit.logId)
-    } else {
-      const { data } = await (supabase.from('habit_logs') as any).insert({
-        habit_id: habit.id,
-        user_id: user.id,
-        date: today,
-        completed: newCompleted,
-      }).select().single()
-      if (data) {
-        setHabits(habits.map(h =>
-          h.id === habit.id ? { ...h, logId: (data as any).id, completed: newCompleted } : h
-        ))
+    try {
+      if (habit.logId) {
+        await (supabase.from('habit_logs') as any).update({ completed: newCompleted }).eq('id', habit.logId)
+      } else {
+        const { data } = await (supabase.from('habit_logs') as any).insert({
+          habit_id: habit.id,
+          user_id: user.id,
+          date: today,
+          completed: newCompleted,
+        }).select().single()
+        if (data) {
+          setHabits(habits.map(h =>
+            h.id === habit.id ? { ...h, logId: (data as any).id, completed: newCompleted } : h
+          ))
+        }
       }
+    } catch (err) {
+      // Revertir cambio optimista
+      setHabits(habits.map(h =>
+        h.id === habit.id ? { ...h, completed: previousState } : h
+      ))
+      setError('Error al actualizar hábito')
     }
   }
 
   const updateValue = async (habit: HabitWithLog, newValue: number) => {
     if (!user) return
+    const previousValue = habit.currentValue
 
     // Actualizar UI optimistamente
     setHabits(habits.map(h =>
       h.id === habit.id ? { ...h, currentValue: newValue } : h
     ))
 
-    if (habit.logId) {
-      await (supabase.from('habit_logs') as any).update({ value: newValue }).eq('id', habit.logId)
-    } else {
-      const { data } = await (supabase.from('habit_logs') as any).insert({
-        habit_id: habit.id,
-        user_id: user.id,
-        date: today,
-        value: newValue,
-      }).select().single()
-      if (data) {
-        setHabits(habits.map(h =>
-          h.id === habit.id ? { ...h, logId: (data as any).id, currentValue: newValue } : h
-        ))
+    try {
+      if (habit.logId) {
+        await (supabase.from('habit_logs') as any).update({ value: newValue }).eq('id', habit.logId)
+      } else {
+        const { data } = await (supabase.from('habit_logs') as any).insert({
+          habit_id: habit.id,
+          user_id: user.id,
+          date: today,
+          value: newValue,
+        }).select().single()
+        if (data) {
+          setHabits(habits.map(h =>
+            h.id === habit.id ? { ...h, logId: (data as any).id, currentValue: newValue } : h
+          ))
+        }
       }
+    } catch (err) {
+      // Revertir cambio optimista
+      setHabits(habits.map(h =>
+        h.id === habit.id ? { ...h, currentValue: previousValue } : h
+      ))
+      setError('Error al actualizar hábito')
     }
   }
 
@@ -149,6 +177,15 @@ export default function HabitsPage() {
         <h1 className="font-display text-3xl font-bold">Hábitos</h1>
         <p className="text-muted capitalize">{formatDate(new Date())}</p>
       </header>
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Resumen */}
       <section className="card">

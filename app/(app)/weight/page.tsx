@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, TrendingDown, Target, Loader2 } from 'lucide-react'
+import { Plus, TrendingDown, Target, Loader2, X } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { USER_PROFILE } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -16,6 +16,7 @@ export default function WeightPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -25,14 +26,18 @@ export default function WeightPage() {
 
   const loadWeightLogs = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('weight_logs')
-      .select('*')
-      .order('date', { ascending: false })
-      .limit(30)
+    setError(null)
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('weight_logs')
+        .select('*')
+        .order('date', { ascending: false })
+        .limit(30)
 
-    if (!error && data) {
-      setWeightLogs(data as WeightLog[])
+      if (fetchError) throw fetchError
+      if (data) setWeightLogs(data as WeightLog[])
+    } catch (err) {
+      setError('Error al cargar registros de peso')
     }
     setLoading(false)
   }
@@ -41,16 +46,20 @@ export default function WeightPage() {
     if (!user || !weight) return
 
     setSaving(true)
-    const { error } = await (supabase.from('weight_logs') as any).insert({
-      user_id: user.id,
-      date: getToday(),
-      weight_kg: parseFloat(weight),
-    })
+    setError(null)
+    try {
+      const { error: saveError } = await (supabase.from('weight_logs') as any).insert({
+        user_id: user.id,
+        date: getToday(),
+        weight_kg: parseFloat(weight),
+      })
 
-    if (!error) {
+      if (saveError) throw saveError
       await loadWeightLogs()
       setShowForm(false)
       setWeight('')
+    } catch (err) {
+      setError('Error al guardar peso')
     }
     setSaving(false)
   }
@@ -65,6 +74,15 @@ export default function WeightPage() {
         <h1 className="font-display text-3xl font-bold">Peso</h1>
         <p className="text-muted capitalize">{formatDate(today)}</p>
       </header>
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Peso actual */}
       <section className="card text-center">

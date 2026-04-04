@@ -25,7 +25,7 @@ const config: Config = {
         },
         border: "#2a2a2a",
         muted: {
-          DEFAULT: "#6b6b6b",
+          DEFAULT: "#8a8a8a",
           foreground: "#a1a1a1",
         },
         success: "#22c55e",

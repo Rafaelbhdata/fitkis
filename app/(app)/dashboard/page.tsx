@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getDayOfWeek, getRoutineForDay, getRoutineName, formatDate, getToday } from '@/lib/utils'
 import { DAILY_BUDGET, FOOD_GROUP_COLORS, FOOD_GROUP_LABELS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
-import { Loader2, Dumbbell, ChevronRight } from 'lucide-react'
+import { Loader2, Dumbbell, ChevronRight, LogOut } from 'lucide-react'
 import type { FoodGroup, FoodLog, WeightLog, Habit, HabitLog } from '@/types'
 
 export default function DashboardPage() {
+  const router = useRouter()
   const today = new Date()
   const todayStr = getToday()
   const dayOfWeek = getDayOfWeek()
@@ -21,6 +23,7 @@ export default function DashboardPage() {
   const [latestWeight, setLatestWeight] = useState<number | null>(null)
   const [habits, setHabits] = useState<Habit[]>([])
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) loadData()
@@ -28,17 +31,28 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     setLoading(true)
-    const [foodRes, weightRes, habitsRes, habitLogsRes] = await Promise.all([
-      supabase.from('food_logs').select('*').eq('date', todayStr),
-      supabase.from('weight_logs').select('*').order('date', { ascending: false }).limit(1),
-      supabase.from('habits').select('*').eq('active', true),
-      supabase.from('habit_logs').select('*').eq('date', todayStr),
-    ])
-    if (foodRes.data) setFoodLogs(foodRes.data as FoodLog[])
-    if (weightRes.data?.[0]) setLatestWeight((weightRes.data[0] as WeightLog).weight_kg)
-    if (habitsRes.data) setHabits(habitsRes.data as Habit[])
-    if (habitLogsRes.data) setHabitLogs(habitLogsRes.data as HabitLog[])
+    setError(null)
+    try {
+      const [foodRes, weightRes, habitsRes, habitLogsRes] = await Promise.all([
+        supabase.from('food_logs').select('*').eq('date', todayStr),
+        supabase.from('weight_logs').select('*').order('date', { ascending: false }).limit(1),
+        supabase.from('habits').select('*').eq('active', true),
+        supabase.from('habit_logs').select('*').eq('date', todayStr),
+      ])
+      if (foodRes.data) setFoodLogs(foodRes.data as FoodLog[])
+      if (weightRes.data?.[0]) setLatestWeight((weightRes.data[0] as WeightLog).weight_kg)
+      if (habitsRes.data) setHabits(habitsRes.data as Habit[])
+      if (habitLogsRes.data) setHabitLogs(habitLogsRes.data as HabitLog[])
+    } catch (err) {
+      setError('Error al cargar datos')
+    }
     setLoading(false)
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
   }
 
   // Calcular consumido por grupo
@@ -61,10 +75,25 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="font-display text-3xl font-bold text-accent">FitLife</h1>
-        <p className="text-muted capitalize">{formatDate(today)}</p>
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-accent">FitLife</h1>
+          <p className="text-muted capitalize">{formatDate(today)}</p>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="p-2 text-muted hover:text-foreground transition-colors"
+          aria-label="Cerrar sesión"
+        >
+          <LogOut className="w-6 h-6" />
+        </button>
       </header>
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+          {error}
+        </div>
+      )}
 
       <Link href="/gym" className="card flex items-center justify-between">
         <div>
