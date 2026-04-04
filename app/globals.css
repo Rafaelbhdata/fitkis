@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap');
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input, textarea, select {
+    @apply bg-surface text-foreground;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    @apply outline-none ring-2 ring-accent;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-accent text-background font-semibold py-3 px-6 rounded-lg
+           active:scale-95 transition-transform duration-100;
+  }
+
+  .btn-secondary {
+    @apply bg-surface text-foreground font-semibold py-3 px-6 rounded-lg
+           border border-border active:scale-95 transition-transform duration-100;
+  }
+
+  .card {
+    @apply bg-surface rounded-xl p-4 border border-border;
+  }
+
+  .input {
+    @apply w-full bg-surface border border-border rounded-lg px-4 py-3
+           text-foreground placeholder:text-muted focus:ring-2 focus:ring-accent;
+  }
+
+  .label {
+    @apply text-sm font-medium text-muted mb-1 block;
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
