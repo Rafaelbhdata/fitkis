@@ -50,7 +50,7 @@ export default function SessionPage() {
   const [showEquipmentModal, setShowEquipmentModal] = useState(false)
   const [progressionSuggestions, setProgressionSuggestions] = useState<ProgressionSuggestion[]>([])
   const [viewMode, setViewMode] = useState(false)
-  const [sessionRoutineType, setSessionRoutineType] = useState<RoutineType>(routineType)
+  const [sessionRoutineType, setSessionRoutineType] = useState<RoutineType>(routineType || 'upper_a')
 
   const currentExercise = exercises[currentExerciseIndex]
   const currentData = exerciseData[currentExercise?.id] || {
