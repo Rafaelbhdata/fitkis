@@ -13,9 +13,37 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
-Agente: Post-Redesign Fixes & Improvements
+Agente: Gym Module Enhancement
 Fecha: 6 de abril 2026
 Qué hizo:
+
+### New Features (6 abril - sesión 3)
+
+#### 1. Weekly Calendar View (`/gym`)
+- **Navigable Week Calendar**: Navigate between weeks with prev/next buttons
+- **Day Selection**: Tap any day to see its scheduled routine
+- **ROUTINE_SCHEDULE**: Hardcoded weekly schedule (Mon=Upper A, Tue=Lower A, Wed=Rest, Thu=Upper B, Fri=Lower B, Sat/Sun=Rest)
+- **Rest Day UX**: Shows motivational message + "Ver rutinas de todos modos" to select any routine
+- **Visual Indicators**: Blue dots on workout days, accent highlight on selected day
+
+#### 2. Session Timer
+- **Real-time Timer**: Starts automatically when session begins
+- **Format**: MM:SS until 60 min, then HH:MM:SS (uses `formatDuration` utility)
+- **Persistence**: Saves `duration_seconds` to `gym_sessions` table
+- **History Display**: Shows duration in session history page
+
+#### 3. Exercise Instructions Panel
+- **Toggle Button**: "?" icon to expand/collapse instructions
+- **Numbered Steps**: Ordered list of exercise instructions
+- **Pro Tips**: Highlighted tip box with lightbulb icon
+- **Weight Notes**: Explains what the weight value means (e.g., "Peso por mancuerna")
+
+#### 4. Updated ROUTINES Structure
+- **New Exercise Interface**: `id`, `name`, `equipment`, `sets`, `reps` (string like "8-10"), `lastWeight`, `weightUnit`, `weightNote`, `instructions[]`, `tip`, `substitutions[]`
+- **New Routine Interface**: `name`, `subtitle`, `muscles[]`, `estimatedMinutes`, `exercises[]`
+- **Complete Data**: All 4 routines (upper_a, lower_a, upper_b, lower_b) with full exercise details
+
+### Previous Session (6 abril - sesión 2)
 
 ### Bug Fixes (6 abril - sesión 2)
 - **Dashboard "Nutrición hoy" broken element**: Fixed by adding weekly_frequency habit support to Dashboard
@@ -105,7 +133,12 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 - Mini AreaChart en Dashboard para peso
 - 30-day heatmap en Habits (GitHub-style)
 
-### Gym: ✅ Conectado a Supabase
+### Gym: ✅ Conectado a Supabase + Nuevas Features
+- Weekly calendar view with day selection
+- Session timer (saves duration_seconds)
+- Exercise instructions panel with tips and weight notes
+- ROUTINE_SCHEDULE for weekly routine assignment
+- Full ROUTINES data with detailed exercise info
 ### Food: ✅ Conectado a Supabase (con cantidad variable)
 ### Weight: ✅ Conectado a Supabase
 ### Habits: ✅ Conectado a Supabase
@@ -125,8 +158,10 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 | Feature | Prioridad | Estado |
 |---------|-----------|--------|
 | Gráfica de peso semanal (recharts) | Alta | ⏳ |
-| Timer de descanso entre series | Alta | ⏳ |
+| Session timer | Alta | ✅ COMPLETADO |
 | Favoritos de comidas (CRUD) | Alta | ⏳ |
+| Exercise instructions panel | Alta | ✅ COMPLETADO |
+| Weekly calendar view | Alta | ✅ COMPLETADO |
 | Gráficas de progresión gym | Media | ⏳ |
 | Gráficas de hábitos (racha, %) | Media | ⏳ |
 | CRUD completo de hábitos | Media | ⏳ |
@@ -183,8 +218,9 @@ Para Vercel, configurar las mismas variables en Settings > Environment Variables
 - `app/(app)/food/page.tsx` - Large progress bars, collapsible meals
 - `app/(app)/weight/page.tsx` - Hero card, area chart
 - `app/(app)/habits/page.tsx` - 30-day heatmap, habit tabs, bug fixes
-- `app/(app)/gym/page.tsx` - Hero card, muscle tags, stats row
-- `app/(app)/gym/session/[id]/page.tsx` - Grid de sets, feeling pills
+- `app/(app)/gym/page.tsx` - Weekly calendar view, routine details, rest day handling
+- `app/(app)/gym/session/[id]/page.tsx` - Session timer, exercise instructions panel
+- `app/(app)/gym/history/page.tsx` - Shows session duration
 
 ### Componentes (NEW/Updated)
 - `components/ui/Sidebar.tsx` - NEW: Desktop navigation (220px fixed)
@@ -228,7 +264,7 @@ npx tsc --noEmit  # Verificar TypeScript
 
 ---
 
-## Próximos pasos recomendados (para mañana)
+## Próximos pasos recomendados
 
 ### Prioridad Alta
 1. **Configurar Vercel** - Importar repo de GitHub, agregar env vars
@@ -237,14 +273,15 @@ npx tsc --noEmit  # Verificar TypeScript
 4. **Implementar favoritos de comidas** (tabla existe, falta UI)
 
 ### Prioridad Media
-5. Agregar timer de descanso en gym
-6. Implementar gráficas de hábitos
-7. Mostrar banner de progresión (+5 lbs) cuando aplique
+5. Implementar gráficas de hábitos (racha, %)
+6. Mostrar banner de progresión (+5 lbs) cuando aplique
+7. Timer de descanso entre series (diferente al session timer)
+8. CRUD completo de hábitos
 
 ### Prioridad Baja
-8. Extraer componentes reutilizables
-9. Agregar tests
-10. Diseño responsive para tablet
+9. Extraer componentes reutilizables
+10. Agregar tests
+11. Diseño responsive para tablet
 
 ---
 
@@ -273,3 +310,54 @@ npx tsc --noEmit  # Verificar TypeScript
 5. **Dashboard exercises**: Muestra primeros 2-3 ejercicios bajo "Hoy toca"
 6. **Food progress bars**: Ahora 8px (h-2)
 7. **Habits heatmap**: Celdas 14px con gap de 3px
+
+## Nueva Funcionalidad Gym (6 abril 2026 - sesión 3)
+
+### Weekly Calendar View
+- Navegación semanal con botones prev/next
+- Selección de día con highlight visual
+- Muestra rutina programada o "Descanso"
+- Calendario con puntos azules para días de entrenamiento
+- Rest days: Mensaje motivacional + opción de ver cualquier rutina
+
+### Session Timer
+- Timer en tiempo real desde que inicia la sesión
+- Formato MM:SS (o HH:MM:SS después de 60 min)
+- Se guarda `duration_seconds` en tabla `gym_sessions`
+- Se muestra duración en historial de sesiones
+
+### Exercise Instructions Panel
+- Botón "?" para expandir/colapsar instrucciones
+- Lista numerada de pasos
+- Caja de tip con icono de bombilla (amber)
+- Nota de peso explicando qué significa el valor
+
+### ROUTINE_SCHEDULE (lib/constants.ts)
+```typescript
+export const ROUTINE_SCHEDULE: Record<number, string> = {
+  0: 'rest',     // Domingo
+  1: 'upper_a',  // Lunes
+  2: 'lower_a',  // Martes
+  3: 'rest',     // Miércoles
+  4: 'upper_b',  // Jueves
+  5: 'lower_b',  // Viernes
+  6: 'rest',     // Sábado
+}
+```
+
+### Exercise Interface (types/index.ts)
+```typescript
+interface Exercise {
+  id: string
+  name: string
+  equipment: string
+  sets: number
+  reps: string            // "8-10", "10 por pierna", etc.
+  lastWeight: number
+  weightUnit: string
+  weightNote: string      // "Peso por mancuerna (cada mano)"
+  instructions: string[]  // Pasos numerados
+  tip: string             // Consejo para el ejercicio
+  substitutions: string[] // Equipos alternativos
+}
+```
