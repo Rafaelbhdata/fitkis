@@ -13,15 +13,18 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
-Agente: Rediseño UI/UX Completo
+Agente: Mejoras UI Profesionales v2
 Fecha: 6 de abril 2026
 Qué hizo:
-- Rediseño completo del sistema de diseño bajo concepto "Precision Wellness"
-- Cambio de tipografía: Barlow → Outfit (display) + DM Sans (body)
-- Nueva paleta de colores: fondo más profundo (#050505), acento emerald (#10b981)
-- Rediseño de todas las páginas con nuevo sistema de componentes
-- Nuevas animaciones y micro-interacciones
-- Build verificado exitosamente
+- Creó Header fijo con branding, contador de racha, y botón de menú
+- Creó SideMenu (drawer) deslizable con navegación secundaria
+- Dashboard: calendario semanal, mini-gráfica de peso, layout en grid 2x2
+- Weight: gráfica de área completa con recharts, filtros de rango temporal
+- Habits: heatmap de actividad semanal, badges de racha, colores por hábito
+- Food: card hero con resumen, grid de grupos alimenticios con barras
+- Gym: card hero con tags de músculos, fila de estadísticas
+- Nuevas animaciones: slide-in-right, slide-in-left
+- Nuevo breakpoint: xs (375px)
 
 ---
 
@@ -59,6 +62,13 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 - input, label, badge, progress-track/fill
 - sheet (modal), overlay, divider, list-item
 - BottomNav con backdrop-blur y indicador activo
+- Header fijo con branding, racha y menú
+- SideMenu drawer deslizable
+
+**Gráficas (recharts):**
+- AreaChart en Weight con gradiente y línea de referencia (meta)
+- Mini AreaChart en Dashboard para peso
+- Heatmap semanal en Habits
 
 ### Gym: ✅ Conectado a Supabase
 ### Food: ✅ Conectado a Supabase (con cantidad variable)
