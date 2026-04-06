@@ -1,5 +1,5 @@
-import { BottomNav } from '@/components/ui/BottomNav'
 import Header from '@/components/ui/Header'
+import Sidebar from '@/components/ui/Sidebar'
 
 export default function AppLayout({
   children,
@@ -7,12 +7,23 @@ export default function AppLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen pb-24">
+    <div className="min-h-screen">
+      {/* Desktop Sidebar - hidden on mobile, visible on md+ */}
+      <Sidebar streak={5} />
+
+      {/* Mobile Header - visible on mobile, hidden on md+ */}
       <Header streak={5} />
-      <main className="pt-20 px-5 pb-6 max-w-lg mx-auto">
-        {children}
+
+      {/* Main Content - offset for sidebar on desktop */}
+      <main className="md:pl-sidebar">
+        {/* Mobile: top padding for header, horizontal padding */}
+        {/* Desktop: no top padding needed, more horizontal padding */}
+        <div className="pt-16 md:pt-0 px-4 md:px-6 pb-6">
+          <div className="max-w-5xl mx-auto md:py-6">
+            {children}
+          </div>
+        </div>
       </main>
-      <BottomNav />
     </div>
   )
 }

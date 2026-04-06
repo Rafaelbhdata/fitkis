@@ -2,29 +2,42 @@
 
 ## Estado general
 - Setup del proyecto ✅ COMPLETADO
-- Sistema de diseño UI ✅ COMPLETADO (Rediseño completo "Precision Wellness")
+- Sistema de diseño UI ✅ COMPLETADO (Rediseño v3.0 - "Whoop-Inspired")
 - Base de datos Supabase ✅ CONFIGURADA (tablas + RLS)
 - Auth ✅ COMPLETADO (login real con Supabase Auth)
 - Módulo Weight ✅ CONECTADO a Supabase
-- Módulo Habits ✅ CONECTADO a Supabase
+- Módulo Habits ✅ CONECTADO a Supabase (30-day heatmap)
 - Módulo Food ✅ CONECTADO a Supabase (con selector de cantidad)
 - Dashboard ✅ CONECTADO a Supabase (con logout)
 - Módulo Gym ✅ CONECTADO a Supabase
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
-Agente: Mejoras UI Profesionales v2
+Agente: UI/UX Redesign v3.0 - Whoop-Inspired
 Fecha: 6 de abril 2026
 Qué hizo:
-- Creó Header fijo con branding, contador de racha, y botón de menú
-- Creó SideMenu (drawer) deslizable con navegación secundaria
-- Dashboard: calendario semanal, mini-gráfica de peso, layout en grid 2x2
-- Weight: gráfica de área completa con recharts, filtros de rango temporal
-- Habits: heatmap de actividad semanal, badges de racha, colores por hábito
-- Food: card hero con resumen, grid de grupos alimenticios con barras
-- Gym: card hero con tags de músculos, fila de estadísticas
-- Nuevas animaciones: slide-in-right, slide-in-left
-- Nuevo breakpoint: xs (375px)
+
+### Bug Fixes
+- **Duplicate habits bug**: Fixed by adding Set-based deduplication filtering by habit.name before setting state in both `habits/page.tsx` and `dashboard/page.tsx`
+- **Calendar "0 entrenamientos" bug**: Fixed by comparing date strings (YYYY-MM-DD format) instead of Date objects to avoid timezone issues
+
+### Navigation System Overhaul
+- **Desktop (≥768px)**: New fixed sidebar (220px) on left side with full navigation
+- **Mobile (<768px)**: Hamburger menu with slide-in drawer
+- Removed BottomNav (replaced with sidebar/drawer system)
+
+### New Design Tokens
+- background: #080808 (deeper black)
+- surface-1: #0f0f0f, surface-2: #141414, surface-3: #1a1a1a
+- border: #242424, border-subtle: #1a1a1a
+- accent: #10b981 (emerald), accent-dim: #064e3b
+- text-primary: #f5f5f5, text-secondary: #a3a3a3, text-muted: #525252
+
+### Page Redesigns
+- **Dashboard**: Dense stats grid, week calendar, mini charts, Whoop-style layout
+- **Gym**: Hero card with routine info, muscle group tags, stats row, clean exercise list
+- **Food**: Large progress bars per food group, collapsible meal sections
+- **Habits**: 30-day heatmap (GitHub-style), habit tabs, completion stats
 
 ---
 
@@ -46,29 +59,35 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 - Logout con `supabase.auth.signOut()`
 - Middleware protege rutas /dashboard, /gym, /food, /habits, /weight
 
-### UI: ✅ Completado (Rediseño v2.0 - "Precision Wellness")
-**Nuevo Sistema de Diseño:**
-- Fondo: #050505 (más profundo y refinado)
-- Acento: #10b981 (emerald - más sofisticado que lime)
-- Foreground: #fafaf9 (warm white)
-- Surfaces: #0a0a0a / #111111 / #161616 (jerarquía de elevación)
+### UI: ✅ Completado (Rediseño v3.0 - "Whoop-Inspired")
+**Sistema de Diseño:**
+- Fondo: #080808 (deeper black)
+- Acento: #10b981 (emerald)
+- Foreground: #f5f5f5
+- Surfaces: #0f0f0f / #141414 / #1a1a1a (jerarquía de elevación)
+- Border: #242424 (standard) / #1a1a1a (subtle)
 - Tipografía: Outfit (display) + DM Sans (body) via next/font/google
-- Animaciones: fadeIn, slideUp, scaleIn con delays escalonados
-- Efectos: glow shadows, backdrop blur en nav
+- Animaciones: fadeIn, slideUp, scaleIn
 
-**Componentes Actualizados:**
+**Componentes:**
 - btn-primary, btn-secondary, btn-ghost, btn-icon
-- card, card-interactive, card-highlight
-- input, label, badge, progress-track/fill
-- sheet (modal), overlay, divider, list-item
-- BottomNav con backdrop-blur y indicador activo
-- Header fijo con branding, racha y menú
-- SideMenu drawer deslizable
+- card, card-interactive
+- input, label, badge-accent
+- sheet (modal), overlay
+- progress-track-lg, progress-fill
+- stat-card, stat-value, stat-label
+- heatmap-cell-* (for habit tracking)
+
+**Navigation (NEW):**
+- Sidebar (desktop ≥768px): 220px fixed left, full navigation
+- Header (mobile <768px): compact with hamburger menu
+- SideMenu (drawer): slide-in-right for mobile navigation
+- BottomNav REMOVED
 
 **Gráficas (recharts):**
 - AreaChart en Weight con gradiente y línea de referencia (meta)
 - Mini AreaChart en Dashboard para peso
-- Heatmap semanal en Habits
+- 30-day heatmap en Habits (GitHub-style)
 
 ### Gym: ✅ Conectado a Supabase
 ### Food: ✅ Conectado a Supabase (con cantidad variable)
@@ -133,26 +152,29 @@ Para Vercel, configurar las mismas variables en Settings > Environment Variables
 
 ---
 
-## Archivos Modificados (Rediseño 6 abril 2026)
+## Archivos Modificados (Rediseño v3.0 - 6 abril 2026)
 
 ### Sistema de Diseño
-- `tailwind.config.ts` - Nueva paleta, fuentes, animaciones, shadows
-- `app/globals.css` - Sistema de componentes completamente nuevo
+- `tailwind.config.ts` - Nueva paleta, spacing.sidebar (220px), nuevos tokens
+- `app/globals.css` - Sistema de componentes completamente reescrito, Whoop-style
 - `app/layout.tsx` - Configuración de Outfit + DM Sans fonts
 
 ### Páginas Rediseñadas
-- `app/(auth)/login/page.tsx` - Nuevo diseño con gradiente y decoraciones
+- `app/(auth)/login/page.tsx` - Nuevo diseño con gradiente
 - `app/(auth)/register/page.tsx` - Consistente con login
-- `app/(app)/layout.tsx` - Padding y max-width actualizados
-- `app/(app)/dashboard/page.tsx` - Cards, progress rings circulares
-- `app/(app)/food/page.tsx` - Modals como sheets, pills de colores
-- `app/(app)/weight/page.tsx` - Hero card, progress bars
-- `app/(app)/habits/page.tsx` - Summary ring, card highlights
-- `app/(app)/gym/page.tsx` - Layout más limpio
+- `app/(app)/layout.tsx` - Sidebar (desktop) + Header (mobile), responsive layout
+- `app/(app)/dashboard/page.tsx` - Dense stats grid, week calendar, bug fixes
+- `app/(app)/food/page.tsx` - Large progress bars, collapsible meals
+- `app/(app)/weight/page.tsx` - Hero card, area chart
+- `app/(app)/habits/page.tsx` - 30-day heatmap, habit tabs, bug fixes
+- `app/(app)/gym/page.tsx` - Hero card, muscle tags, stats row
 - `app/(app)/gym/session/[id]/page.tsx` - Grid de sets, feeling pills
 
-### Componentes
-- `components/ui/BottomNav.tsx` - Backdrop blur, indicador activo
+### Componentes (NEW/Updated)
+- `components/ui/Sidebar.tsx` - NEW: Desktop navigation (220px fixed)
+- `components/ui/Header.tsx` - Updated: Mobile-only with hamburger menu
+- `components/ui/SideMenu.tsx` - Updated: Drawer for mobile navigation
+- `components/ui/BottomNav.tsx` - DEPRECATED (replaced by sidebar/drawer)
 
 ---
 
@@ -161,9 +183,15 @@ Para Vercel, configurar las mismas variables en Settings > Environment Variables
 fitkis/
 ├── app/
 │   ├── (auth)/login, register
-│   ├── (app)/dashboard, gym/*, food/*, weight, habits
+│   ├── (app)/
+│   │   ├── layout.tsx (sidebar desktop + header mobile)
+│   │   ├── dashboard, gym/*, food/*, weight, habits
 │   ├── layout.tsx, page.tsx, globals.css
-├── components/ui/BottomNav.tsx
+├── components/ui/
+│   ├── Sidebar.tsx (NEW - desktop nav)
+│   ├── Header.tsx (mobile nav)
+│   ├── SideMenu.tsx (mobile drawer)
+│   └── BottomNav.tsx (DEPRECATED)
 ├── lib/constants.ts, supabase.ts, hooks.ts, utils.ts
 ├── types/index.ts
 ├── middleware.ts
@@ -207,7 +235,13 @@ npx tsc --noEmit  # Verificar TypeScript
 ## Notas
 - Proyecto Supabase: Fitkis (us-west-2)
 - Repo GitHub: https://github.com/Rafaelbhdata/fitkis
-- Diseño: mobile-first, tema oscuro refinado, acento emerald (#10b981)
-- Concepto: "Precision Wellness" - minimalista, sofisticado, profesional
+- Diseño: mobile-first responsive, tema oscuro profesional
+- Concepto: "Whoop-Inspired" - dense, data-heavy, professional gym app
+- Acento: emerald (#10b981)
 - Tipografía: Outfit (display) + DM Sans (body)
-- Estado: MVP funcional con diseño premium, listo para deploy
+- Navegación: Sidebar (desktop ≥768px) + Drawer (mobile)
+- Estado: MVP funcional con diseño premium v3.0, listo para deploy
+
+## Bugs Corregidos (6 abril 2026)
+1. **Duplicate habits**: Set-based deduplication en habits/page.tsx y dashboard/page.tsx
+2. **Calendar "0 entrenamientos"**: Comparación de date strings en vez de Date objects

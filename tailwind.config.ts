@@ -9,30 +9,32 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#050505",
-        foreground: "#fafaf9",
+        // New dark, data-heavy design tokens (Whoop-inspired)
+        background: "#080808",
+        foreground: "#f5f5f5",
         surface: {
-          DEFAULT: "#0a0a0a",
-          elevated: "#111111",
-          hover: "#161616",
+          DEFAULT: "#0f0f0f",
+          elevated: "#141414",
+          hover: "#1a1a1a",
         },
         accent: {
           DEFAULT: "#10b981",
+          dim: "#064e3b",
           muted: "#10b98120",
           glow: "#10b98140",
         },
         muted: {
-          DEFAULT: "#52525b",
-          foreground: "#a1a1aa",
+          DEFAULT: "#525252",
+          foreground: "#a3a3a3",
         },
         border: {
-          DEFAULT: "#18181b",
-          subtle: "#27272a",
+          DEFAULT: "#242424",
+          subtle: "#1a1a1a",
         },
         success: "#22c55e",
         warning: "#f59e0b",
         danger: "#ef4444",
-        // Food group colors - más sofisticados
+        // Food group colors
         food: {
           verdura: "#22c55e",
           fruta: "#f97316",
@@ -47,10 +49,12 @@ const config: Config = {
         body: ["var(--font-dm-sans)", "system-ui", "sans-serif"],
       },
       fontSize: {
+        "display-2xl": ["3.5rem", { lineHeight: "1", letterSpacing: "-0.02em", fontWeight: "700" }],
         "display-xl": ["3rem", { lineHeight: "1", letterSpacing: "-0.02em", fontWeight: "700" }],
         "display-lg": ["2.25rem", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "600" }],
         "display-md": ["1.5rem", { lineHeight: "1.2", letterSpacing: "-0.01em", fontWeight: "600" }],
         "display-sm": ["1.125rem", { lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "600" }],
+        "display-xs": ["0.875rem", { lineHeight: "1.4", letterSpacing: "0", fontWeight: "600" }],
       },
       borderRadius: {
         "2xl": "1rem",
@@ -59,7 +63,8 @@ const config: Config = {
       boxShadow: {
         "glow": "0 0 20px -5px var(--tw-shadow-color)",
         "glow-sm": "0 0 10px -3px var(--tw-shadow-color)",
-        "inner-glow": "inset 0 1px 0 0 rgba(255,255,255,0.05)",
+        "inner-glow": "inset 0 1px 0 0 rgba(255,255,255,0.03)",
+        "card": "0 2px 8px -2px rgba(0,0,0,0.5)",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
@@ -68,14 +73,18 @@ const config: Config = {
       },
       screens: {
         "xs": "375px",
+        "md": "768px", // Desktop breakpoint for sidebar
+      },
+      spacing: {
+        "sidebar": "220px",
       },
       animation: {
-        "fade-in": "fadeIn 0.5s ease-out",
-        "slide-up": "slideUp 0.4s ease-out",
+        "fade-in": "fadeIn 0.3s ease-out",
+        "slide-up": "slideUp 0.3s ease-out",
         "scale-in": "scaleIn 0.2s ease-out",
         "pulse-subtle": "pulseSub 2s ease-in-out infinite",
-        "slide-in-right": "slideInRight 0.3s ease-out",
-        "slide-in-left": "slideInLeft 0.3s ease-out",
+        "slide-in-right": "slideInRight 0.25s ease-out",
+        "slide-in-left": "slideInLeft 0.25s ease-out",
       },
       keyframes: {
         fadeIn: {
@@ -83,11 +92,11 @@ const config: Config = {
           "100%": { opacity: "1" },
         },
         slideUp: {
-          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "0%": { opacity: "0", transform: "translateY(8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         scaleIn: {
-          "0%": { opacity: "0", transform: "scale(0.95)" },
+          "0%": { opacity: "0", transform: "scale(0.97)" },
           "100%": { opacity: "1", transform: "scale(1)" },
         },
         pulseSub: {

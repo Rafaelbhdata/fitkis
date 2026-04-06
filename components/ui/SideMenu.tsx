@@ -3,47 +3,42 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
   X,
-  User,
+  Home,
+  Dumbbell,
+  UtensilsCrossed,
+  Target,
+  Scale,
   History,
   Settings,
   LogOut,
-  Dumbbell,
-  Apple,
-  Scale,
-  Target,
-  ChevronRight,
-  TrendingUp
+  Flame
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
 
 interface SideMenuProps {
   isOpen: boolean
   onClose: () => void
 }
 
-const menuSections = [
-  {
-    title: 'Módulos',
-    items: [
-      { icon: Dumbbell, label: 'Gym Tracker', href: '/gym', color: 'text-blue-400' },
-      { icon: Apple, label: 'Alimentación', href: '/food', color: 'text-green-400' },
-      { icon: Scale, label: 'Peso Corporal', href: '/weight', color: 'text-purple-400' },
-      { icon: Target, label: 'Hábitos', href: '/habits', color: 'text-orange-400' },
-    ]
-  },
-  {
-    title: 'Historial',
-    items: [
-      { icon: History, label: 'Sesiones de Gym', href: '/gym/history', color: 'text-muted-foreground' },
-      { icon: TrendingUp, label: 'Progreso General', href: '/dashboard', color: 'text-muted-foreground' },
-    ]
-  },
+const mainNav = [
+  { href: '/dashboard', label: 'Dashboard', icon: Home },
+  { href: '/gym', label: 'Gym', icon: Dumbbell },
+  { href: '/food', label: 'Alimentación', icon: UtensilsCrossed },
+  { href: '/habits', label: 'Hábitos', icon: Target },
+  { href: '/weight', label: 'Peso', icon: Scale },
+]
+
+const secondaryNav = [
+  { href: '/gym/history', label: 'Historial Gym', icon: History },
 ]
 
 export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const router = useRouter()
+  const pathname = usePathname()
 
   // Lock body scroll when menu is open
   useEffect(() => {
@@ -79,71 +74,106 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-fade-in"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 animate-fade-in"
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <div className="fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-surface z-50 shadow-2xl animate-slide-in-right">
+      <div className="fixed top-0 right-0 bottom-0 w-72 bg-surface z-50 shadow-2xl animate-slide-in-right flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center">
-              <User className="w-6 h-6 text-background" />
+            <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
+              <span className="font-display font-bold text-background">F</span>
             </div>
             <div>
-              <p className="font-display font-semibold">Mi Cuenta</p>
-              <p className="text-xs text-muted-foreground">FitLife Pro</p>
+              <p className="font-display font-semibold text-sm">FitLife</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pro</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-xl bg-surface-elevated border border-border flex items-center justify-center hover:bg-surface-hover transition-colors"
+            className="w-8 h-8 rounded-lg bg-surface-elevated border border-border flex items-center justify-center"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Menu Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {menuSections.map((section) => (
-            <div key={section.title}>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
-                {section.title}
-              </p>
-              <div className="space-y-1">
-                {section.items.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={onClose}
-                    className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-hover transition-colors group"
-                  >
-                    <item.icon className={`w-5 h-5 ${item.color}`} />
-                    <span className="flex-1 font-medium">{item.label}</span>
-                    <ChevronRight className="w-4 h-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </Link>
-                ))}
-              </div>
+        {/* Navigation */}
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {mainNav.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+            const Icon = item.icon
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                  isActive
+                    ? 'text-foreground bg-surface-elevated'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
+                )}
+              >
+                <Icon className={cn('w-4 h-4', isActive && 'text-accent')} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+
+          <div className="h-px bg-border my-3" />
+
+          {secondaryNav.map((item) => {
+            const isActive = pathname === item.href
+            const Icon = item.icon
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                  isActive
+                    ? 'text-foreground bg-surface-elevated'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Streak Badge */}
+        <div className="px-4 py-3 border-t border-border">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+            <Flame className="w-5 h-5 text-orange-500" />
+            <div>
+              <p className="text-sm font-semibold text-orange-500">5 días</p>
+              <p className="text-[10px] text-orange-500/70">Racha actual</p>
             </div>
-          ))}
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border space-y-2">
+        <div className="p-3 border-t border-border space-y-1">
           <button
             onClick={() => {/* TODO: Settings */}}
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-surface-hover transition-colors text-left"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
           >
-            <Settings className="w-5 h-5 text-muted-foreground" />
-            <span className="flex-1 font-medium">Configuración</span>
+            <Settings className="w-4 h-4" />
+            <span>Configuración</span>
           </button>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-danger/10 transition-colors text-danger text-left"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-danger hover:bg-danger/10 transition-colors"
           >
-            <LogOut className="w-5 h-5" />
-            <span className="flex-1 font-medium">Cerrar Sesión</span>
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </div>

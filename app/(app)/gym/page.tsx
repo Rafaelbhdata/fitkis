@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getDayOfWeek, getRoutineForDay, getRoutineName } from '@/lib/utils'
 import { ROUTINES } from '@/lib/constants'
-import { ChevronRight, Calendar, Play, History, Dumbbell, Zap } from 'lucide-react'
+import { ChevronRight, Play, History, Dumbbell, Zap, Clock } from 'lucide-react'
 
 export default function GymPage() {
   const today = new Date()
@@ -22,87 +22,90 @@ export default function GymPage() {
   }
 
   const muscleGroups = getMuscleGroups(routineType)
+  const totalSets = exercises.reduce((acc, e) => acc + e.targetSets, 0)
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {routineType ? (
         <>
           {/* Hero Card */}
-          <div className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-transparent border border-blue-500/20">
+          <div className="card bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
             <div className="flex items-start justify-between mb-4">
-              <div className="w-14 h-14 rounded-2xl bg-blue-500 flex items-center justify-center">
-                <Dumbbell className="w-7 h-7 text-white" />
+              <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center">
+                <Dumbbell className="w-6 h-6 text-white" />
               </div>
-              <Link
-                href="/gym/session/new"
-                className="btn-primary"
-              >
+              <Link href="/gym/session/new" className="btn-primary">
                 <Play className="w-4 h-4" />
-                Iniciar sesión
+                Iniciar
               </Link>
             </div>
 
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Rutina de hoy</p>
-            <h2 className="font-display text-display-lg text-foreground mb-3">
+            <p className="stat-label mb-1">Rutina de hoy</p>
+            <h1 className="font-display text-display-md mb-3">
               {getRoutineName(routineType)}
-            </h2>
+            </h1>
 
             {/* Muscle tags */}
             <div className="flex flex-wrap gap-2">
               {muscleGroups.map((group) => (
                 <span
                   key={group}
-                  className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs font-medium text-blue-300"
+                  className="px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-xs font-medium text-blue-300"
                 >
                   {group}
                 </span>
               ))}
             </div>
-
-            <div className="absolute top-0 right-0 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           </div>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="card !p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-4 h-4 text-accent" />
-                <span className="text-xs text-muted-foreground">Ejercicios</span>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="card">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Ejercicios</span>
               </div>
-              <p className="font-display text-display-md">{exercises.length}</p>
+              <p className="font-display text-display-sm">{exercises.length}</p>
             </div>
-            <div className="card !p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Dumbbell className="w-4 h-4 text-accent" />
-                <span className="text-xs text-muted-foreground">Series total</span>
+            <div className="card">
+              <div className="flex items-center gap-2 mb-1">
+                <Dumbbell className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Series</span>
               </div>
-              <p className="font-display text-display-md">
-                {exercises.reduce((acc, e) => acc + e.targetSets, 0)}
-              </p>
+              <p className="font-display text-display-sm">{totalSets}</p>
+            </div>
+            <div className="card">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Aprox.</span>
+              </div>
+              <p className="font-display text-display-sm">~{Math.round(totalSets * 2.5)}m</p>
             </div>
           </div>
 
           {/* Exercise List */}
-          <div className="card !p-4">
-            <p className="text-sm font-medium mb-4">Ejercicios</p>
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-medium">Ejercicios</p>
+              <span className="text-xs text-muted-foreground">{exercises.length} total</span>
+            </div>
             <div className="space-y-0">
               {exercises.map((exercise, index) => (
                 <div
                   key={exercise.id}
-                  className="flex items-center justify-between py-3 border-b border-border last:border-0"
+                  className="flex items-center gap-3 py-3 border-b border-border last:border-0"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-accent/10 text-accent text-xs font-semibold">
-                      {index + 1}
-                    </span>
-                    <div>
-                      <p className="font-medium text-sm">{exercise.name}</p>
-                      <p className="text-xs text-muted-foreground">{exercise.defaultEquipment}</p>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-lg bg-surface-elevated text-xs font-medium">
-                    {exercise.targetSets}×{exercise.targetReps}
+                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-surface-elevated text-xs font-semibold text-muted-foreground">
+                    {index + 1}
                   </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">{exercise.name}</p>
+                    <p className="text-xs text-muted-foreground">{exercise.defaultEquipment}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold tabular-nums">{exercise.targetSets}×{exercise.targetReps}</p>
+                    <p className="text-[10px] text-muted-foreground">series×reps</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -110,29 +113,29 @@ export default function GymPage() {
         </>
       ) : (
         /* Rest Day */
-        <div className="card !p-8 text-center">
-          <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-surface-elevated to-surface flex items-center justify-center">
-            <Calendar className="w-9 h-9 text-muted-foreground" />
+        <div className="card text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-surface-elevated flex items-center justify-center">
+            <Dumbbell className="w-8 h-8 text-muted-foreground" />
           </div>
-          <h2 className="font-display text-display-md mb-2">Día de descanso</h2>
-          <p className="text-sm text-muted-foreground max-w-[240px] mx-auto">
+          <h1 className="font-display text-display-md mb-2">Día de descanso</h1>
+          <p className="text-sm text-muted-foreground max-w-[280px] mx-auto">
             Tu cuerpo necesita recuperarse. Aprovecha para descansar y volver con más fuerza.
           </p>
         </div>
       )}
 
       {/* History Link */}
-      <Link href="/gym/history" className="card-interactive !p-4 flex items-center justify-between group">
+      <Link href="/gym/history" className="card-interactive flex items-center justify-between group">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-surface-elevated flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center">
             <History className="w-5 h-5 text-muted-foreground" />
           </div>
           <div>
-            <p className="font-medium text-sm">Historial de sesiones</p>
-            <p className="text-xs text-muted-foreground">Ver progreso y sesiones anteriores</p>
+            <p className="font-medium text-sm">Historial</p>
+            <p className="text-xs text-muted-foreground">Ver sesiones anteriores</p>
           </div>
         </div>
-        <ChevronRight className="w-5 h-5 text-muted transition-transform group-hover:translate-x-1" />
+        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
       </Link>
     </div>
   )

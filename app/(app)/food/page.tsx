@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Star, ChevronDown, Search, X, Trash2, Minus, Plus } from 'lucide-react'
+import { Star, ChevronDown, Search, X, Trash2, Minus, Plus, Zap } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, FOOD_EQUIVALENTS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -116,26 +116,26 @@ export default function FoodPage() {
 
   const mealLogs = (meal: MealType) => foodLogs.filter(f => f.meal === meal)
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-          <p className="text-sm text-muted">Cargando...</p>
-        </div>
-      </div>
-    )
-  }
-
   // Calculate totals
   const totalConsumed = Object.values(consumed).reduce((a, b) => a + b, 0)
   const totalBudget = Object.values(DAILY_BUDGET).reduce((a, b) => a + b, 0)
   const nutritionPercentage = Math.round((totalConsumed / totalBudget) * 100)
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {error && (
-        <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm flex items-center justify-between animate-scale-in">
+        <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm flex items-center justify-between">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
             <X className="w-4 h-4" />
@@ -143,29 +143,34 @@ export default function FoodPage() {
         </div>
       )}
 
-      {/* Hero Summary */}
-      <div className="card !p-5 bg-gradient-to-br from-green-500/10 via-transparent to-transparent border-green-500/20">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Equivalentes hoy</p>
-            <div className="flex items-baseline gap-2">
-              <span className="font-display text-display-xl text-green-400">{totalConsumed}</span>
-              <span className="text-xl text-muted-foreground">/ {totalBudget}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {nutritionPercentage}% del objetivo diario
-            </p>
-          </div>
-          <Link href="/food/favorites" className="w-10 h-10 rounded-xl bg-surface-elevated border border-border flex items-center justify-center hover:bg-surface-hover transition-colors">
-            <Star className="w-5 h-5 text-muted-foreground" />
-          </Link>
+      {/* Header with summary */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-display-md">Alimentación</h1>
+          <p className="text-sm text-muted-foreground">
+            {totalConsumed} / {totalBudget} equivalentes
+          </p>
         </div>
+        <Link
+          href="/food/favorites"
+          className="w-10 h-10 rounded-lg bg-surface-elevated border border-border flex items-center justify-center hover:bg-surface-hover transition-colors"
+        >
+          <Star className="w-5 h-5 text-muted-foreground" />
+        </Link>
       </div>
 
-      {/* Food Groups Grid */}
-      <div className="card !p-4">
-        <p className="text-sm font-medium mb-4">Por grupo alimenticio</p>
-        <div className="grid grid-cols-3 gap-3">
+      {/* Progress Overview */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-accent" />
+            <span className="text-sm font-medium">Progreso del día</span>
+          </div>
+          <span className="font-display text-display-xs text-accent">{nutritionPercentage}%</span>
+        </div>
+
+        {/* Large progress bars */}
+        <div className="space-y-3">
           {(Object.keys(DAILY_BUDGET) as FoodGroup[]).map((group) => {
             const total = DAILY_BUDGET[group]
             const current = consumed[group]
@@ -173,31 +178,25 @@ export default function FoodPage() {
             const isComplete = current >= total
 
             return (
-              <div
-                key={group}
-                className={`p-3 rounded-xl border transition-colors ${
-                  isComplete
-                    ? 'border-accent/30 bg-accent/5'
-                    : 'border-border bg-surface-elevated'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: FOOD_COLORS[group] }}
-                  />
-                  <span className="text-xs font-medium">{current}/{total}</span>
+              <div key={group}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: FOOD_COLORS[group] }}
+                    />
+                    <span className="text-sm font-medium">{FOOD_GROUP_LABELS[group]}</span>
+                  </div>
+                  <span className={`text-sm font-semibold tabular-nums ${isComplete ? 'text-accent' : ''}`}>
+                    {current}/{total}
+                  </span>
                 </div>
-                <p className="text-[10px] text-muted-foreground truncate mb-2">
-                  {FOOD_GROUP_LABELS[group]}
-                </p>
-                <div className="h-1.5 bg-background rounded-full overflow-hidden">
+                <div className="progress-track-lg">
                   <div
-                    className="h-full rounded-full transition-all duration-500"
+                    className="progress-fill"
                     style={{
                       width: `${percentage}%`,
-                      backgroundColor: FOOD_COLORS[group],
-                      opacity: isComplete ? 1 : 0.7
+                      backgroundColor: isComplete ? '#10b981' : FOOD_COLORS[group],
                     }}
                   />
                 </div>
@@ -215,22 +214,22 @@ export default function FoodPage() {
           const logs = mealLogs(meal.key)
 
           return (
-            <div key={meal.key} className="card">
+            <div key={meal.key} className="card !p-0 overflow-hidden">
               <button
-                className="w-full flex items-center justify-between"
+                className="w-full flex items-center justify-between p-4"
                 onClick={() => setExpandedMeal(isExpanded ? null : meal.key)}
               >
-                <h3 className="font-display text-display-sm">{meal.label}</h3>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-display text-display-xs">{meal.label}</h3>
                   {logs.length > 0 && (
-                    <span className="badge">{logs.length}</span>
+                    <span className="badge-accent">{logs.length}</span>
                   )}
-                  <ChevronDown className={`w-5 h-5 text-muted transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </div>
+                <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
               </button>
 
               {isExpanded && (
-                <div className="mt-5 space-y-4 animate-slide-up">
+                <div className="px-4 pb-4 space-y-3 animate-slide-up">
                   {/* Food Group Pills */}
                   <div className="flex flex-wrap gap-2">
                     {(Object.keys(budget) as FoodGroup[])
@@ -243,7 +242,7 @@ export default function FoodPage() {
                             setSelectedGroup(group)
                             setShowAddModal(true)
                           }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95"
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
                           style={{
                             backgroundColor: `${FOOD_COLORS[group]}15`,
                             color: FOOD_COLORS[group],
@@ -256,14 +255,13 @@ export default function FoodPage() {
                   </div>
 
                   {/* Food Items */}
-                  <div className="divider" />
-                  <div className="space-y-1">
-                    {logs.length > 0 ? (
-                      logs.map((log) => (
+                  {logs.length > 0 ? (
+                    <div className="space-y-1 pt-2 border-t border-border">
+                      {logs.map((log) => (
                         <div key={log.id} className="flex items-center justify-between py-2">
                           <div className="flex items-center gap-3">
                             <div
-                              className="w-2 h-2 rounded-full flex-shrink-0"
+                              className="w-2 h-2 rounded-full"
                               style={{ backgroundColor: FOOD_COLORS[log.group_type] }}
                             />
                             <span className="text-sm">
@@ -275,18 +273,18 @@ export default function FoodPage() {
                           </div>
                           <button
                             onClick={() => deleteFood(log.id)}
-                            className="p-2 text-muted hover:text-danger transition-colors"
+                            className="p-1.5 text-muted-foreground hover:text-danger transition-colors rounded-lg hover:bg-danger/10"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted text-center py-4">
-                        Toca un grupo para agregar
-                      </p>
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-3 border-t border-border">
+                      Toca un grupo para agregar
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -298,10 +296,10 @@ export default function FoodPage() {
       {showAddModal && selectedGroup && (
         <>
           <div className="overlay animate-fade-in" onClick={closeModal} />
-          <div className="sheet p-6 animate-slide-up">
-            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-6" />
+          <div className="sheet p-5 animate-slide-up">
+            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-5" />
 
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-5">
               <h2 className="font-display text-display-sm">
                 {selectedFood ? selectedFood.name : `Agregar ${FOOD_GROUP_LABELS[selectedGroup]}`}
               </h2>
@@ -312,27 +310,27 @@ export default function FoodPage() {
 
             {selectedFood ? (
               /* Quantity Selector */
-              <div className="space-y-8">
+              <div className="space-y-6">
                 <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-6">Porción: {selectedFood.portion}</p>
-                  <div className="flex items-center justify-center gap-6">
+                  <p className="text-sm text-muted-foreground mb-5">Porción: {selectedFood.portion}</p>
+                  <div className="flex items-center justify-center gap-5">
                     <button
                       onClick={() => setQuantity(Math.max(0.5, quantity - 0.5))}
-                      className="w-14 h-14 rounded-xl bg-surface-elevated border border-border flex items-center justify-center text-xl active:scale-95 transition-transform"
+                      className="w-12 h-12 rounded-lg bg-surface-elevated border border-border flex items-center justify-center active:scale-95 transition-transform"
                     >
                       <Minus className="w-5 h-5" />
                     </button>
-                    <span className="font-display text-display-xl text-accent w-20 text-center tabular-nums">
+                    <span className="font-display text-display-lg text-accent w-16 text-center tabular-nums">
                       {quantity}
                     </span>
                     <button
                       onClick={() => setQuantity(quantity + 0.5)}
-                      className="w-14 h-14 rounded-xl bg-accent text-background flex items-center justify-center text-xl active:scale-95 transition-transform"
+                      className="w-12 h-12 rounded-lg bg-accent text-background flex items-center justify-center active:scale-95 transition-transform"
                     >
                       <Plus className="w-5 h-5" />
                     </button>
                   </div>
-                  <p className="text-xs text-muted mt-3">equivalentes</p>
+                  <p className="text-xs text-muted-foreground mt-2">equivalentes</p>
                 </div>
                 {selectedFood.note && (
                   <p className="text-xs text-accent text-center bg-accent/10 rounded-lg py-2 px-3">
@@ -350,12 +348,12 @@ export default function FoodPage() {
               </div>
             ) : (
               /* Food Search */
-              <div className="flex flex-col" style={{ maxHeight: 'calc(85vh - 180px)' }}>
+              <div className="flex flex-col" style={{ maxHeight: 'calc(80vh - 160px)' }}>
                 <div className="relative mb-4">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     type="text"
-                    className="input pl-11"
+                    className="input pl-10"
                     placeholder="Buscar alimento..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -369,14 +367,14 @@ export default function FoodPage() {
                       <button
                         key={food.name}
                         onClick={() => selectFood(food)}
-                        className="w-full text-left p-4 rounded-xl bg-surface hover:bg-surface-hover transition-colors active:scale-[0.99]"
+                        className="w-full text-left p-3 rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors active:scale-[0.99]"
                       >
                         <p className="font-medium text-sm">{food.name}</p>
-                        <p className="text-xs text-muted mt-0.5">{food.portion}</p>
+                        <p className="text-xs text-muted-foreground">{food.portion}</p>
                       </button>
                     ))
                   ) : (
-                    <p className="text-center text-muted py-12">
+                    <p className="text-center text-muted-foreground py-8">
                       {searchQuery ? 'No se encontraron alimentos' : 'Escribe para buscar'}
                     </p>
                   )}

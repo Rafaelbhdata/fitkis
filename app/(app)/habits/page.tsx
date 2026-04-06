@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Droplets, BookOpen, Pill, X, Minus, Flame, Target, Calendar, TrendingUp } from 'lucide-react'
+import { Plus, Droplets, BookOpen, Pill, X, Minus, Flame, Target, Zap, ChevronRight } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { DEFAULT_HABITS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -13,10 +13,10 @@ const habitIcons: Record<string, React.ComponentType<{ className?: string }>> = 
   'Creatina': Pill,
 }
 
-const habitColors: Record<string, { bg: string; text: string; accent: string }> = {
-  'Agua': { bg: 'bg-blue-500/10', text: 'text-blue-400', accent: '#3b82f6' },
-  'Lectura': { bg: 'bg-amber-500/10', text: 'text-amber-400', accent: '#f59e0b' },
-  'Creatina': { bg: 'bg-pink-500/10', text: 'text-pink-400', accent: '#ec4899' },
+const habitColors: Record<string, { bg: string; text: string; accent: string; gradient: string }> = {
+  'Agua': { bg: 'bg-blue-500/10', text: 'text-blue-400', accent: '#3b82f6', gradient: 'from-blue-500/20' },
+  'Lectura': { bg: 'bg-amber-500/10', text: 'text-amber-400', accent: '#f59e0b', gradient: 'from-amber-500/20' },
+  'Creatina': { bg: 'bg-pink-500/10', text: 'text-pink-400', accent: '#ec4899', gradient: 'from-pink-500/20' },
 }
 
 interface HabitWithLog extends Habit {
@@ -31,8 +31,9 @@ export default function HabitsPage() {
   const supabase = useSupabase()
   const [loading, setLoading] = useState(true)
   const [habits, setHabits] = useState<HabitWithLog[]>([])
-  const [weekLogs, setWeekLogs] = useState<HabitLog[]>([])
+  const [monthLogs, setMonthLogs] = useState<HabitLog[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [selectedHabit, setSelectedHabit] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) loadHabits()
@@ -75,20 +76,28 @@ export default function HabitsPage() {
 
       if (logsError) throw logsError
 
-      // Get week logs for streak calculation
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-      const { data: weekLogsData } = await supabase
+      // Get 30 days of logs for heatmap
+      const monthAgo = new Date()
+      monthAgo.setDate(monthAgo.getDate() - 30)
+      const { data: monthLogsData } = await supabase
         .from('habit_logs')
         .select('*')
-        .gte('date', weekAgo.toISOString().split('T')[0])
+        .gte('date', monthAgo.toISOString().split('T')[0])
         .order('date', { ascending: false })
 
-      if (weekLogsData) setWeekLogs(weekLogsData as HabitLog[])
+      if (monthLogsData) setMonthLogs(monthLogsData as HabitLog[])
 
       const typedLogsData = logsData as HabitLog[] | null
 
-      const habitsWithLogs: HabitWithLog[] = (typedHabitsData || []).map(habit => {
+      // Deduplicate habits by name (keep the first one created)
+      const seenNames = new Set<string>()
+      const uniqueHabits = (typedHabitsData || []).filter(habit => {
+        if (seenNames.has(habit.name)) return false
+        seenNames.add(habit.name)
+        return true
+      })
+
+      const habitsWithLogs: HabitWithLog[] = uniqueHabits.map(habit => {
         const log = typedLogsData?.find(l => l.habit_id === habit.id)
         return {
           ...habit,
@@ -99,6 +108,9 @@ export default function HabitsPage() {
       })
 
       setHabits(habitsWithLogs)
+      if (habitsWithLogs.length > 0 && !selectedHabit) {
+        setSelectedHabit(habitsWithLogs[0].id)
+      }
     } catch (err) {
       setError('Error al cargar hábitos')
     }
@@ -170,15 +182,15 @@ export default function HabitsPage() {
     }
   }
 
-  // Calculate streak for a habit
+  // Calculate streak for a habit (using monthLogs)
   const getStreak = (habitId: string) => {
-    const logs = weekLogs.filter(l => l.habit_id === habitId && (l.completed || (l.value && l.value > 0)))
+    const logs = monthLogs.filter(l => l.habit_id === habitId && (l.completed || (l.value && l.value > 0)))
     const dates = Array.from(new Set(logs.map(l => l.date))).sort().reverse()
 
     let streak = 0
     const todayDate = new Date(today)
 
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 30; i++) {
       const checkDate = new Date(todayDate)
       checkDate.setDate(todayDate.getDate() - i)
       const dateStr = checkDate.toISOString().split('T')[0]
@@ -193,21 +205,21 @@ export default function HabitsPage() {
     return streak
   }
 
-  // Get week activity for a habit
-  const getWeekActivity = (habitId: string) => {
+  // Get 30-day heatmap data for a habit
+  const get30DayHeatmap = (habitId: string) => {
     const days = []
     const todayDate = new Date()
 
-    for (let i = 6; i >= 0; i--) {
+    for (let i = 29; i >= 0; i--) {
       const date = new Date(todayDate)
       date.setDate(todayDate.getDate() - i)
       const dateStr = date.toISOString().split('T')[0]
-      const log = weekLogs.find(l => l.habit_id === habitId && l.date === dateStr)
+      const log = monthLogs.find(l => l.habit_id === habitId && l.date === dateStr)
       const isCompleted = log?.completed || (log?.value && log.value > 0)
 
       days.push({
         date: dateStr,
-        day: date.toLocaleDateString('es-MX', { weekday: 'narrow' }),
+        dayNum: date.getDate(),
         completed: isCompleted,
         isToday: i === 0
       })
@@ -216,27 +228,36 @@ export default function HabitsPage() {
     return days
   }
 
+  // Get month completion rate
+  const getCompletionRate = (habitId: string) => {
+    const heatmap = get30DayHeatmap(habitId)
+    const completed = heatmap.filter(d => d.completed).length
+    return Math.round((completed / 30) * 100)
+  }
+
   const completedCount = habits.filter(h =>
     h.completed || (h.type === 'quantity' && h.currentValue >= (h.target_value || 0))
   ).length
 
   const totalStreak = Math.max(...habits.map(h => getStreak(h.id)), 0)
 
+  const selectedHabitData = habits.find(h => h.id === selectedHabit)
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-          <p className="text-sm text-muted">Cargando...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Cargando...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {error && (
-        <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm flex items-center justify-between animate-scale-in">
+        <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm flex items-center justify-between">
           <span>{error}</span>
           <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
             <X className="w-4 h-4" />
@@ -244,105 +265,120 @@ export default function HabitsPage() {
         </div>
       )}
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Today's Progress */}
-        <div className="card !p-5 col-span-1 bg-gradient-to-br from-accent/10 via-transparent to-transparent border-accent/20">
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="w-4 h-4 text-accent" />
-            <span className="text-xs text-muted-foreground">Hoy</span>
-          </div>
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="font-display text-display-lg">
-                <span className="text-accent">{completedCount}</span>
-                <span className="text-muted-foreground text-lg">/{habits.length}</span>
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">completados</p>
-            </div>
-            {/* Mini progress ring */}
-            <div className="relative w-12 h-12">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <circle
-                  cx="18" cy="18" r="14"
-                  fill="none" stroke="currentColor" strokeWidth="3"
-                  className="text-surface-elevated"
-                />
-                <circle
-                  cx="18" cy="18" r="14"
-                  fill="none" stroke="currentColor" strokeWidth="3"
-                  strokeLinecap="round"
-                  className="text-accent transition-all duration-500"
-                  strokeDasharray={`${habits.length > 0 ? (completedCount / habits.length) * 88 : 0} 88`}
-                />
-              </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold">
-                {habits.length > 0 ? Math.round((completedCount / habits.length) * 100) : 0}%
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Streak */}
-        <div className="card !p-5 col-span-1 bg-gradient-to-br from-orange-500/10 via-transparent to-transparent border-orange-500/20">
-          <div className="flex items-center gap-2 mb-3">
-            <Flame className="w-4 h-4 text-orange-400" />
-            <span className="text-xs text-muted-foreground">Racha</span>
-          </div>
-          <p className="font-display text-display-lg text-orange-400">
-            {totalStreak}
-            <span className="text-lg text-muted-foreground ml-1">días</span>
+      {/* Header with stats */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-display-md">Hábitos</h1>
+          <p className="text-sm text-muted-foreground">
+            {completedCount}/{habits.length} completados hoy
           </p>
-          <p className="text-xs text-muted-foreground mt-1">mejor racha actual</p>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+          <Flame className="w-4 h-4 text-orange-400" />
+          <span className="font-display text-sm font-semibold text-orange-400">{totalStreak} días</span>
         </div>
       </div>
 
-      {/* Week Overview */}
-      <div className="card !p-4">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="card">
+          <div className="flex items-center gap-2 mb-1">
+            <Target className="w-3.5 h-3.5 text-accent" />
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Hoy</span>
+          </div>
+          <p className="font-display text-display-sm">
+            {habits.length > 0 ? Math.round((completedCount / habits.length) * 100) : 0}%
+          </p>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-1">
+            <Zap className="w-3.5 h-3.5 text-accent" />
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">30 días</span>
+          </div>
+          <p className="font-display text-display-sm">
+            {selectedHabitData ? getCompletionRate(selectedHabitData.id) : 0}%
+          </p>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-1">
+            <Flame className="w-3.5 h-3.5 text-orange-400" />
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Racha</span>
+          </div>
+          <p className="font-display text-display-sm text-orange-400">{totalStreak}</p>
+        </div>
+      </div>
+
+      {/* 30-Day Heatmap */}
+      <div className="card">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium">Esta semana</span>
+            <Zap className="w-4 h-4 text-accent" />
+            <span className="text-sm font-medium">Últimos 30 días</span>
           </div>
-          <span className="text-xs text-muted-foreground">últimos 7 días</span>
+          <span className="text-xs text-muted-foreground">
+            {selectedHabitData ? getCompletionRate(selectedHabitData.id) : 0}% completado
+          </span>
         </div>
 
-        <div className="space-y-3">
+        {/* Habit Tabs */}
+        <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-1">
           {habits.map((habit) => {
-            const weekActivity = getWeekActivity(habit.id)
-            const colors = habitColors[habit.name] || { bg: 'bg-accent/10', text: 'text-accent', accent: '#10b981' }
-
+            const isSelected = selectedHabit === habit.id
+            const colors = habitColors[habit.name] || { bg: 'bg-accent/10', text: 'text-accent', accent: '#10b981', gradient: 'from-accent/20' }
             return (
-              <div key={habit.id} className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-16 truncate">{habit.name}</span>
-                <div className="flex-1 flex gap-1">
-                  {weekActivity.map((day, i) => (
-                    <div
-                      key={i}
-                      className={`flex-1 h-6 rounded-md transition-colors ${
-                        day.completed
-                          ? ''
-                          : day.isToday
-                            ? 'bg-surface-elevated border border-dashed border-border'
-                            : 'bg-surface-elevated'
-                      }`}
-                      style={{
-                        backgroundColor: day.completed ? colors.accent : undefined,
-                        opacity: day.completed ? (day.isToday ? 1 : 0.7) : 1
-                      }}
-                      title={day.date}
-                    />
-                  ))}
-                </div>
-              </div>
+              <button
+                key={habit.id}
+                onClick={() => setSelectedHabit(habit.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                  isSelected
+                    ? `${colors.bg} ${colors.text} border border-current/30`
+                    : 'bg-surface-elevated text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {habit.name}
+              </button>
             )
           })}
         </div>
 
-        <div className="flex justify-between mt-3 text-[10px] text-muted-foreground px-16">
-          {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
-            <span key={i}>{d}</span>
-          ))}
+        {/* Heatmap Grid */}
+        {selectedHabitData && (
+          <div className="grid grid-cols-10 gap-1">
+            {get30DayHeatmap(selectedHabitData.id).map((day, i) => {
+              const colors = habitColors[selectedHabitData.name] || { accent: '#10b981' }
+              return (
+                <div
+                  key={i}
+                  className={`aspect-square rounded-sm transition-all ${
+                    day.completed
+                      ? ''
+                      : day.isToday
+                        ? 'bg-surface-hover border border-dashed border-border'
+                        : 'bg-surface-elevated'
+                  }`}
+                  style={{
+                    backgroundColor: day.completed ? colors.accent : undefined,
+                    opacity: day.completed ? (day.isToday ? 1 : 0.8) : 1
+                  }}
+                  title={`${day.date}: ${day.completed ? 'Completado' : 'No completado'}`}
+                />
+              )
+            })}
+          </div>
+        )}
+
+        {/* Heatmap Legend */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+          <span className="text-[10px] text-muted-foreground">Hace 30 días</span>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground mr-1">Menos</span>
+            <div className="w-3 h-3 rounded-sm bg-surface-elevated" />
+            <div className="w-3 h-3 rounded-sm bg-accent/30" />
+            <div className="w-3 h-3 rounded-sm bg-accent/60" />
+            <div className="w-3 h-3 rounded-sm bg-accent" />
+            <span className="text-[10px] text-muted-foreground ml-1">Más</span>
+          </div>
+          <span className="text-[10px] text-muted-foreground">Hoy</span>
         </div>
       </div>
 
@@ -352,108 +388,114 @@ export default function HabitsPage() {
 
         {habits.map((habit) => {
           const Icon = habitIcons[habit.name] || Target
-          const colors = habitColors[habit.name] || { bg: 'bg-accent/10', text: 'text-accent', accent: '#10b981' }
+          const colors = habitColors[habit.name] || { bg: 'bg-accent/10', text: 'text-accent', accent: '#10b981', gradient: 'from-accent/20' }
           const isQuantity = habit.type === 'quantity'
           const isCompleted = isQuantity
             ? habit.currentValue >= (habit.target_value || 0)
             : habit.completed
           const streak = getStreak(habit.id)
+          const completionRate = getCompletionRate(habit.id)
 
           return (
             <div
               key={habit.id}
-              className={`card !p-4 transition-all ${
-                isCompleted ? 'border-accent/30 bg-accent/5' : ''
+              className={`card !p-0 overflow-hidden transition-all ${
+                isCompleted ? 'border-accent/30' : ''
               }`}
             >
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
-                  isCompleted
-                    ? 'bg-accent text-background'
-                    : colors.bg + ' ' + colors.text
-                }`}>
-                  <Icon className="w-6 h-6" />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium">{habit.name}</h3>
-                    {streak > 0 && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10">
-                        <Flame className="w-3 h-3 text-orange-400" />
-                        <span className="text-[10px] font-medium text-orange-400">{streak}</span>
-                      </div>
-                    )}
+              {/* Gradient background for completed */}
+              <div className={`p-4 ${isCompleted ? `bg-gradient-to-r ${colors.gradient} to-transparent` : ''}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-11 h-11 rounded-lg flex items-center justify-center transition-all ${
+                    isCompleted
+                      ? 'bg-accent text-background'
+                      : colors.bg + ' ' + colors.text
+                  }`}>
+                    <Icon className="w-5 h-5" />
                   </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-sm">{habit.name}</h3>
+                      {streak > 0 && (
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-orange-500/10">
+                          <Flame className="w-3 h-3 text-orange-400" />
+                          <span className="text-[10px] font-semibold text-orange-400">{streak}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {habit.type === 'quantity' ? (
+                        <p className="text-xs text-muted-foreground">
+                          {habit.currentValue}/{habit.target_value} {habit.unit}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {completionRate}% en 30 días
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {habit.type === 'daily_check' && (
+                    <button
+                      onClick={() => toggleHabit(habit)}
+                      className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all active:scale-95 ${
+                        habit.completed
+                          ? 'bg-accent border-accent'
+                          : 'border-border hover:border-accent/50'
+                      }`}
+                    >
+                      {habit.completed && (
+                        <svg className="w-5 h-5 text-background" viewBox="0 0 20 20" fill="none">
+                          <path d="M4 10L8 14L16 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </button>
+                  )}
+
                   {habit.type === 'quantity' && (
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Meta: {habit.target_value} {habit.unit}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateValue(habit, Math.max(0, habit.currentValue - 0.5))}
+                        className="w-9 h-9 rounded-lg bg-surface-elevated border border-border flex items-center justify-center active:scale-95 transition-transform"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                      <span className="w-8 text-center font-display font-semibold tabular-nums text-sm">
+                        {habit.currentValue}
+                      </span>
+                      <button
+                        onClick={() => updateValue(habit, habit.currentValue + 0.5)}
+                        className="w-9 h-9 rounded-lg bg-accent text-background flex items-center justify-center active:scale-95 transition-transform"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
 
-                {habit.type === 'daily_check' && (
-                  <button
-                    onClick={() => toggleHabit(habit)}
-                    className={`w-11 h-11 rounded-xl border-2 flex items-center justify-center transition-all active:scale-95 ${
-                      habit.completed
-                        ? 'bg-accent border-accent'
-                        : 'border-border hover:border-accent/50'
-                    }`}
-                  >
-                    {habit.completed && (
-                      <svg className="w-5 h-5 text-background" viewBox="0 0 20 20" fill="none">
-                        <path d="M4 10L8 14L16 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
-                  </button>
-                )}
-
                 {habit.type === 'quantity' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => updateValue(habit, Math.max(0, habit.currentValue - 0.5))}
-                      className="w-9 h-9 rounded-xl bg-surface-elevated border border-border flex items-center justify-center active:scale-95 transition-transform"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <span className="w-10 text-center font-display font-semibold tabular-nums">
-                      {habit.currentValue}
-                    </span>
-                    <button
-                      onClick={() => updateValue(habit, habit.currentValue + 0.5)}
-                      className="w-9 h-9 rounded-xl bg-accent text-background flex items-center justify-center active:scale-95 transition-transform"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+                  <div className="mt-3">
+                    <div className="progress-track-lg">
+                      <div
+                        className="progress-fill"
+                        style={{
+                          width: `${Math.min((habit.currentValue / (habit.target_value || 1)) * 100, 100)}%`,
+                          backgroundColor: isCompleted ? '#10b981' : colors.accent
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
-
-              {habit.type === 'quantity' && (
-                <div className="mt-4">
-                  <div className="relative h-2 bg-surface-elevated rounded-full overflow-hidden">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${Math.min((habit.currentValue / (habit.target_value || 1)) * 100, 100)}%`,
-                        backgroundColor: isCompleted ? '#10b981' : colors.accent
-                      }}
-                    />
-                  </div>
-                  <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground">
-                    <span>{habit.currentValue} {habit.unit}</span>
-                    <span>{habit.target_value} {habit.unit}</span>
-                  </div>
-                </div>
-              )}
             </div>
           )
         })}
       </div>
 
       <button className="w-full btn-secondary">
-        <Plus className="w-5 h-5" />
+        <Plus className="w-4 h-4" />
         Agregar hábito
       </button>
     </div>

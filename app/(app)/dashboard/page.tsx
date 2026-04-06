@@ -13,18 +13,15 @@ import {
   Flame,
   Target,
   TrendingDown,
-  Apple,
-  Zap,
-  Calendar
+  TrendingUp,
+  Play,
+  Calendar,
+  Zap
 } from 'lucide-react'
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
+  AreaChart,
   Area,
-  AreaChart
+  ResponsiveContainer,
 } from 'recharts'
 import type { FoodGroup, FoodLog, WeightLog, Habit, HabitLog, GymSession } from '@/types'
 
@@ -37,7 +34,7 @@ const FOOD_COLORS: Record<FoodGroup, string> = {
   grasa: '#3b82f6',
 }
 
-const WEEKDAYS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+const WEEKDAYS = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 
 export default function DashboardPage() {
   const today = new Date()
@@ -90,8 +87,15 @@ export default function DashboardPage() {
   const totalBudget = Object.values(DAILY_BUDGET).reduce((a, b) => a + b, 0)
   const nutritionPercentage = Math.round((totalConsumed / totalBudget) * 100)
 
-  // Hábitos con estado
-  const habitsWithState = habits.map(h => {
+  // Deduplicate habits by name and merge with state
+  const seenNames = new Set<string>()
+  const uniqueHabits = habits.filter(h => {
+    if (seenNames.has(h.name)) return false
+    seenNames.add(h.name)
+    return true
+  })
+
+  const habitsWithState = uniqueHabits.map(h => {
     const log = habitLogs.find(l => l.habit_id === h.id)
     return { ...h, completed: log?.completed || false, value: log?.value || 0 }
   })
@@ -100,13 +104,12 @@ export default function DashboardPage() {
     h.type === 'quantity' ? h.value >= (h.target_value || 0) : h.completed
   ).length
 
-  // Weight data for chart
+  // Weight data
   const latestWeight = weightLogs[0]?.weight_kg
-  const weightChange = weightLogs.length >= 2
-    ? (weightLogs[0].weight_kg - weightLogs[weightLogs.length - 1].weight_kg).toFixed(1)
-    : null
+  const previousWeight = weightLogs[1]?.weight_kg
+  const weightDiff = latestWeight && previousWeight ? (latestWeight - previousWeight) : null
 
-  const weightChartData = [...weightLogs].reverse().map(w => ({
+  const weightChartData = [...weightLogs].reverse().slice(-7).map(w => ({
     date: new Date(w.date).getDate(),
     weight: w.weight_kg
   }))
@@ -134,301 +137,255 @@ export default function DashboardPage() {
   }
 
   const weekDays = getWeekDays()
+  const weekWorkouts = gymSessions.filter(s => {
+    const weekStart = new Date(today)
+    weekStart.setDate(today.getDate() - today.getDay())
+    const weekStartStr = weekStart.toISOString().split('T')[0]
+    return s.date >= weekStartStr
+  }).length
+
+  // Greeting
+  const getGreeting = () => {
+    const hour = today.getHours()
+    if (hour < 12) return 'Buenos días'
+    if (hour < 19) return 'Buenas tardes'
+    return 'Buenas noches'
+  }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-          <p className="text-sm text-muted">Cargando...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+          <p className="text-sm text-muted-foreground">Cargando...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-5 pb-4 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {error && (
-        <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm">
+        <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
           {error}
         </div>
       )}
 
-      {/* Week Calendar Strip */}
-      <div className="card !p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-muted-foreground text-sm">{getGreeting()}</p>
+          <h1 className="font-display text-display-md">
+            {today.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' })}
+          </h1>
+        </div>
+        {routineType && (
+          <Link href="/gym/session/new" className="btn-primary">
+            <Play className="w-4 h-4" />
+            <span className="hidden sm:inline">Iniciar</span>
+          </Link>
+        )}
+      </div>
+
+      {/* Week Calendar */}
+      <div className="card">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium">Esta semana</span>
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Semana</span>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {gymSessions.filter(s => {
-              const d = new Date(s.date)
-              const weekStart = new Date(today)
-              weekStart.setDate(today.getDate() - today.getDay())
-              return d >= weekStart
-            }).length} entrenamientos
-          </span>
+          <span className="text-xs text-muted-foreground">{weekWorkouts} entrenamientos</span>
         </div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-1.5">
           {weekDays.map((day, i) => (
             <div
               key={i}
-              className={`flex flex-col items-center py-2 rounded-xl transition-colors ${
+              className={`flex flex-col items-center py-2 rounded-lg transition-colors ${
                 day.isToday
                   ? 'bg-accent text-background'
                   : day.isPast && day.hasActivity
                     ? 'bg-accent/10'
-                    : ''
+                    : 'bg-surface-elevated'
               }`}
             >
               <span className={`text-[10px] font-medium ${day.isToday ? 'text-background/70' : 'text-muted-foreground'}`}>
                 {day.day}
               </span>
-              <span className={`text-sm font-semibold ${day.isToday ? '' : ''}`}>
-                {day.date}
-              </span>
+              <span className="text-sm font-semibold">{day.date}</span>
               {day.hasActivity && !day.isToday && (
-                <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1" />
+                <div className="w-1 h-1 rounded-full bg-accent mt-0.5" />
               )}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Today's Workout - Hero Card */}
-      <Link href="/gym" className="block group">
-        <div className={`relative overflow-hidden rounded-2xl p-5 ${
-          routineType
-            ? 'bg-gradient-to-br from-accent/20 via-accent/10 to-transparent border border-accent/20'
-            : 'bg-surface-elevated border border-border'
-        }`}>
-          <div className="flex items-center gap-4">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-              routineType
-                ? 'bg-accent text-background'
-                : 'bg-surface text-muted'
-            }`}>
-              <Dumbbell className="w-7 h-7" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium mb-1">
-                Hoy toca
-              </p>
-              {routineType ? (
-                <p className="font-display text-display-md text-foreground">
-                  {getRoutineName(routineType)}
-                </p>
-              ) : (
-                <p className="font-display text-display-md text-muted">
-                  Día de descanso
-                </p>
-              )}
-            </div>
-            {routineType && (
-              <div className="w-10 h-10 rounded-xl bg-background/50 flex items-center justify-center">
-                <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+      {/* Stats Grid - 2x2 on mobile, 4 cols on desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* Today's Workout */}
+        <Link href="/gym" className="card-interactive col-span-2 md:col-span-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                routineType ? 'bg-blue-500/10 text-blue-400' : 'bg-surface-elevated text-muted'
+              }`}>
+                <Dumbbell className="w-5 h-5" />
               </div>
-            )}
+              <div>
+                <p className="stat-label">Hoy toca</p>
+                <p className="font-display text-display-xs">
+                  {routineType ? getRoutineName(routineType) : 'Descanso'}
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </div>
-          {routineType && (
-            <div className="absolute top-0 right-0 w-32 h-32 bg-accent/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          )}
-        </div>
-      </Link>
+        </Link>
 
-      {/* Stats Grid - 2x2 */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Weight Card with Chart */}
-        <Link href="/weight" className="card-interactive !p-4 col-span-1">
+        {/* Weight */}
+        <Link href="/weight" className="card-interactive">
           <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
-              <Scale className="w-4 h-4 text-purple-400" />
-            </div>
-            {weightChange && parseFloat(weightChange) < 0 && (
-              <div className="flex items-center gap-1 text-xs text-success">
-                <TrendingDown className="w-3 h-3" />
-                <span>{weightChange} kg</span>
+            <Scale className="w-4 h-4 text-purple-400" />
+            {weightDiff !== null && (
+              <div className={`flex items-center gap-0.5 text-[10px] font-medium ${
+                weightDiff <= 0 ? 'text-success' : 'text-danger'
+              }`}>
+                {weightDiff <= 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                {weightDiff > 0 ? '+' : ''}{weightDiff?.toFixed(1)}
               </div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mb-1">Peso actual</p>
-          <p className="font-display text-display-md">
-            {latestWeight ? `${latestWeight} kg` : '--'}
-          </p>
+          <p className="stat-label">Peso</p>
+          <p className="font-display text-display-sm">{latestWeight ? `${latestWeight} kg` : '--'}</p>
           {weightChartData.length > 1 && (
-            <div className="h-12 mt-2 -mx-2 -mb-2">
+            <div className="h-8 mt-2 -mx-1">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={weightChartData}>
                   <defs>
-                    <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#a855f7" stopOpacity={0.3} />
                       <stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <Area
-                    type="monotone"
-                    dataKey="weight"
-                    stroke="#a855f7"
-                    strokeWidth={2}
-                    fill="url(#weightGradient)"
-                  />
+                  <Area type="monotone" dataKey="weight" stroke="#a855f7" strokeWidth={1.5} fill="url(#wGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
         </Link>
 
-        {/* Habits Card */}
-        <Link href="/habits" className="card-interactive !p-4">
+        {/* Habits */}
+        <Link href="/habits" className="card-interactive">
           <div className="flex items-center justify-between mb-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <Target className="w-4 h-4 text-orange-400" />
-            </div>
-            <span className="text-xs text-muted-foreground">{habits.length} total</span>
+            <Target className="w-4 h-4 text-orange-400" />
+            <span className="text-[10px] text-muted-foreground">{uniqueHabits.length} total</span>
           </div>
-          <p className="text-xs text-muted-foreground mb-1">Hábitos</p>
-          <p className="font-display text-display-md">
-            {completedHabits}/{habits.length}
-          </p>
-          {/* Mini habit dots */}
-          <div className="flex gap-1.5 mt-3">
+          <p className="stat-label">Hábitos</p>
+          <p className="font-display text-display-sm">{completedHabits}/{uniqueHabits.length}</p>
+          <div className="flex gap-1 mt-2">
             {habitsWithState.slice(0, 5).map((h, i) => {
               const isComplete = h.type === 'quantity' ? h.value >= (h.target_value || 0) : h.completed
               return (
                 <div
                   key={i}
-                  className={`w-2 h-2 rounded-full ${isComplete ? 'bg-accent' : 'bg-border'}`}
+                  className={`flex-1 h-1.5 rounded-full ${isComplete ? 'bg-accent' : 'bg-surface-elevated'}`}
                 />
-              )
-            })}
-          </div>
-        </Link>
-
-        {/* Nutrition Card - Full Width */}
-        <Link href="/food" className="card-interactive !p-4 col-span-2">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
-                  <Apple className="w-4 h-4 text-green-400" />
-                </div>
-                <span className="text-xs text-muted-foreground">Nutrición del día</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-display text-display-lg">{totalConsumed}</span>
-                <span className="text-muted-foreground">/ {totalBudget} equiv.</span>
-              </div>
-            </div>
-            {/* Circular progress */}
-            <div className="relative w-16 h-16">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <circle
-                  cx="18" cy="18" r="15"
-                  fill="none" stroke="currentColor" strokeWidth="3"
-                  className="text-surface-elevated"
-                />
-                <circle
-                  cx="18" cy="18" r="15"
-                  fill="none" stroke="currentColor" strokeWidth="3"
-                  strokeLinecap="round"
-                  className="text-accent transition-all duration-500"
-                  strokeDasharray={`${Math.min(nutritionPercentage, 100) * 0.94} 94`}
-                />
-              </svg>
-              <span className="absolute inset-0 flex items-center justify-center font-display text-sm font-semibold">
-                {nutritionPercentage}%
-              </span>
-            </div>
-          </div>
-
-          {/* Food group bars */}
-          <div className="space-y-2">
-            {(Object.keys(DAILY_BUDGET) as FoodGroup[]).map((group) => {
-              const percentage = Math.min((consumed[group] / DAILY_BUDGET[group]) * 100, 100)
-              return (
-                <div key={group} className="flex items-center gap-3">
-                  <span className="text-[10px] text-muted-foreground w-12 truncate">
-                    {FOOD_GROUP_LABELS[group].slice(0, 6)}
-                  </span>
-                  <div className="flex-1 h-2 bg-surface-elevated rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${percentage}%`,
-                        backgroundColor: FOOD_COLORS[group]
-                      }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-muted-foreground w-8 text-right">
-                    {consumed[group]}/{DAILY_BUDGET[group]}
-                  </span>
-                </div>
               )
             })}
           </div>
         </Link>
       </div>
 
-      {/* Quick Habits */}
-      {habits.length > 0 && (
-        <div className="card !p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-accent" />
-              <span className="text-sm font-medium">Hábitos de hoy</span>
+      {/* Nutrition Card */}
+      <Link href="/food" className="card-interactive">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-green-400" />
             </div>
-            <Link href="/habits" className="text-xs text-accent hover:underline">
-              Ver todos
-            </Link>
+            <div>
+              <p className="stat-label">Nutrición hoy</p>
+              <p className="font-display text-display-xs">{totalConsumed} / {totalBudget} equiv.</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="font-display text-display-sm text-accent">{nutritionPercentage}%</p>
+            <p className="text-[10px] text-muted-foreground">completado</p>
+          </div>
+        </div>
+
+        {/* Food group bars */}
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          {(Object.keys(DAILY_BUDGET) as FoodGroup[]).map((group) => {
+            const percentage = Math.min((consumed[group] / DAILY_BUDGET[group]) * 100, 100)
+            return (
+              <div key={group}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-muted-foreground">{FOOD_GROUP_LABELS[group].slice(0, 4)}</span>
+                  <span className="text-[10px] font-medium">{consumed[group]}/{DAILY_BUDGET[group]}</span>
+                </div>
+                <div className="progress-track-sm">
+                  <div
+                    className="progress-fill"
+                    style={{ width: `${percentage}%`, backgroundColor: FOOD_COLORS[group] }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </Link>
+
+      {/* Quick Habits */}
+      {uniqueHabits.length > 0 && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium">Hábitos de hoy</p>
+            <Link href="/habits" className="text-xs text-accent">Ver todos</Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {habitsWithState.map((habit) => {
               const isComplete = habit.type === 'quantity'
                 ? habit.value >= (habit.target_value || 0)
                 : habit.completed
 
               return (
-                <div key={habit.id} className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                    isComplete
-                      ? 'bg-accent text-background'
-                      : 'bg-surface-elevated text-muted'
+                <div key={habit.id} className="flex items-center gap-3 py-2">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    isComplete ? 'bg-accent text-background' : 'bg-surface-elevated text-muted-foreground'
                   }`}>
-                    {habit.name.toLowerCase().includes('agua') && <Droplets className="w-5 h-5" />}
-                    {habit.name.toLowerCase().includes('creatina') && <Flame className="w-5 h-5" />}
+                    {habit.name.toLowerCase().includes('agua') && <Droplets className="w-4 h-4" />}
+                    {habit.name.toLowerCase().includes('creatina') && <Flame className="w-4 h-4" />}
                     {!habit.name.toLowerCase().includes('agua') &&
                      !habit.name.toLowerCase().includes('creatina') && (
-                      <Target className="w-5 h-5" />
+                      <Target className="w-4 h-4" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{habit.name}</p>
                     {habit.type === 'quantity' && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[10px] text-muted-foreground">
                         {habit.value} / {habit.target_value} {habit.unit}
                       </p>
                     )}
                   </div>
                   {habit.type === 'daily_check' && (
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                      isComplete
-                        ? 'bg-accent border-accent'
-                        : 'border-border'
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                      isComplete ? 'bg-accent border-accent' : 'border-border'
                     }`}>
                       {isComplete && (
-                        <svg className="w-3.5 h-3.5 text-background" viewBox="0 0 12 12" fill="none">
+                        <svg className="w-3 h-3 text-background" viewBox="0 0 12 12" fill="none">
                           <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       )}
                     </div>
                   )}
                   {habit.type === 'quantity' && (
-                    <div className="w-16">
-                      <div className="h-1.5 bg-surface-elevated rounded-full overflow-hidden">
+                    <div className="w-12">
+                      <div className="progress-track-sm">
                         <div
-                          className="h-full bg-accent rounded-full transition-all"
+                          className="progress-fill bg-accent"
                           style={{ width: `${Math.min((habit.value / (habit.target_value || 1)) * 100, 100)}%` }}
                         />
                       </div>
