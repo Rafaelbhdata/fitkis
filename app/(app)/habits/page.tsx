@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Droplets, BookOpen, Pill, X, Minus, Flame, Target, Zap, ChevronRight } from 'lucide-react'
+import { Plus, Droplets, BookOpen, Pill, X, Minus, Flame, Target, Zap, ChevronRight, ChevronLeft } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { DEFAULT_HABITS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -26,7 +26,7 @@ interface HabitWithLog extends Habit {
 }
 
 export default function HabitsPage() {
-  const today = getToday()
+  const todayStr = getToday()
   const { user } = useUser()
   const supabase = useSupabase()
   const [loading, setLoading] = useState(true)
@@ -34,10 +34,24 @@ export default function HabitsPage() {
   const [monthLogs, setMonthLogs] = useState<HabitLog[]>([])
   const [error, setError] = useState<string | null>(null)
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState(todayStr)
+
+  const isToday = selectedDate === todayStr
+  const selectedDateObj = new Date(selectedDate + 'T12:00:00') // Noon to avoid timezone issues
 
   useEffect(() => {
     if (user) loadHabits()
-  }, [user])
+  }, [user, selectedDate])
+
+  const navigateDate = (days: number) => {
+    const date = new Date(selectedDate + 'T12:00:00')
+    date.setDate(date.getDate() + days)
+    const newDateStr = date.toISOString().split('T')[0]
+    // Don't allow future dates
+    if (newDateStr <= todayStr) {
+      setSelectedDate(newDateStr)
+    }
+  }
 
   const loadHabits = async () => {
     if (!user) return
@@ -68,11 +82,11 @@ export default function HabitsPage() {
         typedHabitsData = data as Habit[] | null
       }
 
-      // Get today's logs
+      // Get logs for selected date
       const { data: logsData, error: logsError } = await supabase
         .from('habit_logs')
         .select('*')
-        .eq('date', today)
+        .eq('date', selectedDate)
 
       if (logsError) throw logsError
 
@@ -133,7 +147,7 @@ export default function HabitsPage() {
         const { data } = await (supabase.from('habit_logs') as any).insert({
           habit_id: habit.id,
           user_id: user.id,
-          date: today,
+          date: selectedDate,
           completed: newCompleted,
         }).select().single()
         if (data) {
@@ -165,7 +179,7 @@ export default function HabitsPage() {
         const { data } = await (supabase.from('habit_logs') as any).insert({
           habit_id: habit.id,
           user_id: user.id,
-          date: today,
+          date: selectedDate,
           value: newValue,
         }).select().single()
         if (data) {
@@ -188,7 +202,7 @@ export default function HabitsPage() {
     const dates = Array.from(new Set(logs.map(l => l.date))).sort().reverse()
 
     let streak = 0
-    const todayDate = new Date(today)
+    const todayDate = new Date(todayStr)
 
     for (let i = 0; i < 30; i++) {
       const checkDate = new Date(todayDate)
@@ -285,18 +299,50 @@ export default function HabitsPage() {
         </div>
       )}
 
-      {/* Header with stats */}
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-display-md">Hábitos</h1>
-          <p className="text-sm text-muted-foreground">
-            {completedCount}/{habits.length} completados hoy
-          </p>
-        </div>
+        <h1 className="font-display text-display-md">Hábitos</h1>
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
           <Flame className="w-4 h-4 text-orange-400" />
           <span className="font-display text-sm font-semibold text-orange-400">{totalStreak} días</span>
         </div>
+      </div>
+
+      {/* Date Navigation */}
+      <div className="card !p-3">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => navigateDate(-1)}
+            className="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="text-center">
+            <p className="text-sm font-medium">
+              {isToday ? 'Hoy' : selectedDateObj.toLocaleDateString('es-MX', { weekday: 'long' })}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {selectedDateObj.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}
+            </p>
+          </div>
+          <button
+            onClick={() => navigateDate(1)}
+            disabled={isToday}
+            className={`w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center transition-colors ${
+              isToday ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-hover'
+            }`}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+        {!isToday && (
+          <button
+            onClick={() => setSelectedDate(todayStr)}
+            className="w-full mt-3 text-xs text-accent hover:underline"
+          >
+            Volver a hoy
+          </button>
+        )}
       </div>
 
       {/* Stats Grid */}
@@ -404,7 +450,14 @@ export default function HabitsPage() {
 
       {/* Habits List */}
       <div className="space-y-3">
-        <p className="text-sm font-medium px-1">Hábitos de hoy</p>
+        <div className="flex items-center justify-between px-1">
+          <p className="text-sm font-medium">
+            {isToday ? 'Hábitos de hoy' : `Hábitos del ${selectedDateObj.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {completedCount}/{habits.length} completados
+          </p>
+        </div>
 
         {habits.map((habit) => {
           const Icon = habitIcons[habit.name] || Target
