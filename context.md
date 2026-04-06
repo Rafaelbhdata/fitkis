@@ -13,9 +13,46 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
-Agente: Gym Module Enhancement
+Agente: Phase 1 Quick Wins - UX Improvements
 Fecha: 6 de abril 2026
 Qué hizo:
+
+### Quick Wins Implementados (6 abril - sesión 4)
+
+#### 1. Botones "Reintentar" en errores
+- Todas las páginas (Dashboard, Food, Weight, Habits) ahora muestran botón "Reintentar" junto con el error
+- Permite al usuario reintentar la carga sin recargar la página
+
+#### 2. Touch targets aumentados a 44px+
+- Botones de navegación (prev/next semana/día) ahora son 40×40px
+- Botones del calendario tienen min-h-[52px]
+- Agregados aria-labels para accesibilidad
+
+#### 3. Racha de días mejorada en Hábitos
+- Ahora muestra "X días" en lugar de solo el número
+- Borde agregado para mejor visibilidad
+- Formato singular/plural correcto
+
+#### 4. Sistema de Toast Notifications
+- Nuevo componente `components/ui/Toast.tsx`
+- Provider global en `components/Providers.tsx`
+- Toasts de éxito en: agregar comida, completar hábito, registrar peso
+- Auto-dismiss después de 3 segundos
+
+#### 5. Indicador visual over-budget en Food
+- Color rojo cuando se excede el presupuesto diario
+- Badge "+X" mostrando el exceso
+- Track de la barra de progreso se vuelve rojo
+
+### Correcciones adicionales (6 abril - sesión 4)
+- Semana empieza en Lunes en Dashboard (consistente con Gym)
+- Navegación de fechas en Hábitos para editar días pasados
+- Fix de botones fantasma en Dashboard (display: block en cards)
+
+---
+
+### Previous Agent: Gym Module Enhancement
+Fecha: 6 de abril 2026
 
 ### New Features (6 abril - sesión 3)
 
