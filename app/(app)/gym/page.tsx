@@ -224,8 +224,8 @@ export default function GymPage() {
             </div>
           </div>
 
-          {/* Stats Row */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* Stats Row - 3 cols on mobile, 4 on desktop when we have more stats */}
+          <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
             <div className="card">
               <div className="flex items-center gap-2 mb-1">
                 <Zap className="w-3.5 h-3.5 text-accent" />

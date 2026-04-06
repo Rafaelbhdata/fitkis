@@ -269,8 +269,8 @@ export default function FoodPage() {
         </div>
       </div>
 
-      {/* Meals */}
-      <div className="space-y-3">
+      {/* Meals - 2 columns on tablet+ */}
+      <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
         {meals.map((meal) => {
           const budget = MEAL_BUDGETS[meal.key]
           const isExpanded = expandedMeal === meal.key

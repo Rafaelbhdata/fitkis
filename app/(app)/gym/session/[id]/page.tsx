@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Check, ChevronDown, TrendingUp, X, HelpCircle, Timer, Lightbulb, Scale, Play, Pause, RotateCcw, SkipForward } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, X, HelpCircle, Timer } from 'lucide-react'
+import { RestTimer, ExerciseInstructions, ProgressionBanner, SetRow } from '@/components/gym'
 import { ROUTINES, FEELING_OPTIONS } from '@/lib/constants'
 import { getRoutineName, formatDuration } from '@/lib/utils'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -506,38 +507,12 @@ export default function SessionPage() {
       </header>
 
       {/* Progression Suggestion */}
-      {shouldShowSuggestion && !viewMode && (
-        <div className="p-4 rounded-xl bg-accent/10 border border-accent/20 animate-scale-in">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-5 h-5 text-accent" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-accent text-sm">¡Hora de subir peso!</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {currentSuggestion.reason}
-              </p>
-              <p className="text-sm font-semibold text-accent mt-1">
-                Nuevo peso sugerido: {currentSuggestion.suggestedLbs} lbs
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={() => acceptSuggestion(currentSuggestion)}
-              className="flex-1 btn-primary text-sm py-2"
-            >
-              <Check className="w-4 h-4 mr-1" />
-              Aplicar
-            </button>
-            <button
-              onClick={() => dismissSuggestion(currentSuggestion.exerciseId)}
-              className="flex-1 btn-secondary text-sm py-2"
-            >
-              Ahora no
-            </button>
-          </div>
-        </div>
+      {shouldShowSuggestion && !viewMode && currentSuggestion && (
+        <ProgressionBanner
+          suggestion={currentSuggestion}
+          onAccept={() => acceptSuggestion(currentSuggestion)}
+          onDismiss={() => dismissSuggestion(currentSuggestion.exerciseId)}
+        />
       )}
 
       {/* Exercise Card */}
@@ -572,42 +547,7 @@ export default function SessionPage() {
 
         {/* Instructions Panel */}
         {showInstructions && currentExercise && (
-          <div className="mb-5 p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 animate-slide-up">
-            {/* Instructions */}
-            <div className="mb-4">
-              <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Pasos</p>
-              <ol className="space-y-2">
-                {currentExercise.instructions.map((instruction, index) => (
-                  <li key={index} className="flex gap-3 text-sm text-muted-foreground">
-                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-semibold flex items-center justify-center">
-                      {index + 1}
-                    </span>
-                    <span>{instruction}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            {/* Tip */}
-            {currentExercise.tip && (
-              <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <div className="flex items-start gap-2">
-                  <Lightbulb className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-200">{currentExercise.tip}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Weight Note */}
-            {currentExercise.weightNote && (
-              <div className="p-3 rounded-lg bg-surface-elevated border border-border">
-                <div className="flex items-start gap-2">
-                  <Scale className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground">{currentExercise.weightNote}</p>
-                </div>
-              </div>
-            )}
-          </div>
+          <ExerciseInstructions exercise={currentExercise} />
         )}
 
         {/* Target Info */}
@@ -633,48 +573,18 @@ export default function SessionPage() {
           </div>
 
           {currentData.sets.map((set, index) => (
-            <div key={index} className="grid grid-cols-12 gap-2 items-center">
-              <div className="col-span-2">
-                <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 text-accent text-xs font-semibold">
-                  {index + 1}
-                </span>
-              </div>
-              <div className="col-span-4">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  className="input text-center py-2.5 text-sm"
-                  placeholder="--"
-                  value={set.lbs}
-                  onChange={(e) => updateSet(index, 'lbs', e.target.value)}
-                  disabled={viewMode}
-                />
-              </div>
-              <div className="col-span-4">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  className="input text-center py-2.5 text-sm"
-                  placeholder={String(parseTargetReps(currentExercise?.reps || '10'))}
-                  value={set.reps}
-                  onChange={(e) => updateSet(index, 'reps', e.target.value)}
-                  disabled={viewMode}
-                />
-              </div>
-              <div className="col-span-2 flex justify-center">
-                <button
-                  onClick={() => !viewMode && toggleSetComplete(index)}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 ${
-                    set.completed
-                      ? 'bg-accent text-background'
-                      : 'bg-accent/10 text-accent'
-                  }`}
-                  disabled={viewMode}
-                >
-                  <Check className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+            <SetRow
+              key={index}
+              index={index}
+              lbs={set.lbs}
+              reps={set.reps}
+              completed={set.completed}
+              targetReps={parseTargetReps(currentExercise?.reps || '10')}
+              disabled={viewMode}
+              onLbsChange={(value) => updateSet(index, 'lbs', value)}
+              onRepsChange={(value) => updateSet(index, 'reps', value)}
+              onToggleComplete={() => !viewMode && toggleSetComplete(index)}
+            />
           ))}
         </div>
 
@@ -804,90 +714,15 @@ export default function SessionPage() {
 
       {/* Rest Timer Modal */}
       {isResting && !viewMode && (
-        <>
-          <div className="overlay animate-fade-in" onClick={skipRestTimer} />
-          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 animate-scale-in">
-            <div className="card !p-6 text-center">
-              {/* Timer Display */}
-              <div className="mb-6">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Tiempo de descanso</p>
-                <div className="relative">
-                  {/* Circular Progress */}
-                  <svg className="w-40 h-40 mx-auto transform -rotate-90">
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r="70"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      className="text-surface-elevated"
-                    />
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r="70"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      className="text-accent transition-all duration-1000"
-                      strokeDasharray={2 * Math.PI * 70}
-                      strokeDashoffset={2 * Math.PI * 70 * (1 - restSeconds / restPreset)}
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="font-display text-display-xl tabular-nums">
-                      {Math.floor(restSeconds / 60)}:{(restSeconds % 60).toString().padStart(2, '0')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Control Buttons */}
-              <div className="flex items-center justify-center gap-4 mb-6">
-                <button
-                  onClick={resetRestTimer}
-                  className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center hover:bg-surface-hover transition-colors"
-                  aria-label="Reiniciar timer"
-                >
-                  <RotateCcw className="w-5 h-5 text-muted-foreground" />
-                </button>
-                <button
-                  onClick={togglePauseRest}
-                  className="w-16 h-16 rounded-full bg-accent text-background flex items-center justify-center hover:bg-accent/90 transition-colors"
-                  aria-label={isPaused ? 'Continuar' : 'Pausar'}
-                >
-                  {isPaused ? <Play className="w-7 h-7 ml-1" /> : <Pause className="w-7 h-7" />}
-                </button>
-                <button
-                  onClick={skipRestTimer}
-                  className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center hover:bg-surface-hover transition-colors"
-                  aria-label="Saltar descanso"
-                >
-                  <SkipForward className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </div>
-
-              {/* Preset Buttons */}
-              <div className="flex justify-center gap-2">
-                {REST_PRESETS.map((seconds) => (
-                  <button
-                    key={seconds}
-                    onClick={() => startRestTimer(seconds)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      restPreset === seconds && !isPaused
-                        ? 'bg-accent/20 text-accent border border-accent/30'
-                        : 'bg-surface-elevated border border-border text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {seconds >= 60 ? `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}` : `${seconds}s`}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </>
+        <RestTimer
+          restSeconds={restSeconds}
+          restPreset={restPreset}
+          isPaused={isPaused}
+          onReset={resetRestTimer}
+          onTogglePause={togglePauseRest}
+          onSkip={skipRestTimer}
+          onPresetSelect={(seconds) => startRestTimer(seconds)}
+        />
       )}
 
       {/* Equipment Modal */}
