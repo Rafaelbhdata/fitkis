@@ -86,7 +86,7 @@
   /* ===== CARDS ===== */
   .card {
     @apply relative bg-surface rounded-xl p-4
-           border border-border
+           border border-border overflow-hidden
            transition-colors duration-150;
   }
 
