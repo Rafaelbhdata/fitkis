@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Check, ChevronDown, Loader2, TrendingUp } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, TrendingUp, X } from 'lucide-react'
 import { ROUTINES, FEELING_OPTIONS } from '@/lib/constants'
 import { getRoutineName, getDayOfWeek, getRoutineForDay, getToday } from '@/lib/utils'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -68,7 +68,6 @@ export default function SessionPage() {
   }, [user])
 
   const initializeSession = async () => {
-    // Initialize exercise data with empty sets
     const initialData: Record<string, ExerciseData> = {}
     exercises.forEach(ex => {
       initialData[ex.id] = {
@@ -78,8 +77,6 @@ export default function SessionPage() {
       }
     })
     setExerciseData(initialData)
-
-    // Check for progression suggestions based on last 2 sessions
     await checkProgression()
     setLoading(false)
   }
@@ -93,7 +90,6 @@ export default function SessionPage() {
     setLoading(true)
     setViewMode(true)
 
-    // Load session
     const { data: session } = await supabase
       .from('gym_sessions')
       .select('*')
@@ -111,7 +107,6 @@ export default function SessionPage() {
     if (typedSession.cardio_minutes) setCardioMinutes(String(typedSession.cardio_minutes))
     if (typedSession.cardio_speed) setCardioSpeed(String(typedSession.cardio_speed))
 
-    // Load sets
     const { data: sets } = await supabase
       .from('session_sets')
       .select('*')
@@ -119,8 +114,6 @@ export default function SessionPage() {
       .order('set_number')
 
     const typedSets = sets as SessionSet[] | null
-
-    // Organize sets by exercise
     const loadedData: Record<string, ExerciseData> = {}
     const routineExercises = ROUTINES[typedSession.routine_type as RoutineType]
 
@@ -148,7 +141,6 @@ export default function SessionPage() {
   const checkProgression = async () => {
     if (!user) return
 
-    // Get last 2 sessions of same routine type
     const { data: pastSessions } = await supabase
       .from('gym_sessions')
       .select('id')
@@ -158,10 +150,8 @@ export default function SessionPage() {
       .limit(2)
 
     const typedPastSessions = pastSessions as { id: string }[] | null
-
     if (!typedPastSessions || typedPastSessions.length < 2) return
 
-    // Get sets from these sessions
     const sessionIds = typedPastSessions.map(s => s.id)
     const { data: pastSets } = await supabase
       .from('session_sets')
@@ -169,27 +159,21 @@ export default function SessionPage() {
       .in('session_id', sessionIds)
 
     const typedPastSets = pastSets as SessionSet[] | null
-
     if (!typedPastSets) return
 
-    // Check each exercise for progression
     const suggestions: ProgressionSuggestion[] = []
 
     exercises.forEach(exercise => {
       const exerciseSets = typedPastSets.filter(s => s.exercise_id === exercise.id)
-
-      // Group by session
       const session1Sets = exerciseSets.filter(s => s.session_id === typedPastSessions[0].id)
       const session2Sets = exerciseSets.filter(s => s.session_id === typedPastSessions[1].id)
 
       if (session1Sets.length === 0 || session2Sets.length === 0) return
 
-      // Check if all sets completed target reps in both sessions
       const session1Complete = session1Sets.every(s => s.reps && s.reps >= exercise.targetReps)
       const session2Complete = session2Sets.every(s => s.reps && s.reps >= exercise.targetReps)
 
       if (session1Complete && session2Complete) {
-        // Get the weight used (use max from last session)
         const lastWeight = Math.max(...session1Sets.map(s => s.lbs || 0))
         if (lastWeight > 0) {
           suggestions.push({
@@ -258,7 +242,6 @@ export default function SessionPage() {
     setSaving(true)
 
     try {
-      // Create or get session
       let sessionIdToUse = currentSessionId
 
       if (!sessionIdToUse) {
@@ -278,7 +261,6 @@ export default function SessionPage() {
         sessionIdToUse = newSession.id
         setCurrentSessionId(sessionIdToUse)
       } else {
-        // Update cardio if editing
         await (supabase
           .from('gym_sessions') as any)
           .update({
@@ -288,10 +270,8 @@ export default function SessionPage() {
           .eq('id', sessionIdToUse)
       }
 
-      // Delete existing sets and insert new ones
       await (supabase.from('session_sets') as any).delete().eq('session_id', sessionIdToUse)
 
-      // Prepare sets to insert
       const setsToInsert: Array<{
         session_id: string
         exercise_id: string
@@ -338,55 +318,64 @@ export default function SessionPage() {
 
   if (loading || userLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+          <p className="text-sm text-muted">Cargando...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center gap-4">
-        <Link href={viewMode ? '/gym/history' : '/gym'} className="p-2 -ml-2">
-          <ArrowLeft className="w-6 h-6" />
+    <div className="space-y-5 animate-fade-in">
+      {/* Header */}
+      <header className="flex items-center gap-4 pt-2">
+        <Link href={viewMode ? '/gym/history' : '/gym'} className="btn-icon -ml-2">
+          <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="font-display text-xl font-bold">
+          <h1 className="font-display text-display-sm">
             {getRoutineName(viewMode ? sessionRoutineType : routineType)}
           </h1>
-          <p className="text-sm text-muted">
+          <p className="text-xs text-muted">
             Ejercicio {currentExerciseIndex + 1} de {displayExercises.length}
           </p>
         </div>
       </header>
 
+      {/* Progression Suggestion */}
       {currentSuggestion && !viewMode && (
-        <div className="card bg-accent/10 border border-accent/30">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="w-6 h-6 text-accent flex-shrink-0" />
+        <div className="p-4 rounded-xl bg-accent/10 border border-accent/20 animate-scale-in">
+          <div className="flex items-start gap-3">
+            <TrendingUp className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium text-accent">¡Sube el peso!</p>
-              <p className="text-sm text-muted">{currentSuggestion.reason}. Prueba con {currentSuggestion.suggestedLbs} lbs</p>
+              <p className="font-medium text-accent text-sm">¡Sube el peso!</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {currentSuggestion.reason}. Prueba con {currentSuggestion.suggestedLbs} lbs
+              </p>
             </div>
           </div>
         </div>
       )}
 
+      {/* Exercise Card */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-2xl font-bold">{displayExercises[currentExerciseIndex]?.name}</h2>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="font-display text-display-sm">{displayExercises[currentExerciseIndex]?.name}</h2>
           <button
             onClick={() => !viewMode && setShowEquipmentModal(true)}
-            className="flex items-center gap-1 text-sm text-muted"
+            className="flex items-center gap-1 text-xs text-muted-foreground px-2 py-1 rounded-lg hover:bg-surface-elevated transition-colors"
             disabled={viewMode}
           >
             {currentData.equipment}
-            {!viewMode && <ChevronDown className="w-4 h-4" />}
+            {!viewMode && <ChevronDown className="w-3 h-3" />}
           </button>
         </div>
 
+        {/* Sets Grid */}
         <div className="space-y-3">
-          <div className="grid grid-cols-12 gap-2 text-sm text-muted mb-2">
+          <div className="grid grid-cols-12 gap-2 text-[10px] uppercase tracking-wider text-muted mb-3">
             <div className="col-span-2">Serie</div>
             <div className="col-span-4 text-center">Peso (lbs)</div>
             <div className="col-span-4 text-center">Reps</div>
@@ -396,7 +385,7 @@ export default function SessionPage() {
           {currentData.sets.map((set, index) => (
             <div key={index} className="grid grid-cols-12 gap-2 items-center">
               <div className="col-span-2">
-                <span className="w-8 h-8 rounded-full bg-accent/20 text-accent text-sm flex items-center justify-center font-medium">
+                <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 text-accent text-xs font-semibold">
                   {index + 1}
                 </span>
               </div>
@@ -404,7 +393,7 @@ export default function SessionPage() {
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="input text-center py-2"
+                  className="input text-center py-2.5 text-sm"
                   placeholder="--"
                   value={set.lbs}
                   onChange={(e) => updateSet(index, 'lbs', e.target.value)}
@@ -415,7 +404,7 @@ export default function SessionPage() {
                 <input
                   type="number"
                   inputMode="numeric"
-                  className="input text-center py-2"
+                  className="input text-center py-2.5 text-sm"
                   placeholder={String(displayExercises[currentExerciseIndex]?.targetReps)}
                   value={set.reps}
                   onChange={(e) => updateSet(index, 'reps', e.target.value)}
@@ -425,29 +414,32 @@ export default function SessionPage() {
               <div className="col-span-2 flex justify-center">
                 <button
                   onClick={() => !viewMode && toggleSetComplete(index)}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                    set.completed ? 'bg-accent' : 'bg-accent/20'
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 ${
+                    set.completed
+                      ? 'bg-accent text-background'
+                      : 'bg-accent/10 text-accent'
                   }`}
                   disabled={viewMode}
                 >
-                  <Check className={`w-4 h-4 ${set.completed ? 'text-background' : 'text-accent'}`} />
+                  <Check className="w-4 h-4" />
                 </button>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-6">
-          <p className="text-sm text-muted mb-2">¿Cómo se sintió?</p>
+        {/* Feeling */}
+        <div className="mt-6 pt-5 border-t border-border">
+          <p className="section-label">¿Cómo se sintió?</p>
           <div className="flex flex-wrap gap-2">
             {FEELING_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 onClick={() => !viewMode && setFeeling(option.value as Feeling)}
-                className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 ${
                   currentData.feeling === option.value
                     ? 'bg-accent text-background'
-                    : 'bg-surface border border-border hover:border-accent'
+                    : 'bg-surface-elevated border border-border hover:border-accent/50'
                 }`}
                 disabled={viewMode}
               >
@@ -458,18 +450,18 @@ export default function SessionPage() {
         </div>
       </div>
 
-      {/* Cardio section - show on last exercise or in view mode */}
+      {/* Cardio */}
       {(currentExerciseIndex === displayExercises.length - 1 || viewMode) && (
         <div className="card">
-          <h3 className="font-display text-lg font-semibold mb-4">Cardio (opcional)</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <p className="section-label">Cardio (opcional)</p>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Minutos</label>
               <input
                 type="number"
                 inputMode="numeric"
                 className="input"
-                placeholder="Ej: 15"
+                placeholder="15"
                 value={cardioMinutes}
                 onChange={(e) => setCardioMinutes(e.target.value)}
                 disabled={viewMode}
@@ -482,7 +474,7 @@ export default function SessionPage() {
                 inputMode="decimal"
                 step="0.1"
                 className="input"
-                placeholder="Ej: 5.5"
+                placeholder="5.5"
                 value={cardioSpeed}
                 onChange={(e) => setCardioSpeed(e.target.value)}
                 disabled={viewMode}
@@ -492,6 +484,7 @@ export default function SessionPage() {
         </div>
       )}
 
+      {/* Navigation Buttons */}
       {!viewMode && (
         <div className="flex gap-3">
           <button
@@ -513,7 +506,7 @@ export default function SessionPage() {
             }}
           >
             {saving ? (
-              <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+              <div className="w-5 h-5 rounded-full border-2 border-background border-t-transparent animate-spin" />
             ) : currentExerciseIndex < exercises.length - 1 ? (
               'Siguiente'
             ) : (
@@ -523,54 +516,60 @@ export default function SessionPage() {
         </div>
       )}
 
-      <div className="flex gap-2 overflow-x-auto pb-2">
-        {displayExercises.map((ex, index) => (
-          <button
-            key={ex.id}
-            onClick={() => setCurrentExerciseIndex(index)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm transition-colors ${
-              index === currentExerciseIndex
-                ? 'bg-accent text-background'
-                : exerciseData[ex.id]?.sets.some(s => s.lbs || s.reps)
-                ? 'bg-accent/20 text-accent'
-                : 'bg-surface text-muted'
-            }`}
-          >
-            {index + 1}. {ex.name.split(' ')[0]}
-          </button>
-        ))}
+      {/* Exercise Pills */}
+      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+        {displayExercises.map((ex, index) => {
+          const hasData = exerciseData[ex.id]?.sets.some(s => s.lbs || s.reps)
+          return (
+            <button
+              key={ex.id}
+              onClick={() => setCurrentExerciseIndex(index)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 ${
+                index === currentExerciseIndex
+                  ? 'bg-accent text-background'
+                  : hasData
+                  ? 'bg-accent/10 text-accent border border-accent/20'
+                  : 'bg-surface-elevated text-muted border border-border'
+              }`}
+            >
+              {index + 1}. {ex.name.split(' ')[0]}
+            </button>
+          )
+        })}
       </div>
 
-      {/* Equipment selection modal */}
+      {/* Equipment Modal */}
       {showEquipmentModal && (
-        <div className="fixed inset-0 bg-background/80 z-50 flex items-end">
-          <div className="w-full bg-surface rounded-t-2xl p-6">
-            <h2 className="font-display text-xl font-semibold mb-4">Seleccionar equipo</h2>
+        <>
+          <div className="overlay animate-fade-in" onClick={() => setShowEquipmentModal(false)} />
+          <div className="sheet p-6 animate-slide-up">
+            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-6" />
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-display text-display-sm">Seleccionar equipo</h2>
+              <button onClick={() => setShowEquipmentModal(false)} className="btn-icon">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             <div className="space-y-2">
               <button
                 onClick={() => selectEquipment(currentExercise.defaultEquipment)}
-                className="w-full text-left p-3 rounded-lg bg-background hover:bg-card-hover transition-colors"
+                className="w-full text-left p-4 rounded-xl bg-surface hover:bg-surface-hover transition-colors active:scale-[0.99]"
               >
-                {currentExercise.defaultEquipment} (predeterminado)
+                <p className="font-medium text-sm">{currentExercise.defaultEquipment}</p>
+                <p className="text-xs text-muted mt-0.5">Predeterminado</p>
               </button>
               {currentExercise.substitutions.map((sub) => (
                 <button
                   key={sub}
                   onClick={() => selectEquipment(sub)}
-                  className="w-full text-left p-3 rounded-lg bg-background hover:bg-card-hover transition-colors"
+                  className="w-full text-left p-4 rounded-xl bg-surface hover:bg-surface-hover transition-colors active:scale-[0.99]"
                 >
-                  {sub}
+                  <p className="font-medium text-sm">{sub}</p>
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setShowEquipmentModal(false)}
-              className="w-full btn-secondary mt-4"
-            >
-              Cancelar
-            </button>
           </div>
-        </div>
+        </>
       )}
     </div>
   )

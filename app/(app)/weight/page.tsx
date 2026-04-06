@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, TrendingDown, Target, Loader2, X } from 'lucide-react'
+import { Plus, TrendingDown, Target, X, Minus } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { USER_PROFILE } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -19,9 +19,7 @@ export default function WeightPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (user) {
-      loadWeightLogs()
-    }
+    if (user) loadWeightLogs()
   }, [user])
 
   const loadWeightLogs = async () => {
@@ -33,7 +31,6 @@ export default function WeightPage() {
         .select('*')
         .order('date', { ascending: false })
         .limit(30)
-
       if (fetchError) throw fetchError
       if (data) setWeightLogs(data as WeightLog[])
     } catch (err) {
@@ -44,7 +41,6 @@ export default function WeightPage() {
 
   const saveWeight = async () => {
     if (!user || !weight) return
-
     setSaving(true)
     setError(null)
     try {
@@ -53,7 +49,6 @@ export default function WeightPage() {
         date: getToday(),
         weight_kg: parseFloat(weight),
       })
-
       if (saveError) throw saveError
       await loadWeightLogs()
       setShowForm(false)
@@ -68,61 +63,79 @@ export default function WeightPage() {
   const weightLost = USER_PROFILE.initialWeight - latestWeight
   const progress = ((USER_PROFILE.initialWeight - latestWeight) / (USER_PROFILE.initialWeight - USER_PROFILE.goalWeight)) * 100
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+          <p className="text-sm text-muted">Cargando...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="font-display text-3xl font-bold">Peso</h1>
-        <p className="text-muted capitalize">{formatDate(today)}</p>
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <header className="pt-2">
+        <p className="text-sm text-muted-foreground mb-1 capitalize">{formatDate(today)}</p>
+        <h1 className="font-display text-display-md text-foreground">Peso</h1>
       </header>
 
       {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
+        <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm flex items-center justify-between animate-scale-in">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
+          <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Peso actual */}
-      <section className="card text-center">
-        <p className="text-sm text-muted mb-1">Peso actual</p>
-        <p className="font-display text-5xl font-bold text-accent">{latestWeight}</p>
-        <p className="text-xl text-muted">kg</p>
+      {/* Current Weight - Hero */}
+      <div className="card text-center py-8">
+        <p className="section-label">Peso actual</p>
+        <div className="flex items-baseline justify-center gap-2">
+          <span className="font-display text-display-xl text-accent">{latestWeight}</span>
+          <span className="text-xl text-muted">kg</span>
+        </div>
 
         {weightLost > 0 && (
-          <div className="flex items-center justify-center gap-2 mt-4 text-green-500">
-            <TrendingDown className="w-5 h-5" />
+          <div className="inline-flex items-center gap-2 mt-4 px-3 py-1.5 rounded-lg bg-success/10 text-success text-sm">
+            <TrendingDown className="w-4 h-4" />
             <span className="font-medium">-{weightLost.toFixed(1)} kg desde el inicio</span>
           </div>
         )}
-      </section>
+      </div>
 
-      {/* Progreso a la meta */}
-      <section className="card">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Target className="w-5 h-5 text-accent" />
-            <span className="font-medium">Meta: {USER_PROFILE.goalWeight} kg</span>
+      {/* Progress to Goal */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+              <Target className="w-5 h-5 text-accent" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Meta: {USER_PROFILE.goalWeight} kg</p>
+              <p className="text-xs text-muted">Faltan {Math.max(0, latestWeight - USER_PROFILE.goalWeight).toFixed(1)} kg</p>
+            </div>
           </div>
-          <span className="text-sm text-muted">{Math.max(0, progress).toFixed(0)}%</span>
+          <span className="font-display text-lg font-semibold text-accent">
+            {Math.max(0, progress).toFixed(0)}%
+          </span>
         </div>
-        <div className="h-3 bg-border rounded-full overflow-hidden">
+        <div className="progress-track">
           <div
-            className="h-full bg-accent transition-all"
+            className="progress-fill bg-accent"
             style={{ width: `${Math.min(Math.max(0, progress), 100)}%` }}
           />
         </div>
-        <p className="text-sm text-muted mt-2">
-          Faltan {Math.max(0, latestWeight - USER_PROFILE.goalWeight).toFixed(1)} kg
-        </p>
-      </section>
+      </div>
 
-      {/* Formulario de registro */}
+      {/* Add Weight Form/Button */}
       {showForm ? (
-        <section className="card">
-          <h2 className="font-display text-lg font-semibold mb-4">Registrar peso</h2>
-          <div className="space-y-4">
+        <div className="card animate-scale-in">
+          <h2 className="font-display text-display-sm mb-5">Registrar peso</h2>
+          <div className="space-y-5">
             <div>
               <label className="label">Peso (kg)</label>
               <input
@@ -133,11 +146,12 @@ export default function WeightPage() {
                 placeholder="Ej: 85.5"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
+                autoFocus
               />
             </div>
             <div className="flex gap-3">
               <button
-                className="btn-secondary flex-1"
+                className="flex-1 btn-secondary"
                 onClick={() => {
                   setShowForm(false)
                   setWeight('')
@@ -146,18 +160,20 @@ export default function WeightPage() {
                 Cancelar
               </button>
               <button
-                className="btn-primary flex-1"
+                className="flex-1 btn-primary"
                 onClick={saveWeight}
                 disabled={saving || !weight}
               >
-                {saving ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Guardar'}
+                {saving ? (
+                  <div className="w-5 h-5 rounded-full border-2 border-background border-t-transparent animate-spin" />
+                ) : 'Guardar'}
               </button>
             </div>
           </div>
-        </section>
+        </div>
       ) : (
         <button
-          className="w-full btn-primary flex items-center justify-center gap-2"
+          className="w-full btn-primary"
           onClick={() => setShowForm(true)}
         >
           <Plus className="w-5 h-5" />
@@ -165,31 +181,39 @@ export default function WeightPage() {
         </button>
       )}
 
-      {/* Historial */}
-      <section className="card">
-        <h2 className="text-sm font-medium text-muted mb-3">Historial</h2>
-        {loading ? (
-          <div className="flex justify-center py-4">
-            <Loader2 className="w-6 h-6 animate-spin text-muted" />
-          </div>
-        ) : weightLogs.length > 0 ? (
-          <div className="space-y-2">
-            {weightLogs.map((log) => (
-              <div key={log.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <span className="text-muted">
-                  {new Date(log.date).toLocaleDateString('es-MX', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </span>
-                <span className="font-medium">{log.weight_kg} kg</span>
-              </div>
-            ))}
+      {/* History */}
+      <div className="card">
+        <p className="section-label">Historial reciente</p>
+        {weightLogs.length > 0 ? (
+          <div className="space-y-0">
+            {weightLogs.slice(0, 10).map((log, index) => {
+              const prevLog = weightLogs[index + 1]
+              const diff = prevLog ? log.weight_kg - prevLog.weight_kg : 0
+
+              return (
+                <div key={log.id} className="list-item">
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(log.date).toLocaleDateString('es-MX', {
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    {diff !== 0 && (
+                      <span className={`text-xs font-medium ${diff < 0 ? 'text-success' : 'text-danger'}`}>
+                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                      </span>
+                    )}
+                    <span className="font-medium tabular-nums">{log.weight_kg} kg</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         ) : (
-          <p className="text-center text-muted py-4">Sin registros aún</p>
+          <p className="text-center text-muted py-8">Sin registros aún</p>
         )}
-      </section>
+      </div>
     </div>
   )
 }

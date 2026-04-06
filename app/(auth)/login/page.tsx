@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 export default function LoginPage() {
@@ -38,67 +38,99 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center px-6 py-12">
-      <div className="text-center mb-8">
-        <h1 className="font-display text-4xl font-bold text-accent mb-2">FitLife</h1>
-        <p className="text-muted">Tu app personal de fitness</p>
-      </div>
+    <div className="min-h-screen flex flex-col px-6 py-12 relative overflow-hidden">
+      {/* Subtle gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-accent/[0.02] via-transparent to-transparent pointer-events-none" />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="label">Email</label>
-          <input
-            type="email"
-            className="input"
-            placeholder="tu@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+      {/* Decorative elements */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[120px] pointer-events-none" />
+
+      {/* Content */}
+      <div className="relative flex-1 flex flex-col justify-center max-w-sm mx-auto w-full">
+        {/* Logo & Welcome */}
+        <div className="text-center mb-12 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 mb-6">
+            <span className="text-2xl font-display font-bold text-accent">F</span>
+          </div>
+          <h1 className="font-display text-display-lg text-foreground mb-2">
+            Bienvenido
+          </h1>
+          <p className="text-muted-foreground">
+            Inicia sesión para continuar
+          </p>
         </div>
 
-        <div>
-          <label className="label">Contraseña</label>
-          <div className="relative">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-5 animate-slide-up">
+          <div>
+            <label className="label">Email</label>
             <input
-              type={showPassword ? 'text' : 'password'}
-              className="input pr-12"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              type="email"
+              className="input"
+              placeholder="tu@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
-            >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
           </div>
-        </div>
 
-        {error && (
-          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
-            {error}
+          <div>
+            <label className="label">Contraseña</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="input pr-12"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-muted-foreground transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
-        )}
 
-        <button
-          type="submit"
-          className="w-full btn-primary"
-          disabled={loading}
-        >
-          {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
-        </button>
-      </form>
+          {error && (
+            <div className="p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm animate-scale-in">
+              {error}
+            </div>
+          )}
 
-      <p className="text-center text-muted mt-6">
-        ¿No tienes cuenta?{' '}
-        <Link href="/register" className="text-accent font-medium">
-          Regístrate
-        </Link>
-      </p>
+          <button
+            type="submit"
+            className="w-full btn-primary group"
+            disabled={loading}
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Iniciando sesión...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                Continuar
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </span>
+            )}
+          </button>
+        </form>
+
+        {/* Register link */}
+        <p className="text-center text-muted-foreground mt-8 animate-fade-in delay-300">
+          ¿No tienes cuenta?{' '}
+          <Link href="/register" className="text-accent font-medium hover:underline underline-offset-4">
+            Regístrate
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

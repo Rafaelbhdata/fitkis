@@ -6,8 +6,8 @@ export default function AppLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen pb-20">
-      <main className="px-4 py-6 safe-top">
+    <div className="min-h-screen pb-24">
+      <main className="px-5 py-6 safe-top max-w-lg mx-auto">
         {children}
       </main>
       <BottomNav />

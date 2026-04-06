@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 export default function RegisterPage() {
@@ -39,98 +39,132 @@ export default function RegisterPage() {
       return
     }
 
-    // Supabase puede requerir confirmación de email
     setSuccess(true)
     setLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center px-6 py-12">
-      <div className="text-center mb-8">
-        <h1 className="font-display text-4xl font-bold text-accent mb-2">FitLife</h1>
-        <p className="text-muted">Crea tu cuenta</p>
-      </div>
+    <div className="min-h-screen flex flex-col px-6 py-12 relative overflow-hidden">
+      {/* Subtle gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-accent/[0.02] via-transparent to-transparent pointer-events-none" />
 
-      {success ? (
-        <div className="space-y-4">
-          <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-center">
-            <p className="font-medium mb-2">¡Cuenta creada!</p>
-            <p className="text-sm">Revisa tu email para confirmar tu cuenta, luego puedes iniciar sesión.</p>
+      {/* Decorative elements */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[120px] pointer-events-none" />
+
+      {/* Content */}
+      <div className="relative flex-1 flex flex-col justify-center max-w-sm mx-auto w-full">
+        {/* Logo & Header */}
+        <div className="text-center mb-10 animate-fade-in">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 mb-6">
+            <span className="text-2xl font-display font-bold text-accent">F</span>
           </div>
-          <Link href="/login" className="block w-full btn-primary text-center">
-            Ir a iniciar sesión
-          </Link>
+          <h1 className="font-display text-display-lg text-foreground mb-2">
+            Crear cuenta
+          </h1>
+          <p className="text-muted-foreground">
+            Comienza tu viaje fitness
+          </p>
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="label">Email</label>
-            <input
-              type="email"
-              className="input"
-              placeholder="tu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
 
-          <div>
-            <label className="label">Contraseña</label>
-            <div className="relative">
+        {success ? (
+          <div className="space-y-6 animate-scale-in">
+            <div className="p-6 rounded-2xl bg-success/10 border border-success/20 text-center">
+              <CheckCircle className="w-12 h-12 text-success mx-auto mb-4" />
+              <p className="font-display text-display-sm text-foreground mb-2">¡Cuenta creada!</p>
+              <p className="text-sm text-muted-foreground">
+                Revisa tu email para confirmar tu cuenta, luego puedes iniciar sesión.
+              </p>
+            </div>
+            <Link href="/login" className="block w-full btn-primary text-center">
+              Ir a iniciar sesión
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5 animate-slide-up">
+            <div>
+              <label className="label">Email</label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                className="input pr-12"
-                placeholder="Mínimo 8 caracteres"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={8}
+                type="email"
+                className="input"
+                placeholder="tu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
             </div>
-          </div>
 
-          <div>
-            <label className="label">Confirmar contraseña</label>
-            <input
-              type={showPassword ? 'text' : 'password'}
-              className="input"
-              placeholder="Repite tu contraseña"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
-              {error}
+            <div>
+              <label className="label">Contraseña</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="input pr-12"
+                  placeholder="Mínimo 8 caracteres"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={8}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted hover:text-muted-foreground transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
-          )}
 
-          <button
-            type="submit"
-            className="w-full btn-primary"
-            disabled={loading}
-          >
-            {loading ? 'Creando cuenta...' : 'Crear cuenta'}
-          </button>
-        </form>
-      )}
+            <div>
+              <label className="label">Confirmar contraseña</label>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="input"
+                placeholder="Repite tu contraseña"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
 
-      <p className="text-center text-muted mt-6">
-        ¿Ya tienes cuenta?{' '}
-        <Link href="/login" className="text-accent font-medium">
-          Inicia sesión
-        </Link>
-      </p>
+            {error && (
+              <div className="p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm animate-scale-in">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full btn-primary group"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Creando cuenta...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  Crear cuenta
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </span>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* Login link */}
+        <p className="text-center text-muted-foreground mt-8 animate-fade-in delay-300">
+          ¿Ya tienes cuenta?{' '}
+          <Link href="/login" className="text-accent font-medium hover:underline underline-offset-4">
+            Inicia sesión
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

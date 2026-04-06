@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Check, Droplets, BookOpen, Pill, Loader2, X } from 'lucide-react'
+import { Plus, Droplets, BookOpen, Pill, X, Minus } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { DEFAULT_HABITS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -28,9 +28,7 @@ export default function HabitsPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (user) {
-      loadHabits()
-    }
+    if (user) loadHabits()
   }, [user])
 
   const loadHabits = async () => {
@@ -39,7 +37,6 @@ export default function HabitsPage() {
     setError(null)
 
     try {
-      // Cargar hábitos del usuario
       let { data: habitsData, error: habitsError } = await supabase
         .from('habits')
         .select('*')
@@ -50,7 +47,6 @@ export default function HabitsPage() {
 
       let typedHabitsData = habitsData as Habit[] | null
 
-      // Si no tiene hábitos, crear los predeterminados
       if (!typedHabitsData || typedHabitsData.length === 0) {
         const defaultHabits = DEFAULT_HABITS.map(h => ({
           user_id: user.id,
@@ -64,7 +60,6 @@ export default function HabitsPage() {
         typedHabitsData = data as Habit[] | null
       }
 
-      // Cargar logs de hoy
       const { data: logsData, error: logsError } = await supabase
         .from('habit_logs')
         .select('*')
@@ -74,7 +69,6 @@ export default function HabitsPage() {
 
       const typedLogsData = logsData as HabitLog[] | null
 
-      // Combinar hábitos con sus logs de hoy
       const habitsWithLogs: HabitWithLog[] = (typedHabitsData || []).map(habit => {
         const log = typedLogsData?.find(l => l.habit_id === habit.id)
         return {
@@ -97,7 +91,6 @@ export default function HabitsPage() {
     const newCompleted = !habit.completed
     const previousState = habit.completed
 
-    // Actualizar UI optimistamente
     setHabits(habits.map(h =>
       h.id === habit.id ? { ...h, completed: newCompleted } : h
     ))
@@ -119,7 +112,6 @@ export default function HabitsPage() {
         }
       }
     } catch (err) {
-      // Revertir cambio optimista
       setHabits(habits.map(h =>
         h.id === habit.id ? { ...h, completed: previousState } : h
       ))
@@ -131,7 +123,6 @@ export default function HabitsPage() {
     if (!user) return
     const previousValue = habit.currentValue
 
-    // Actualizar UI optimistamente
     setHabits(habits.map(h =>
       h.id === habit.id ? { ...h, currentValue: newValue } : h
     ))
@@ -153,7 +144,6 @@ export default function HabitsPage() {
         }
       }
     } catch (err) {
-      // Revertir cambio optimista
       setHabits(habits.map(h =>
         h.id === habit.id ? { ...h, currentValue: previousValue } : h
       ))
@@ -161,80 +151,97 @@ export default function HabitsPage() {
     }
   }
 
-  const completedCount = habits.filter(h => h.completed || (h.type === 'quantity' && h.currentValue >= (h.target_value || 0))).length
+  const completedCount = habits.filter(h =>
+    h.completed || (h.type === 'quantity' && h.currentValue >= (h.target_value || 0))
+  ).length
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+          <p className="text-sm text-muted">Cargando...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="font-display text-3xl font-bold">Hábitos</h1>
-        <p className="text-muted capitalize">{formatDate(new Date())}</p>
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <header className="pt-2">
+        <p className="text-sm text-muted-foreground mb-1 capitalize">{formatDate(new Date())}</p>
+        <h1 className="font-display text-display-md text-foreground">Hábitos</h1>
       </header>
 
       {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm flex items-center justify-between">
+        <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm flex items-center justify-between animate-scale-in">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
+          <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
             <X className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* Resumen */}
-      <section className="card">
+      {/* Summary Ring */}
+      <div className="card">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted">Completados hoy</p>
-            <p className="font-display text-3xl font-bold">
+            <p className="section-label !mb-1">Completados hoy</p>
+            <p className="font-display text-display-lg">
               <span className="text-accent">{completedCount}</span>
               <span className="text-muted">/{habits.length}</span>
             </p>
           </div>
-          <div className="w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center">
-            <span className="font-display text-xl font-bold">
+
+          {/* Progress Ring */}
+          <div className="relative w-16 h-16">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+              <circle
+                cx="18" cy="18" r="15"
+                fill="none" stroke="currentColor" strokeWidth="3"
+                className="text-surface-elevated"
+              />
+              <circle
+                cx="18" cy="18" r="15"
+                fill="none" stroke="currentColor" strokeWidth="3"
+                strokeLinecap="round"
+                className="text-accent transition-all duration-500"
+                strokeDasharray={`${habits.length > 0 ? (completedCount / habits.length) * 94 : 0} 94`}
+              />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center font-display text-sm font-semibold">
               {habits.length > 0 ? Math.round((completedCount / habits.length) * 100) : 0}%
             </span>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Lista de hábitos */}
-      <section className="space-y-3">
+      {/* Habits List */}
+      <div className="space-y-3">
         {habits.map((habit) => {
-          const Icon = habitIcons[habit.name] || Check
+          const Icon = habitIcons[habit.name] || Plus
           const isQuantity = habit.type === 'quantity'
           const isCompleted = isQuantity
             ? habit.currentValue >= (habit.target_value || 0)
             : habit.completed
 
           return (
-            <div key={habit.id} className="card">
+            <div key={habit.id} className={`card ${isCompleted ? 'card-highlight' : ''}`}>
               <div className="flex items-center gap-4">
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
-                    isCompleted ? 'bg-accent' : 'bg-accent/20'
-                  }`}
-                >
-                  <Icon className={`w-6 h-6 ${isCompleted ? 'text-background' : 'text-accent'}`} />
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+                  isCompleted
+                    ? 'bg-accent text-background'
+                    : 'bg-accent/10 text-accent'
+                }`}>
+                  <Icon className="w-5 h-5" />
                 </div>
 
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <h3 className="font-medium">{habit.name}</h3>
                   {habit.type === 'quantity' && (
-                    <p className="text-sm text-muted">
+                    <p className="text-xs text-muted">
                       Meta: {habit.target_value} {habit.unit}
-                    </p>
-                  )}
-                  {habit.type === 'weekly_frequency' && (
-                    <p className="text-sm text-muted">
-                      {habit.target_value} {habit.unit}
                     </p>
                   )}
                 </div>
@@ -242,13 +249,17 @@ export default function HabitsPage() {
                 {habit.type === 'daily_check' && (
                   <button
                     onClick={() => toggleHabit(habit)}
-                    className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-colors ${
+                    className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all active:scale-95 ${
                       habit.completed
                         ? 'bg-accent border-accent'
-                        : 'border-border hover:border-accent'
+                        : 'border-border hover:border-accent/50'
                     }`}
                   >
-                    {habit.completed && <Check className="w-5 h-5 text-background" />}
+                    {habit.completed && (
+                      <svg className="w-5 h-5 text-background" viewBox="0 0 20 20" fill="none">
+                        <path d="M4 10L8 14L16 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
                   </button>
                 )}
 
@@ -256,28 +267,28 @@ export default function HabitsPage() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => updateValue(habit, Math.max(0, habit.currentValue - 0.5))}
-                      className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center"
+                      className="w-9 h-9 rounded-xl bg-surface-elevated border border-border flex items-center justify-center active:scale-95 transition-transform"
                     >
-                      -
+                      <Minus className="w-4 h-4" />
                     </button>
-                    <span className="w-12 text-center font-medium">
+                    <span className="w-12 text-center font-display font-semibold tabular-nums">
                       {habit.currentValue}
                     </span>
                     <button
                       onClick={() => updateValue(habit, habit.currentValue + 0.5)}
-                      className="w-8 h-8 rounded-full bg-accent text-background flex items-center justify-center"
+                      className="w-9 h-9 rounded-xl bg-accent text-background flex items-center justify-center active:scale-95 transition-transform"
                     >
-                      +
+                      <Plus className="w-4 h-4" />
                     </button>
                   </div>
                 )}
               </div>
 
               {habit.type === 'quantity' && (
-                <div className="mt-3">
-                  <div className="h-2 bg-border rounded-full overflow-hidden">
+                <div className="mt-4">
+                  <div className="progress-track">
                     <div
-                      className="h-full bg-accent transition-all"
+                      className="progress-fill bg-accent"
                       style={{
                         width: `${Math.min((habit.currentValue / (habit.target_value || 1)) * 100, 100)}%`,
                       }}
@@ -288,9 +299,9 @@ export default function HabitsPage() {
             </div>
           )
         })}
-      </section>
+      </div>
 
-      <button className="w-full btn-secondary flex items-center justify-center gap-2">
+      <button className="w-full btn-secondary">
         <Plus className="w-5 h-5" />
         Agregar hábito
       </button>

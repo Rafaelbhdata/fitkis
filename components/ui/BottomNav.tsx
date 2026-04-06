@@ -16,27 +16,55 @@ export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border safe-bottom">
-      <div className="flex items-center justify-around h-16">
-        {tabs.map((tab) => {
-          const isActive = pathname.startsWith(tab.href)
-          const Icon = tab.icon
+    <nav className="fixed bottom-0 left-0 right-0 z-40">
+      {/* Gradient fade effect */}
+      <div className="absolute inset-x-0 bottom-full h-8 bg-gradient-to-t from-background to-transparent pointer-events-none" />
 
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={cn(
-                'flex flex-col items-center justify-center w-full h-full',
-                'transition-colors duration-150',
-                isActive ? 'text-accent' : 'text-muted'
-              )}
-            >
-              <Icon className="w-6 h-6" strokeWidth={isActive ? 2.5 : 2} />
-              <span className="text-xs mt-1 font-medium">{tab.label}</span>
-            </Link>
-          )
-        })}
+      {/* Nav container */}
+      <div className="bg-surface/80 backdrop-blur-xl border-t border-border safe-bottom">
+        <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
+          {tabs.map((tab) => {
+            const isActive = pathname.startsWith(tab.href)
+            const Icon = tab.icon
+
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={cn(
+                  'relative flex flex-col items-center justify-center w-full h-full',
+                  'transition-all duration-200 ease-out-expo',
+                  isActive ? 'text-accent' : 'text-muted'
+                )}
+              >
+                {/* Active indicator */}
+                {isActive && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-12 h-0.5 bg-accent rounded-full" />
+                )}
+
+                <div className={cn(
+                  'flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200',
+                  isActive && 'bg-accent/10'
+                )}>
+                  <Icon
+                    className={cn(
+                      'w-5 h-5 transition-transform duration-200',
+                      isActive && 'scale-110'
+                    )}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+                </div>
+
+                <span className={cn(
+                  'text-[10px] mt-0.5 font-medium transition-opacity duration-200',
+                  isActive ? 'opacity-100' : 'opacity-70'
+                )}>
+                  {tab.label}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
       </div>
     </nav>
   )

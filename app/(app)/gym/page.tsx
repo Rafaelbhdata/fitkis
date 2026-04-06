@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getDayOfWeek, getRoutineForDay, getRoutineName, formatDate } from '@/lib/utils'
 import { ROUTINES } from '@/lib/constants'
-import { ChevronRight, Calendar, Dumbbell } from 'lucide-react'
+import { ChevronRight, Calendar, Play, History } from 'lucide-react'
 
 export default function GymPage() {
   const today = new Date()
@@ -10,45 +10,48 @@ export default function GymPage() {
   const exercises = routineType ? ROUTINES[routineType] : []
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="font-display text-3xl font-bold">Gym</h1>
-        <p className="text-muted capitalize">{formatDate(today)}</p>
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <header className="pt-2">
+        <p className="text-sm text-muted-foreground mb-1 capitalize">{formatDate(today)}</p>
+        <h1 className="font-display text-display-md text-foreground">Gym</h1>
       </header>
 
       {routineType ? (
         <>
-          <div className="card">
-            <div className="flex items-center justify-between mb-4">
+          {/* Today's Routine Card */}
+          <div className="card-highlight">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <p className="text-sm text-muted">Rutina de hoy</p>
-                <h2 className="font-display text-xl font-semibold">{getRoutineName(routineType)}</h2>
+                <p className="section-label !mb-1">Rutina de hoy</p>
+                <h2 className="font-display text-display-sm">{getRoutineName(routineType)}</h2>
               </div>
               <Link
-                href={`/gym/session/new`}
-                className="btn-primary flex items-center gap-2"
+                href="/gym/session/new"
+                className="btn-primary"
               >
-                <Dumbbell className="w-5 h-5" />
+                <Play className="w-4 h-4" />
                 Iniciar
               </Link>
             </div>
 
-            <div className="space-y-3">
+            {/* Exercise List */}
+            <div className="space-y-0">
               {exercises.map((exercise, index) => (
                 <div
                   key={exercise.id}
-                  className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                  className="list-item"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-accent/20 text-accent text-sm flex items-center justify-center font-medium">
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-accent/10 text-accent text-xs font-semibold">
                       {index + 1}
                     </span>
                     <div>
-                      <p className="font-medium">{exercise.name}</p>
-                      <p className="text-sm text-muted">{exercise.defaultEquipment}</p>
+                      <p className="font-medium text-sm">{exercise.name}</p>
+                      <p className="text-xs text-muted">{exercise.defaultEquipment}</p>
                     </div>
                   </div>
-                  <span className="text-sm text-muted">
+                  <span className="badge">
                     {exercise.targetSets}×{exercise.targetReps}
                   </span>
                 </div>
@@ -57,20 +60,26 @@ export default function GymPage() {
           </div>
         </>
       ) : (
-        <div className="card text-center py-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface flex items-center justify-center">
-            <Calendar className="w-8 h-8 text-muted" />
+        /* Rest Day */
+        <div className="card text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-surface-elevated flex items-center justify-center">
+            <Calendar className="w-7 h-7 text-muted" />
           </div>
-          <h2 className="font-display text-xl font-semibold mb-2">Día de descanso</h2>
-          <p className="text-muted">Recupera energía para la próxima sesión</p>
+          <h2 className="font-display text-display-sm mb-2">Día de descanso</h2>
+          <p className="text-sm text-muted-foreground max-w-[200px] mx-auto">
+            Recupera energía para tu próxima sesión
+          </p>
         </div>
       )}
 
-      <Link
-        href="/gym/history"
-        className="card flex items-center justify-between"
-      >
-        <span className="font-medium">Ver historial de sesiones</span>
+      {/* History Link */}
+      <Link href="/gym/history" className="card-interactive flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-surface-elevated flex items-center justify-center">
+            <History className="w-5 h-5 text-muted" />
+          </div>
+          <span className="font-medium text-sm">Historial de sesiones</span>
+        </div>
         <ChevronRight className="w-5 h-5 text-muted" />
       </Link>
     </div>
