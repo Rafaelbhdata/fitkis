@@ -66,11 +66,16 @@ const config: Config = {
         "gradient-subtle": "linear-gradient(180deg, rgba(16,185,129,0.03) 0%, transparent 50%)",
         "noise": "url('/noise.svg')",
       },
+      screens: {
+        "xs": "375px",
+      },
       animation: {
         "fade-in": "fadeIn 0.5s ease-out",
         "slide-up": "slideUp 0.4s ease-out",
         "scale-in": "scaleIn 0.2s ease-out",
         "pulse-subtle": "pulseSub 2s ease-in-out infinite",
+        "slide-in-right": "slideInRight 0.3s ease-out",
+        "slide-in-left": "slideInLeft 0.3s ease-out",
       },
       keyframes: {
         fadeIn: {
@@ -88,6 +93,14 @@ const config: Config = {
         pulseSub: {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.7" },
+        },
+        slideInRight: {
+          "0%": { transform: "translateX(100%)" },
+          "100%": { transform: "translateX(0)" },
+        },
+        slideInLeft: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(0)" },
         },
       },
       transitionTimingFunction: {

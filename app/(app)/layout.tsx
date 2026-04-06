@@ -1,4 +1,5 @@
 import { BottomNav } from '@/components/ui/BottomNav'
+import Header from '@/components/ui/Header'
 
 export default function AppLayout({
   children,
@@ -7,7 +8,8 @@ export default function AppLayout({
 }) {
   return (
     <div className="min-h-screen pb-24">
-      <main className="px-5 py-6 safe-top max-w-lg mx-auto">
+      <Header streak={5} />
+      <main className="pt-20 px-5 pb-6 max-w-lg mx-auto">
         {children}
       </main>
       <BottomNav />

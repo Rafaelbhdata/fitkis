@@ -127,19 +127,13 @@ export default function FoodPage() {
     )
   }
 
-  return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <header className="flex items-start justify-between pt-2">
-        <div>
-          <p className="text-sm text-muted-foreground mb-1 capitalize">{formatDate(new Date())}</p>
-          <h1 className="font-display text-display-md text-foreground">Alimentación</h1>
-        </div>
-        <Link href="/food/favorites" className="btn-icon">
-          <Star className="w-5 h-5" />
-        </Link>
-      </header>
+  // Calculate totals
+  const totalConsumed = Object.values(consumed).reduce((a, b) => a + b, 0)
+  const totalBudget = Object.values(DAILY_BUDGET).reduce((a, b) => a + b, 0)
+  const nutritionPercentage = Math.round((totalConsumed / totalBudget) * 100)
 
+  return (
+    <div className="space-y-5 animate-fade-in">
       {error && (
         <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm flex items-center justify-between animate-scale-in">
           <span>{error}</span>
@@ -149,10 +143,29 @@ export default function FoodPage() {
         </div>
       )}
 
-      {/* Daily Summary */}
-      <div className="card">
-        <p className="section-label">Resumen del día</p>
-        <div className="grid grid-cols-6 gap-3">
+      {/* Hero Summary */}
+      <div className="card !p-5 bg-gradient-to-br from-green-500/10 via-transparent to-transparent border-green-500/20">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Equivalentes hoy</p>
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-display-xl text-green-400">{totalConsumed}</span>
+              <span className="text-xl text-muted-foreground">/ {totalBudget}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {nutritionPercentage}% del objetivo diario
+            </p>
+          </div>
+          <Link href="/food/favorites" className="w-10 h-10 rounded-xl bg-surface-elevated border border-border flex items-center justify-center hover:bg-surface-hover transition-colors">
+            <Star className="w-5 h-5 text-muted-foreground" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Food Groups Grid */}
+      <div className="card !p-4">
+        <p className="text-sm font-medium mb-4">Por grupo alimenticio</p>
+        <div className="grid grid-cols-3 gap-3">
           {(Object.keys(DAILY_BUDGET) as FoodGroup[]).map((group) => {
             const total = DAILY_BUDGET[group]
             const current = consumed[group]
@@ -160,32 +173,34 @@ export default function FoodPage() {
             const isComplete = current >= total
 
             return (
-              <div key={group} className="text-center">
-                <div className="relative w-10 h-10 mx-auto mb-2">
-                  <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                    <circle
-                      cx="18" cy="18" r="14"
-                      fill="none" stroke="currentColor" strokeWidth="3"
-                      className="text-surface-elevated"
-                    />
-                    <circle
-                      cx="18" cy="18" r="14"
-                      fill="none"
-                      stroke={FOOD_COLORS[group]}
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeDasharray={`${percentage * 0.88} 88`}
-                      className="transition-all duration-500"
-                      style={{ opacity: isComplete ? 1 : 0.6 }}
-                    />
-                  </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold">
-                    {current}
-                  </span>
+              <div
+                key={group}
+                className={`p-3 rounded-xl border transition-colors ${
+                  isComplete
+                    ? 'border-accent/30 bg-accent/5'
+                    : 'border-border bg-surface-elevated'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: FOOD_COLORS[group] }}
+                  />
+                  <span className="text-xs font-medium">{current}/{total}</span>
                 </div>
-                <p className="text-[10px] text-muted leading-tight truncate">
-                  {FOOD_GROUP_LABELS[group].slice(0, 5)}
+                <p className="text-[10px] text-muted-foreground truncate mb-2">
+                  {FOOD_GROUP_LABELS[group]}
                 </p>
+                <div className="h-1.5 bg-background rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${percentage}%`,
+                      backgroundColor: FOOD_COLORS[group],
+                      opacity: isComplete ? 1 : 0.7
+                    }}
+                  />
+                </div>
               </div>
             )
           })}
