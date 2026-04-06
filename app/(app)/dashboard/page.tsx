@@ -238,7 +238,7 @@ export default function DashboardPage() {
                 </p>
                 {routineType && ROUTINES[routineType] && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {ROUTINES[routineType].slice(0, 3).map(e => e.name).join(', ')}
+                    {ROUTINES[routineType].exercises.slice(0, 3).map(e => e.name).join(', ')}
                   </p>
                 )}
               </div>
