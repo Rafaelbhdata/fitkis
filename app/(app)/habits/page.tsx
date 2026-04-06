@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Droplets, BookOpen, Pill, X, Minus, Flame, Target, Zap, ChevronRight, ChevronLeft } from 'lucide-react'
+import { Plus, Droplets, BookOpen, Pill, X, Minus, Flame, Target, Zap, ChevronRight, ChevronLeft, Trash2, Edit3, Check } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { useToast } from '@/components/ui/Toast'
 import { DEFAULT_HABITS } from '@/lib/constants'
@@ -37,6 +37,16 @@ export default function HabitsPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedHabit, setSelectedHabit] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState(todayStr)
+
+  // CRUD Modal state
+  const [showHabitModal, setShowHabitModal] = useState(false)
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
+  const [habitName, setHabitName] = useState('')
+  const [habitType, setHabitType] = useState<'daily_check' | 'quantity' | 'weekly_frequency'>('daily_check')
+  const [habitTarget, setHabitTarget] = useState('')
+  const [habitUnit, setHabitUnit] = useState('')
+  const [savingHabit, setSavingHabit] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
 
   const isToday = selectedDate === todayStr
   const selectedDateObj = new Date(selectedDate + 'T12:00:00') // Noon to avoid timezone issues
@@ -198,6 +208,83 @@ export default function HabitsPage() {
         h.id === habit.id ? { ...h, currentValue: previousValue } : h
       ))
       setError('Error al actualizar hábito')
+    }
+  }
+
+  // CRUD Functions
+  const openCreateModal = () => {
+    setEditingHabit(null)
+    setHabitName('')
+    setHabitType('daily_check')
+    setHabitTarget('')
+    setHabitUnit('')
+    setShowHabitModal(true)
+  }
+
+  const openEditModal = (habit: Habit) => {
+    setEditingHabit(habit)
+    setHabitName(habit.name)
+    setHabitType(habit.type as any)
+    setHabitTarget(habit.target_value?.toString() || '')
+    setHabitUnit(habit.unit || '')
+    setShowHabitModal(true)
+  }
+
+  const closeHabitModal = () => {
+    setShowHabitModal(false)
+    setEditingHabit(null)
+    setHabitName('')
+    setHabitTarget('')
+    setHabitUnit('')
+  }
+
+  const saveHabit = async () => {
+    if (!user || !habitName) return
+    setSavingHabit(true)
+
+    try {
+      if (editingHabit) {
+        // Update existing habit
+        await (supabase.from('habits') as any)
+          .update({
+            name: habitName,
+            type: habitType,
+            target_value: habitType !== 'daily_check' ? parseFloat(habitTarget) : null,
+            unit: habitType === 'quantity' ? habitUnit : null,
+          })
+          .eq('id', editingHabit.id)
+        showToast(`"${habitName}" actualizado`)
+      } else {
+        // Create new habit
+        await (supabase.from('habits') as any).insert({
+          user_id: user.id,
+          name: habitName,
+          type: habitType,
+          target_value: habitType !== 'daily_check' ? parseFloat(habitTarget) : null,
+          unit: habitType === 'quantity' ? habitUnit : null,
+          active: true,
+        })
+        showToast(`"${habitName}" creado`)
+      }
+      await loadHabits()
+      closeHabitModal()
+    } catch (err) {
+      setError('Error al guardar hábito')
+    }
+    setSavingHabit(false)
+  }
+
+  const deleteHabit = async (habitId: string) => {
+    try {
+      // Soft delete - set active to false
+      await (supabase.from('habits') as any)
+        .update({ active: false })
+        .eq('id', habitId)
+      showToast('Hábito eliminado')
+      setShowDeleteConfirm(null)
+      await loadHabits()
+    } catch (err) {
+      setError('Error al eliminar hábito')
     }
   }
 
@@ -507,6 +594,23 @@ export default function HabitsPage() {
                           <span className="text-[10px] font-semibold text-orange-400">{streak} {streak === 1 ? 'día' : 'días'}</span>
                         </div>
                       )}
+                      {/* Edit/Delete Actions */}
+                      <div className="flex items-center gap-1 ml-auto">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openEditModal(habit); }}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+                          aria-label="Editar hábito"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(habit.id); }}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors"
+                          aria-label="Eliminar hábito"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       {habit.type === 'quantity' && (
@@ -609,10 +713,170 @@ export default function HabitsPage() {
         })}
       </div>
 
-      <button className="w-full btn-secondary">
+      <button onClick={openCreateModal} className="w-full btn-secondary">
         <Plus className="w-4 h-4" />
         Agregar hábito
       </button>
+
+      {/* Create/Edit Habit Modal */}
+      {showHabitModal && (
+        <>
+          <div className="overlay animate-fade-in" onClick={closeHabitModal} />
+          <div className="sheet p-5 animate-slide-up">
+            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-5" />
+
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-display text-display-sm">
+                {editingHabit ? 'Editar hábito' : 'Nuevo hábito'}
+              </h2>
+              <button onClick={closeHabitModal} className="btn-icon">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <label className="label">Nombre</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Ej: Meditación"
+                  value={habitName}
+                  onChange={(e) => setHabitName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="label">Tipo de seguimiento</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setHabitType('daily_check')}
+                    className={`p-3 rounded-lg text-xs font-medium transition-all text-center ${
+                      habitType === 'daily_check'
+                        ? 'bg-accent text-background'
+                        : 'bg-surface-elevated border border-border'
+                    }`}
+                  >
+                    <Check className="w-4 h-4 mx-auto mb-1" />
+                    Sí/No diario
+                  </button>
+                  <button
+                    onClick={() => setHabitType('quantity')}
+                    className={`p-3 rounded-lg text-xs font-medium transition-all text-center ${
+                      habitType === 'quantity'
+                        ? 'bg-accent text-background'
+                        : 'bg-surface-elevated border border-border'
+                    }`}
+                  >
+                    <Plus className="w-4 h-4 mx-auto mb-1" />
+                    Cantidad
+                  </button>
+                  <button
+                    onClick={() => setHabitType('weekly_frequency')}
+                    className={`p-3 rounded-lg text-xs font-medium transition-all text-center ${
+                      habitType === 'weekly_frequency'
+                        ? 'bg-accent text-background'
+                        : 'bg-surface-elevated border border-border'
+                    }`}
+                  >
+                    <Zap className="w-4 h-4 mx-auto mb-1" />
+                    Días/semana
+                  </button>
+                </div>
+              </div>
+
+              {habitType === 'quantity' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Meta diaria</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      className="input"
+                      placeholder="Ej: 2"
+                      value={habitTarget}
+                      onChange={(e) => setHabitTarget(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Unidad</label>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Ej: litros"
+                      value={habitUnit}
+                      onChange={(e) => setHabitUnit(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {habitType === 'weekly_frequency' && (
+                <div>
+                  <label className="label">Días por semana</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    className="input"
+                    placeholder="Ej: 3"
+                    min="1"
+                    max="7"
+                    value={habitTarget}
+                    onChange={(e) => setHabitTarget(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={saveHabit}
+                disabled={savingHabit || !habitName || (habitType !== 'daily_check' && !habitTarget)}
+                className="w-full btn-primary"
+              >
+                {savingHabit ? (
+                  <div className="w-5 h-5 rounded-full border-2 border-background border-t-transparent animate-spin" />
+                ) : editingHabit ? (
+                  'Guardar cambios'
+                ) : (
+                  'Crear hábito'
+                )}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <>
+          <div className="overlay animate-fade-in" onClick={() => setShowDeleteConfirm(null)} />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 animate-scale-in">
+            <div className="card !p-5 text-center">
+              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-danger/10 flex items-center justify-center">
+                <Trash2 className="w-7 h-7 text-danger" />
+              </div>
+              <h3 className="font-display text-display-xs mb-2">¿Eliminar hábito?</h3>
+              <p className="text-sm text-muted-foreground mb-5">
+                Esta acción no se puede deshacer. El historial del hábito se perderá.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1 btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => deleteHabit(showDeleteConfirm)}
+                  className="flex-1 py-3 px-4 rounded-xl bg-danger text-white font-medium text-sm hover:bg-danger/90 transition-colors"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

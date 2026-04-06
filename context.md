@@ -13,9 +13,54 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
-Agente: Phase 1 Quick Wins - UX Improvements
+Agente: Phase 2 Features - Core Functionality
 Fecha: 6 de abril 2026
 Qué hizo:
+
+### Phase 2 Features Implementados (6 abril - sesión 5)
+
+#### 1. Timer de descanso entre series ✅
+- **Ubicación**: `app/(app)/gym/session/[id]/page.tsx`
+- **Auto-start**: Se inicia automáticamente al marcar una serie como completada
+- **Presets**: 60s, 90s (default), 120s, 180s
+- **UI**: Modal circular con progreso visual, countdown
+- **Controles**: Play/Pause, Reset, Skip
+- **Notificación**: Vibración (triple pulso) cuando termina el descanso
+- **Botón manual**: "Iniciar descanso" debajo de las series
+- **Lógica**: No se activa en la última serie completada del ejercicio
+
+#### 2. Banner de progresión +5 lbs mejorado ✅
+- **Ubicación**: `app/(app)/gym/session/[id]/page.tsx`
+- **UI mejorada**: Iconos más grandes, texto más claro
+- **Botón "Aplicar"**: Pre-llena el peso sugerido en TODAS las series del ejercicio
+- **Botón "Ahora no"**: Descarta la sugerencia para esa sesión
+- **Estado**: `dismissedSuggestions` Set para trackear sugerencias descartadas
+
+#### 3. Sistema de favoritos de comidas ✅
+- **Página de favoritos**: `app/(app)/food/favorites/page.tsx` - CRUD completo
+  - Ver lista de favoritos con items
+  - Crear favorito nuevo con nombre, comida y alimentos
+  - Eliminar favoritos
+  - Modal para agregar items con selección de grupo, búsqueda y cantidad
+- **Integración en página principal**: `app/(app)/food/page.tsx`
+  - Botones de quick-add para favoritos de cada comida
+  - Aplica todos los items del favorito al log del día con un tap
+  - Toast de confirmación al agregar
+
+#### 4. CRUD completo de hábitos ✅
+- **Ubicación**: `app/(app)/habits/page.tsx`
+- **Crear hábito**:
+  - Modal con nombre, tipo (Sí/No, Cantidad, Días/semana)
+  - Campos dinámicos según tipo (meta diaria, unidad, días/semana)
+- **Editar hábito**:
+  - Botón de edición en cada hábito
+  - Modal pre-llenado con datos existentes
+- **Eliminar hábito**:
+  - Botón de eliminar con confirmación
+  - Soft-delete (active = false)
+- **Iconos**: Edit3, Trash2 de lucide-react
+
+---
 
 ### Quick Wins Implementados (6 abril - sesión 4)
 
@@ -196,13 +241,14 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 |---------|-----------|--------|
 | Gráfica de peso semanal (recharts) | Alta | ⏳ |
 | Session timer | Alta | ✅ COMPLETADO |
-| Favoritos de comidas (CRUD) | Alta | ⏳ |
+| Favoritos de comidas (CRUD) | Alta | ✅ COMPLETADO |
 | Exercise instructions panel | Alta | ✅ COMPLETADO |
 | Weekly calendar view | Alta | ✅ COMPLETADO |
 | Gráficas de progresión gym | Media | ⏳ |
 | Gráficas de hábitos (racha, %) | Media | ⏳ |
-| CRUD completo de hábitos | Media | ⏳ |
-| Banner de progresión (+5 lbs) UI | Media | ⏳ |
+| CRUD completo de hábitos | Media | ✅ COMPLETADO |
+| Timer de descanso entre series | Media | ✅ COMPLETADO |
+| Banner de progresión (+5 lbs) UI | Media | ✅ COMPLETADO |
 | Seed de sesiones históricas | Baja | ⏳ |
 | Diseño responsive tablet/desktop | Baja | ⏳ |
 | Tests unitarios/E2E | Baja | ⏳ |

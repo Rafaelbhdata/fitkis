@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Check, ChevronDown, TrendingUp, X, HelpCircle, Timer, Lightbulb, Scale } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, TrendingUp, X, HelpCircle, Timer, Lightbulb, Scale, Play, Pause, RotateCcw, SkipForward } from 'lucide-react'
 import { ROUTINES, FEELING_OPTIONS } from '@/lib/constants'
 import { getRoutineName, formatDuration } from '@/lib/utils'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -68,8 +68,19 @@ export default function SessionPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Rest timer state
+  const [restSeconds, setRestSeconds] = useState(0)
+  const [isResting, setIsResting] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const [restPreset, setRestPreset] = useState(90) // Default 90 seconds
+  const restTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const REST_PRESETS = [60, 90, 120, 180]
+
   // Instructions state
   const [showInstructions, setShowInstructions] = useState(false)
+
+  // Dismissed progression suggestions
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set())
 
   const displayExercises = viewMode ? ROUTINES[sessionRoutineType]?.exercises || [] : exercises
   const currentExercise = displayExercises[currentExerciseIndex]
@@ -102,6 +113,59 @@ export default function SessionPage() {
       }
     }
   }, [sessionStartTime, viewMode])
+
+  // Rest timer countdown
+  useEffect(() => {
+    if (isResting && !isPaused && restSeconds > 0) {
+      restTimerRef.current = setInterval(() => {
+        setRestSeconds(prev => {
+          if (prev <= 1) {
+            // Timer finished - vibrate and show notification
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+              navigator.vibrate([200, 100, 200, 100, 200])
+            }
+            setIsResting(false)
+            setIsPaused(false)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    }
+
+    return () => {
+      if (restTimerRef.current) {
+        clearInterval(restTimerRef.current)
+      }
+    }
+  }, [isResting, isPaused, restSeconds])
+
+  // Start rest timer function
+  const startRestTimer = (seconds?: number) => {
+    const time = seconds || restPreset
+    setRestSeconds(time)
+    setRestPreset(time)
+    setIsResting(true)
+    setIsPaused(false)
+  }
+
+  // Skip/dismiss rest timer
+  const skipRestTimer = () => {
+    setIsResting(false)
+    setRestSeconds(0)
+    setIsPaused(false)
+  }
+
+  // Reset rest timer
+  const resetRestTimer = () => {
+    setRestSeconds(restPreset)
+    setIsPaused(false)
+  }
+
+  // Toggle pause rest timer
+  const togglePauseRest = () => {
+    setIsPaused(prev => !prev)
+  }
 
   useEffect(() => {
     if (user && isNew) {
@@ -255,9 +319,20 @@ export default function SessionPage() {
       equipment: currentExercise.equipment,
     }
     const newSets = [...current.sets]
-    newSets[setIndex] = { ...newSets[setIndex], completed: !newSets[setIndex].completed }
+    const wasCompleted = newSets[setIndex].completed
+    newSets[setIndex] = { ...newSets[setIndex], completed: !wasCompleted }
     newData[currentExercise.id] = { ...current, sets: newSets }
     setExerciseData(newData)
+
+    // Start rest timer when marking a set as complete (not when unchecking)
+    if (!wasCompleted && !viewMode) {
+      // Check if this is not the last set of the exercise
+      const isLastSet = setIndex === newSets.length - 1
+      const allSetsComplete = newSets.every(s => s.completed)
+      if (!isLastSet || !allSetsComplete) {
+        startRestTimer()
+      }
+    }
   }
 
   const setFeeling = (feeling: Feeling) => {
@@ -369,6 +444,31 @@ export default function SessionPage() {
 
   const currentSuggestion = progressionSuggestions.find(s => s.exerciseId === currentExercise?.id)
 
+  // Accept progression suggestion - pre-fill weight in all sets
+  const acceptSuggestion = (suggestion: ProgressionSuggestion) => {
+    const newData = { ...exerciseData }
+    const current = newData[suggestion.exerciseId] || {
+      sets: Array(currentExercise.sets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
+      feeling: null,
+      equipment: currentExercise.equipment,
+    }
+    const newSets = current.sets.map(set => ({
+      ...set,
+      lbs: String(suggestion.suggestedLbs),
+    }))
+    newData[suggestion.exerciseId] = { ...current, sets: newSets }
+    setExerciseData(newData)
+    setDismissedSuggestions(prev => new Set([...prev, suggestion.exerciseId]))
+  }
+
+  // Dismiss progression suggestion
+  const dismissSuggestion = (exerciseId: string) => {
+    setDismissedSuggestions(prev => new Set([...prev, exerciseId]))
+  }
+
+  // Check if current suggestion should show
+  const shouldShowSuggestion = currentSuggestion && !dismissedSuggestions.has(currentSuggestion.exerciseId)
+
   if (loading || userLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -406,16 +506,36 @@ export default function SessionPage() {
       </header>
 
       {/* Progression Suggestion */}
-      {currentSuggestion && !viewMode && (
+      {shouldShowSuggestion && !viewMode && (
         <div className="p-4 rounded-xl bg-accent/10 border border-accent/20 animate-scale-in">
           <div className="flex items-start gap-3">
-            <TrendingUp className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-accent text-sm">¡Sube el peso!</p>
+            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center flex-shrink-0">
+              <TrendingUp className="w-5 h-5 text-accent" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-accent text-sm">¡Hora de subir peso!</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {currentSuggestion.reason}. Prueba con {currentSuggestion.suggestedLbs} lbs
+                {currentSuggestion.reason}
+              </p>
+              <p className="text-sm font-semibold text-accent mt-1">
+                Nuevo peso sugerido: {currentSuggestion.suggestedLbs} lbs
               </p>
             </div>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => acceptSuggestion(currentSuggestion)}
+              className="flex-1 btn-primary text-sm py-2"
+            >
+              <Check className="w-4 h-4 mr-1" />
+              Aplicar
+            </button>
+            <button
+              onClick={() => dismissSuggestion(currentSuggestion.exerciseId)}
+              className="flex-1 btn-secondary text-sm py-2"
+            >
+              Ahora no
+            </button>
           </div>
         </div>
       )}
@@ -558,6 +678,17 @@ export default function SessionPage() {
           ))}
         </div>
 
+        {/* Manual Rest Timer Button */}
+        {!viewMode && (
+          <button
+            onClick={() => startRestTimer()}
+            className="w-full mt-4 py-3 rounded-xl bg-surface-elevated border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-accent/50 transition-all flex items-center justify-center gap-2"
+          >
+            <Timer className="w-4 h-4" />
+            Iniciar descanso ({Math.floor(restPreset / 60)}:{(restPreset % 60).toString().padStart(2, '0')})
+          </button>
+        )}
+
         {/* Feeling */}
         <div className="mt-6 pt-5 border-t border-border">
           <p className="section-label">¿Cómo se sintió?</p>
@@ -670,6 +801,94 @@ export default function SessionPage() {
           )
         })}
       </div>
+
+      {/* Rest Timer Modal */}
+      {isResting && !viewMode && (
+        <>
+          <div className="overlay animate-fade-in" onClick={skipRestTimer} />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 animate-scale-in">
+            <div className="card !p-6 text-center">
+              {/* Timer Display */}
+              <div className="mb-6">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Tiempo de descanso</p>
+                <div className="relative">
+                  {/* Circular Progress */}
+                  <svg className="w-40 h-40 mx-auto transform -rotate-90">
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r="70"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      className="text-surface-elevated"
+                    />
+                    <circle
+                      cx="80"
+                      cy="80"
+                      r="70"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      className="text-accent transition-all duration-1000"
+                      strokeDasharray={2 * Math.PI * 70}
+                      strokeDashoffset={2 * Math.PI * 70 * (1 - restSeconds / restPreset)}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="font-display text-display-xl tabular-nums">
+                      {Math.floor(restSeconds / 60)}:{(restSeconds % 60).toString().padStart(2, '0')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Control Buttons */}
+              <div className="flex items-center justify-center gap-4 mb-6">
+                <button
+                  onClick={resetRestTimer}
+                  className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center hover:bg-surface-hover transition-colors"
+                  aria-label="Reiniciar timer"
+                >
+                  <RotateCcw className="w-5 h-5 text-muted-foreground" />
+                </button>
+                <button
+                  onClick={togglePauseRest}
+                  className="w-16 h-16 rounded-full bg-accent text-background flex items-center justify-center hover:bg-accent/90 transition-colors"
+                  aria-label={isPaused ? 'Continuar' : 'Pausar'}
+                >
+                  {isPaused ? <Play className="w-7 h-7 ml-1" /> : <Pause className="w-7 h-7" />}
+                </button>
+                <button
+                  onClick={skipRestTimer}
+                  className="w-12 h-12 rounded-full bg-surface-elevated border border-border flex items-center justify-center hover:bg-surface-hover transition-colors"
+                  aria-label="Saltar descanso"
+                >
+                  <SkipForward className="w-5 h-5 text-muted-foreground" />
+                </button>
+              </div>
+
+              {/* Preset Buttons */}
+              <div className="flex justify-center gap-2">
+                {REST_PRESETS.map((seconds) => (
+                  <button
+                    key={seconds}
+                    onClick={() => startRestTimer(seconds)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      restPreset === seconds && !isPaused
+                        ? 'bg-accent/20 text-accent border border-accent/30'
+                        : 'bg-surface-elevated border border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {seconds >= 60 ? `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}` : `${seconds}s`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Equipment Modal */}
       {showEquipmentModal && currentExercise && (

@@ -7,7 +7,7 @@ import { formatDate, getToday } from '@/lib/utils'
 import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, FOOD_EQUIVALENTS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
-import type { MealType, FoodGroup, FoodLog } from '@/types'
+import type { MealType, FoodGroup, FoodLog, FavoriteMeal } from '@/types'
 
 const FOOD_COLORS: Record<FoodGroup, string> = {
   verdura: '#22c55e',
@@ -49,12 +49,28 @@ export default function FoodPage() {
   const [selectedFood, setSelectedFood] = useState<{ name: string; portion: string; note?: string } | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [error, setError] = useState<string | null>(null)
+  const [favorites, setFavorites] = useState<FavoriteMeal[]>([])
+  const [showFavoritesModal, setShowFavoritesModal] = useState(false)
+  const [applyingFavorite, setApplyingFavorite] = useState(false)
 
   useEffect(() => {
     if (user) {
       loadFoodLogs()
+      loadFavorites()
     }
   }, [user])
+
+  const loadFavorites = async () => {
+    try {
+      const { data } = await supabase
+        .from('favorite_meals')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (data) setFavorites(data as FavoriteMeal[])
+    } catch (err) {
+      // Silent fail for favorites
+    }
+  }
 
   const loadFoodLogs = async () => {
     setLoading(true)
@@ -113,6 +129,30 @@ export default function FoodPage() {
       setError('Error al eliminar alimento')
     }
   }
+
+  const applyFavorite = async (favorite: FavoriteMeal) => {
+    if (!user) return
+    setApplyingFavorite(true)
+    try {
+      const logsToInsert = favorite.items.map(item => ({
+        user_id: user.id,
+        date: todayStr,
+        meal: favorite.meal,
+        group_type: item.group_type,
+        quantity: item.quantity,
+        food_name: item.food_name,
+      }))
+      await (supabase.from('food_logs') as any).insert(logsToInsert)
+      await loadFoodLogs()
+      setShowFavoritesModal(false)
+      showToast(`"${favorite.name}" agregado`)
+    } catch (err) {
+      setError('Error al agregar favorito')
+    }
+    setApplyingFavorite(false)
+  }
+
+  const mealFavorites = (meal: MealType) => favorites.filter(f => f.meal === meal)
 
   // Calcular consumido por grupo
   const consumed: Record<FoodGroup, number> = {
@@ -253,6 +293,23 @@ export default function FoodPage() {
 
               {isExpanded && (
                 <div className="px-4 pb-4 space-y-3 animate-slide-up">
+                  {/* Quick Add Favorites */}
+                  {mealFavorites(meal.key).length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                      {mealFavorites(meal.key).map((fav) => (
+                        <button
+                          key={fav.id}
+                          onClick={() => applyFavorite(fav)}
+                          disabled={applyingFavorite}
+                          className="flex-shrink-0 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-medium text-amber-300 hover:bg-amber-500/20 transition-all active:scale-[0.98] flex items-center gap-1.5"
+                        >
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                          {fav.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Food Group Chips */}
                   <div className="flex flex-wrap gap-2">
                     {(Object.keys(budget) as FoodGroup[])
