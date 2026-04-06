@@ -61,10 +61,12 @@ export default function ProgressPage() {
     setLoading(true)
 
     // Get all sessions with their sets
-    const { data: sessions } = await supabase
+    const { data: sessionsData } = await supabase
       .from('gym_sessions')
       .select('id, date')
       .order('date', { ascending: true })
+
+    const sessions = sessionsData as { id: string; date: string }[] | null
 
     if (!sessions || sessions.length === 0) {
       setLoading(false)
@@ -72,10 +74,12 @@ export default function ProgressPage() {
     }
 
     const sessionIds = sessions.map(s => s.id)
-    const { data: sets } = await supabase
+    const { data: setsData } = await supabase
       .from('session_sets')
       .select('*')
       .in('session_id', sessionIds)
+
+    const sets = setsData as SessionSet[] | null
 
     if (sets) {
       // Map sets to include session date
