@@ -1,13 +1,70 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { getDayOfWeek, getRoutineForDay, getRoutineName } from '@/lib/utils'
 import { ROUTINES } from '@/lib/constants'
-import { ChevronRight, Play, History, Dumbbell, Zap, Clock } from 'lucide-react'
+import { ChevronRight, ChevronDown, Play, History, Dumbbell, Zap, Clock } from 'lucide-react'
+import { useUser, useSupabase } from '@/lib/hooks'
+import type { GymSession, SessionSet, RoutineType } from '@/types'
+
+interface LastSessionData {
+  session: GymSession
+  sets: SessionSet[]
+}
 
 export default function GymPage() {
-  const today = new Date()
+  const { user } = useUser()
+  const supabase = useSupabase()
   const dayOfWeek = getDayOfWeek()
   const routineType = getRoutineForDay(dayOfWeek)
   const exercises = routineType ? ROUTINES[routineType] : []
+
+  const [lastSession, setLastSession] = useState<LastSessionData | null>(null)
+  const [showLastSession, setShowLastSession] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (user && routineType) {
+      loadLastSession()
+    } else {
+      setLoading(false)
+    }
+  }, [user, routineType])
+
+  const loadLastSession = async () => {
+    if (!user || !routineType) return
+    setLoading(true)
+    try {
+      // Get the most recent session of this routine type
+      const { data: sessionData } = await supabase
+        .from('gym_sessions')
+        .select('*')
+        .eq('routine_type', routineType)
+        .order('date', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (sessionData) {
+        const session = sessionData as GymSession
+        // Get the sets for this session
+        const { data: setsData } = await supabase
+          .from('session_sets')
+          .select('*')
+          .eq('session_id', session.id)
+          .order('exercise_id')
+          .order('set_number')
+
+        setLastSession({
+          session,
+          sets: (setsData || []) as SessionSet[]
+        })
+      }
+    } catch (err) {
+      // No previous session found, that's ok
+    }
+    setLoading(false)
+  }
 
   // Get muscle groups being worked
   const getMuscleGroups = (type: string | null) => {
@@ -19,6 +76,16 @@ export default function GymPage() {
       'lower_b': ['Isquiotibiales', 'Glúteos', 'Core'],
     }
     return groups[type] || []
+  }
+
+  // Get the weight used for an exercise in the last session
+  const getLastWeight = (exerciseId: string): { lbs: number; reps: number } | null => {
+    if (!lastSession) return null
+    const exerciseSets = lastSession.sets.filter(s => s.exercise_id === exerciseId && s.lbs)
+    if (exerciseSets.length === 0) return null
+    // Return the weight from the first set (typically the working weight)
+    const firstSet = exerciseSets[0]
+    return firstSet.lbs ? { lbs: firstSet.lbs, reps: firstSet.reps || 0 } : null
   }
 
   const muscleGroups = getMuscleGroups(routineType)
@@ -83,6 +150,53 @@ export default function GymPage() {
             </div>
           </div>
 
+          {/* Last Session (Collapsible) */}
+          {lastSession && (
+            <div className="card !p-0 overflow-hidden">
+              <button
+                className="w-full flex items-center justify-between p-4"
+                onClick={() => setShowLastSession(!showLastSession)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <History className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium">Última sesión</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(lastSession.session.date).toLocaleDateString('es-MX', {
+                        day: 'numeric',
+                        month: 'short'
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${showLastSession ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showLastSession && (
+                <div className="px-4 pb-4 space-y-2 border-t border-border pt-3 animate-slide-up">
+                  <p className="text-xs text-muted-foreground mb-3">Pesos utilizados:</p>
+                  {exercises.map((exercise) => {
+                    const lastWeight = getLastWeight(exercise.id)
+                    return (
+                      <div key={exercise.id} className="flex items-center justify-between py-1.5">
+                        <span className="text-sm text-muted-foreground truncate flex-1 mr-3">{exercise.name}</span>
+                        {lastWeight ? (
+                          <span className="text-sm font-semibold text-amber-400 tabular-nums whitespace-nowrap">
+                            {lastWeight.lbs} lbs
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Exercise List */}
           <div className="card">
             <div className="flex items-center justify-between mb-4">
@@ -90,24 +204,29 @@ export default function GymPage() {
               <span className="text-xs text-muted-foreground">{exercises.length} total</span>
             </div>
             <div className="space-y-0">
-              {exercises.map((exercise, index) => (
-                <div
-                  key={exercise.id}
-                  className="flex items-center gap-3 py-3 border-b border-border last:border-0"
-                >
-                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-surface-elevated text-xs font-semibold text-muted-foreground">
-                    {index + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{exercise.name}</p>
-                    <p className="text-xs text-muted-foreground">{exercise.defaultEquipment}</p>
+              {exercises.map((exercise, index) => {
+                const lastWeight = getLastWeight(exercise.id)
+                return (
+                  <div
+                    key={exercise.id}
+                    className="flex items-center gap-3 py-3 border-b border-border last:border-0"
+                  >
+                    <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-surface-elevated text-xs font-semibold text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{exercise.name}</p>
+                      <p className="text-xs text-muted-foreground">{exercise.defaultEquipment}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold tabular-nums">{exercise.targetSets}×{exercise.targetReps}</p>
+                      {lastWeight && (
+                        <p className="text-[10px] text-amber-400 font-medium">→ {lastWeight.lbs} lbs</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold tabular-nums">{exercise.targetSets}×{exercise.targetReps}</p>
-                    <p className="text-[10px] text-muted-foreground">series×reps</p>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </>

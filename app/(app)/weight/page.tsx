@@ -222,21 +222,25 @@ export default function WeightPage() {
         <div className="card !p-4">
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm font-medium">Tendencia</span>
-            <div className="flex bg-surface-elevated rounded-lg p-0.5">
-              {(['week', 'month', 'all'] as const).map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setTimeRange(range)}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                    timeRange === range
-                      ? 'bg-accent text-background'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {range === 'week' ? '7D' : range === 'month' ? '30D' : 'Todo'}
-                </button>
-              ))}
-            </div>
+            {chartData.length === 1 ? (
+              <span className="text-xs text-muted-foreground">Registra más días para ver la tendencia</span>
+            ) : (
+              <div className="flex bg-surface-elevated rounded-lg p-0.5">
+                {(['week', 'month', 'all'] as const).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setTimeRange(range)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      timeRange === range
+                        ? 'bg-accent text-background'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {range === 'week' ? '7D' : range === 'month' ? '30D' : 'Todo'}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="h-48">

@@ -17,6 +17,15 @@ const FOOD_COLORS: Record<FoodGroup, string> = {
   grasa: '#3b82f6',
 }
 
+const FOOD_EMOJIS: Record<FoodGroup, string> = {
+  verdura: '🥬',
+  fruta: '🍎',
+  carb: '🍞',
+  leguminosa: '🫘',
+  proteina: '🥩',
+  grasa: '🥑',
+}
+
 const meals: { key: MealType; label: string }[] = [
   { key: 'desayuno', label: 'Desayuno' },
   { key: 'snack', label: 'Snack' },
@@ -230,7 +239,7 @@ export default function FoodPage() {
 
               {isExpanded && (
                 <div className="px-4 pb-4 space-y-3 animate-slide-up">
-                  {/* Food Group Pills */}
+                  {/* Food Group Chips */}
                   <div className="flex flex-wrap gap-2">
                     {(Object.keys(budget) as FoodGroup[])
                       .filter((g) => budget[g] > 0)
@@ -242,14 +251,10 @@ export default function FoodPage() {
                             setSelectedGroup(group)
                             setShowAddModal(true)
                           }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98]"
-                          style={{
-                            backgroundColor: `${FOOD_COLORS[group]}15`,
-                            color: FOOD_COLORS[group],
-                            border: `1px solid ${FOOD_COLORS[group]}30`,
-                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] bg-surface-elevated border border-border hover:border-border-subtle"
                         >
-                          + {FOOD_GROUP_LABELS[group]}: {budget[group]}
+                          <span className="mr-1">{FOOD_EMOJIS[group]}</span>
+                          {FOOD_GROUP_LABELS[group]} ×{budget[group]}
                         </button>
                       ))}
                   </div>

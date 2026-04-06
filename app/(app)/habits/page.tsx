@@ -363,13 +363,13 @@ export default function HabitsPage() {
 
         {/* Heatmap Grid */}
         {selectedHabitData && (
-          <div className="grid grid-cols-10 gap-1">
+          <div className="grid grid-cols-10 gap-[3px]">
             {get30DayHeatmap(selectedHabitData.id).map((day, i) => {
               const colors = habitColors[selectedHabitData.name] || { accent: '#10b981' }
               return (
                 <div
                   key={i}
-                  className={`aspect-square rounded-sm transition-all ${
+                  className={`w-[14px] h-[14px] rounded-sm transition-all ${
                     day.completed
                       ? ''
                       : day.isToday

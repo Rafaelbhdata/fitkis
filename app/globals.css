@@ -148,7 +148,7 @@
   }
 
   .progress-track-lg {
-    @apply h-3 bg-surface-elevated rounded-full overflow-hidden;
+    @apply h-2 bg-surface-elevated rounded-full overflow-hidden;
   }
 
   .progress-fill {
