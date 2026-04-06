@@ -8,8 +8,14 @@ import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Zap, Clock, Coffee,
 import { useUser, useSupabase } from '@/lib/hooks'
 import type { GymSession, SessionSet, RoutineType, Routine } from '@/types'
 
-const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
-const DAY_NAMES_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+// Week starts on Monday (index 0 = Monday, index 6 = Sunday)
+const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+const DAY_NAMES_FULL = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+
+// Convert UI index (0=Mon) to JS day (0=Sun): (uiIndex + 1) % 7
+const uiIndexToJsDay = (uiIndex: number) => (uiIndex + 1) % 7
+// Convert JS day (0=Sun) to UI index (0=Mon): (jsDay + 6) % 7
+const jsDayToUiIndex = (jsDay: number) => (jsDay + 6) % 7
 
 interface LastSessionData {
   session: GymSession
@@ -20,18 +26,21 @@ export default function GymPage() {
   const { user } = useUser()
   const supabase = useSupabase()
   const today = new Date()
-  const [selectedDay, setSelectedDay] = useState(today.getDay())
+  const [selectedDay, setSelectedDay] = useState(jsDayToUiIndex(today.getDay()))
   const [weekOffset, setWeekOffset] = useState(0)
   const [lastSession, setLastSession] = useState<LastSessionData | null>(null)
   const [showLastSession, setShowLastSession] = useState(false)
   const [showRoutineSelector, setShowRoutineSelector] = useState(false)
   const [overrideRoutine, setOverrideRoutine] = useState<string | null>(null)
 
-  // Get the week dates based on offset
+  // Get the week dates based on offset (week starts on Monday)
   const getWeekDates = () => {
     const dates: Date[] = []
     const startOfWeek = new Date(today)
-    startOfWeek.setDate(today.getDate() - today.getDay() + (weekOffset * 7))
+    // Calculate Monday of current week: subtract (jsDay + 6) % 7 days
+    const jsDay = today.getDay()
+    const daysFromMonday = (jsDay + 6) % 7 // 0 if Monday, 1 if Tuesday, ..., 6 if Sunday
+    startOfWeek.setDate(today.getDate() - daysFromMonday + (weekOffset * 7))
 
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek)
@@ -45,8 +54,9 @@ export default function GymPage() {
   const selectedDate = weekDates[selectedDay]
   const isToday = selectedDate.toDateString() === today.toDateString()
 
-  // Get routine for selected day
-  const routineKey = overrideRoutine || ROUTINE_SCHEDULE[selectedDay]
+  // Get routine for selected day (convert UI index to JS day for ROUTINE_SCHEDULE lookup)
+  const selectedJsDay = uiIndexToJsDay(selectedDay)
+  const routineKey = overrideRoutine || ROUTINE_SCHEDULE[selectedJsDay]
   const isRest = routineKey === 'rest' && !overrideRoutine
   const routine: Routine | null = isRest ? null : ROUTINES[routineKey]
 
@@ -128,7 +138,8 @@ export default function GymPage() {
         {/* Week Calendar */}
         <div className="grid grid-cols-7 gap-1">
           {weekDates.map((date, index) => {
-            const dayRoutine = ROUTINE_SCHEDULE[index]
+            const jsDay = uiIndexToJsDay(index)
+            const dayRoutine = ROUTINE_SCHEDULE[jsDay]
             const isSelected = index === selectedDay
             const isDayToday = date.toDateString() === today.toDateString()
             const hasRoutine = dayRoutine !== 'rest'
