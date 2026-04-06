@@ -6,6 +6,7 @@ import { Star, ChevronDown, Search, X, Trash2, Minus, Plus, Zap } from 'lucide-r
 import { formatDate, getToday } from '@/lib/utils'
 import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, FOOD_EQUIVALENTS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
+import { useToast } from '@/components/ui/Toast'
 import type { MealType, FoodGroup, FoodLog } from '@/types'
 
 const FOOD_COLORS: Record<FoodGroup, string> = {
@@ -37,6 +38,7 @@ export default function FoodPage() {
   const todayStr = getToday()
   const { user } = useUser()
   const supabase = useSupabase()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [expandedMeal, setExpandedMeal] = useState<MealType | null>('desayuno')
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
@@ -89,6 +91,7 @@ export default function FoodPage() {
       })
       await loadFoodLogs()
       closeModal()
+      showToast(`${selectedFood.name} agregado`)
     } catch (err) {
       setError('Error al agregar alimento')
     }
@@ -146,9 +149,14 @@ export default function FoodPage() {
       {error && (
         <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={loadFoodLogs} className="text-xs font-medium underline hover:no-underline">
+              Reintentar
+            </button>
+            <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -185,6 +193,7 @@ export default function FoodPage() {
             const current = consumed[group]
             const percentage = Math.min((current / total) * 100, 100)
             const isComplete = current >= total
+            const isOver = current > total
 
             return (
               <div key={group}>
@@ -192,20 +201,25 @@ export default function FoodPage() {
                   <div className="flex items-center gap-2">
                     <div
                       className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: FOOD_COLORS[group] }}
+                      style={{ backgroundColor: isOver ? '#ef4444' : FOOD_COLORS[group] }}
                     />
                     <span className="text-sm font-medium">{FOOD_GROUP_LABELS[group]}</span>
+                    {isOver && (
+                      <span className="text-[10px] font-semibold text-danger bg-danger/10 px-1.5 py-0.5 rounded">
+                        +{current - total}
+                      </span>
+                    )}
                   </div>
-                  <span className={`text-sm font-semibold tabular-nums ${isComplete ? 'text-accent' : ''}`}>
+                  <span className={`text-sm font-semibold tabular-nums ${isOver ? 'text-danger' : isComplete ? 'text-accent' : ''}`}>
                     {current}/{total}
                   </span>
                 </div>
-                <div className="progress-track-lg">
+                <div className={`progress-track-lg ${isOver ? 'bg-danger/20' : ''}`}>
                   <div
                     className="progress-fill"
                     style={{
                       width: `${percentage}%`,
-                      backgroundColor: isComplete ? '#10b981' : FOOD_COLORS[group],
+                      backgroundColor: isOver ? '#ef4444' : isComplete ? '#10b981' : FOOD_COLORS[group],
                     }}
                   />
                 </div>

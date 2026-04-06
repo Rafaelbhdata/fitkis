@@ -116,9 +116,10 @@ export default function GymPage() {
         <div className="flex items-center justify-between mb-3">
           <button
             onClick={() => setWeekOffset(weekOffset - 1)}
-            className="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors"
+            className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors"
+            aria-label="Semana anterior"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-5 h-5" />
           </button>
           <span className="text-sm font-medium">
             {weekOffset === 0 ? 'Esta semana' :
@@ -129,9 +130,10 @@ export default function GymPage() {
           </span>
           <button
             onClick={() => setWeekOffset(weekOffset + 1)}
-            className="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors"
+            className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors"
+            aria-label="Semana siguiente"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
@@ -151,7 +153,7 @@ export default function GymPage() {
                   setSelectedDay(index)
                   setOverrideRoutine(null)
                 }}
-                className={`flex flex-col items-center py-2 px-1 rounded-lg transition-all ${
+                className={`flex flex-col items-center py-3 px-1 rounded-lg transition-all min-h-[52px] ${
                   isSelected
                     ? 'bg-accent text-background'
                     : isDayToday
@@ -159,7 +161,7 @@ export default function GymPage() {
                       : 'hover:bg-surface-elevated'
                 }`}
               >
-                <span className="text-[10px] font-medium mb-1">{DAY_NAMES[index]}</span>
+                <span className="text-[10px] font-medium mb-0.5">{DAY_NAMES[index]}</span>
                 <span className={`text-sm font-semibold ${isSelected ? '' : isDayToday ? 'text-accent' : ''}`}>
                   {date.getDate()}
                 </span>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Droplets, BookOpen, Pill, X, Minus, Flame, Target, Zap, ChevronRight, ChevronLeft } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
+import { useToast } from '@/components/ui/Toast'
 import { DEFAULT_HABITS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import type { Habit, HabitLog } from '@/types'
@@ -29,6 +30,7 @@ export default function HabitsPage() {
   const todayStr = getToday()
   const { user } = useUser()
   const supabase = useSupabase()
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [habits, setHabits] = useState<HabitWithLog[]>([])
   const [monthLogs, setMonthLogs] = useState<HabitLog[]>([])
@@ -155,6 +157,9 @@ export default function HabitsPage() {
             h.id === habit.id ? { ...h, logId: (data as any).id, completed: newCompleted } : h
           ))
         }
+      }
+      if (newCompleted) {
+        showToast(`${habit.name} completado`)
       }
     } catch (err) {
       setHabits(habits.map(h =>
@@ -293,9 +298,14 @@ export default function HabitsPage() {
       {error && (
         <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={loadHabits} className="text-xs font-medium underline hover:no-underline">
+              Reintentar
+            </button>
+            <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -313,9 +323,10 @@ export default function HabitsPage() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigateDate(-1)}
-            className="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors"
+            className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors"
+            aria-label="Día anterior"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="text-center">
             <p className="text-sm font-medium">
@@ -328,11 +339,12 @@ export default function HabitsPage() {
           <button
             onClick={() => navigateDate(1)}
             disabled={isToday}
-            className={`w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center transition-colors ${
+            className={`w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center transition-colors ${
               isToday ? 'opacity-30 cursor-not-allowed' : 'hover:bg-surface-hover'
             }`}
+            aria-label="Día siguiente"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
         {!isToday && (
@@ -490,9 +502,9 @@ export default function HabitsPage() {
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium text-sm">{habit.name}</h3>
                       {streak > 0 && (
-                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-orange-500/10">
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20">
                           <Flame className="w-3 h-3 text-orange-400" />
-                          <span className="text-[10px] font-semibold text-orange-400">{streak}</span>
+                          <span className="text-[10px] font-semibold text-orange-400">{streak} {streak === 1 ? 'día' : 'días'}</span>
                         </div>
                       )}
                     </div>

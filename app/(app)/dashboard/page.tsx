@@ -16,7 +16,8 @@ import {
   TrendingUp,
   Calendar,
   Zap,
-  ArrowRight
+  ArrowRight,
+  X
 } from 'lucide-react'
 import {
   AreaChart,
@@ -177,8 +178,16 @@ export default function DashboardPage() {
   return (
     <div className="space-y-4 animate-fade-in">
       {error && (
-        <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm">
-          {error}
+        <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <div className="flex items-center gap-2">
+            <button onClick={loadData} className="text-xs font-medium underline hover:no-underline">
+              Reintentar
+            </button>
+            <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -211,7 +220,7 @@ export default function DashboardPage() {
           {weekDays.map((day, i) => (
             <div
               key={i}
-              className={`flex flex-col items-center py-2 rounded-lg transition-colors ${
+              className={`flex flex-col items-center py-2.5 rounded-lg transition-colors min-h-[48px] ${
                 day.isToday
                   ? 'bg-accent text-background'
                   : day.isPast && day.hasActivity
@@ -224,7 +233,7 @@ export default function DashboardPage() {
               </span>
               <span className="text-sm font-semibold">{day.date}</span>
               {day.hasActivity && !day.isToday && (
-                <div className="w-1 h-1 rounded-full bg-accent mt-0.5" />
+                <div className="w-1.5 h-1.5 rounded-full bg-accent mt-0.5" />
               )}
             </div>
           ))}

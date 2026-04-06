@@ -5,6 +5,7 @@ import { Plus, TrendingDown, TrendingUp, Target, X, Scale, Calendar, ChevronDown
 import { formatDate, getToday } from '@/lib/utils'
 import { USER_PROFILE } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
+import { useToast } from '@/components/ui/Toast'
 import {
   AreaChart,
   Area,
@@ -20,6 +21,7 @@ export default function WeightPage() {
   const today = new Date()
   const { user } = useUser()
   const supabase = useSupabase()
+  const { showToast } = useToast()
   const [showForm, setShowForm] = useState(false)
   const [weight, setWeight] = useState('')
   const [loading, setLoading] = useState(true)
@@ -63,6 +65,7 @@ export default function WeightPage() {
       await loadWeightLogs()
       setShowForm(false)
       setWeight('')
+      showToast(`Peso registrado: ${weight} kg`)
     } catch (err) {
       setError('Error al guardar peso')
     }
@@ -131,9 +134,14 @@ export default function WeightPage() {
       {error && (
         <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm flex items-center justify-between animate-scale-in">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={loadWeightLogs} className="text-xs font-medium underline hover:no-underline">
+              Reintentar
+            </button>
+            <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
