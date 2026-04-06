@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Droplets, BookOpen, Pill, X, Minus, Flame, Target, Zap, ChevronRight, ChevronLeft, Trash2, Edit3, Check } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Droplets, BookOpen, Pill, X, Minus, Flame, Target, Zap, ChevronRight, ChevronLeft, Trash2, Edit3, Check, TrendingUp } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { useToast } from '@/components/ui/Toast'
 import { DEFAULT_HABITS } from '@/lib/constants'
@@ -399,9 +400,18 @@ export default function HabitsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="font-display text-display-md">Hábitos</h1>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
-          <Flame className="w-4 h-4 text-orange-400" />
-          <span className="font-display text-sm font-semibold text-orange-400">{totalStreak} días</span>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/habits/progress"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/10 border border-accent/20 hover:bg-accent/20 transition-colors"
+          >
+            <TrendingUp className="w-4 h-4 text-accent" />
+            <span className="text-xs font-medium text-accent">Progreso</span>
+          </Link>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+            <Flame className="w-4 h-4 text-orange-400" />
+            <span className="font-display text-sm font-semibold text-orange-400">{totalStreak} días</span>
+          </div>
         </div>
       </div>
 

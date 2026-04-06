@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ROUTINES, ROUTINE_SCHEDULE } from '@/lib/constants'
 import { formatDuration } from '@/lib/utils'
-import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Zap, Clock, Coffee, HelpCircle, ChevronDown } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Zap, Clock, Coffee, HelpCircle, ChevronDown, TrendingUp } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import type { GymSession, SessionSet, RoutineType, Routine } from '@/types'
 
@@ -377,19 +377,27 @@ export default function GymPage() {
         </>
       )}
 
-      {/* History Link */}
-      <Link href="/gym/history" className="card-interactive flex items-center justify-between group">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center">
+      {/* History & Progress Links */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/gym/history" className="card-interactive flex items-center gap-3 group">
+          <div className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center flex-shrink-0">
             <History className="w-5 h-5 text-muted-foreground" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="font-medium text-sm">Historial</p>
-            <p className="text-xs text-muted-foreground">Ver sesiones anteriores</p>
+            <p className="text-xs text-muted-foreground truncate">Sesiones anteriores</p>
           </div>
-        </div>
-        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
-      </Link>
+        </Link>
+        <Link href="/gym/progress" className="card-interactive flex items-center gap-3 group">
+          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+            <TrendingUp className="w-5 h-5 text-accent" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-medium text-sm">Progresión</p>
+            <p className="text-xs text-muted-foreground truncate">Gráficas de peso</p>
+          </div>
+        </Link>
+      </div>
     </div>
   )
 }

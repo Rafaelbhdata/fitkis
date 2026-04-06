@@ -13,6 +13,33 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
+Agente: Phase 3 Features - Visualización y Gráficas
+Fecha: 6 de abril 2026
+Qué hizo:
+
+### Phase 3 Features Implementados (6 abril - sesión 6)
+
+#### 1. Página de Progresión Gym ✅
+- **Ubicación**: `app/(app)/gym/progress/page.tsx` (NUEVA)
+- **Selector de ejercicio**: Modal para elegir ejercicio a analizar
+- **Stats grid**: Peso actual, PR (récord personal), ganancia total
+- **LineChart**: Gráfica de peso máximo por sesión con recharts
+- **Historial**: Lista de las últimas 10 sesiones con diferencias (+/- lbs)
+- **Link desde gym**: Botón "Progresión" con icono TrendingUp
+
+#### 2. Página de Progreso de Hábitos ✅
+- **Ubicación**: `app/(app)/habits/progress/page.tsx` (NUEVA)
+- **Selector de hábito**: Modal para elegir hábito a analizar
+- **Stats grid**: Racha actual, mejor racha, % completado en 90 días
+- **AreaChart**: Tendencia semanal (últimas 12 semanas)
+- **Calendario 30 días**: Grid con números de día y colores
+- **BarChart comparativo**: Comparación de % completado entre hábitos
+- **Ranking de rachas**: Lista ordenada por racha actual con posiciones
+- **Link desde habits**: Botón "Progreso" con icono TrendingUp
+
+---
+
+## Agente Anterior
 Agente: Phase 2 Features - Core Functionality
 Fecha: 6 de abril 2026
 Qué hizo:
@@ -239,13 +266,13 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 ### Funcionalidades PENDIENTES (para futuro)
 | Feature | Prioridad | Estado |
 |---------|-----------|--------|
-| Gráfica de peso semanal (recharts) | Alta | ⏳ |
+| Gráfica de peso semanal (recharts) | Alta | ✅ COMPLETADO |
 | Session timer | Alta | ✅ COMPLETADO |
 | Favoritos de comidas (CRUD) | Alta | ✅ COMPLETADO |
 | Exercise instructions panel | Alta | ✅ COMPLETADO |
 | Weekly calendar view | Alta | ✅ COMPLETADO |
-| Gráficas de progresión gym | Media | ⏳ |
-| Gráficas de hábitos (racha, %) | Media | ⏳ |
+| Gráficas de progresión gym | Media | ✅ COMPLETADO |
+| Gráficas de hábitos (racha, %) | Media | ✅ COMPLETADO |
 | CRUD completo de hábitos | Media | ✅ COMPLETADO |
 | Timer de descanso entre series | Media | ✅ COMPLETADO |
 | Banner de progresión (+5 lbs) UI | Media | ✅ COMPLETADO |
@@ -320,7 +347,7 @@ fitkis/
 │   ├── (auth)/login, register
 │   ├── (app)/
 │   │   ├── layout.tsx (sidebar desktop + header mobile)
-│   │   ├── dashboard, gym/*, food/*, weight, habits
+│   │   ├── dashboard, gym/*, food/*, weight, habits/*
 │   ├── layout.tsx, page.tsx, globals.css
 ├── components/ui/
 │   ├── Sidebar.tsx (NEW - desktop nav)
