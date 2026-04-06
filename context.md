@@ -13,11 +13,27 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
-Agente: UI/UX Redesign v3.0 - Whoop-Inspired
+Agente: Post-Redesign Fixes & Improvements
 Fecha: 6 de abril 2026
 Qué hizo:
 
-### Bug Fixes
+### Bug Fixes (6 abril - sesión 2)
+- **Dashboard "Nutrición hoy" broken element**: Fixed by adding weekly_frequency habit support to Dashboard
+- **Habits "Lectura" no interaction**: Added complete weekly_frequency type UI with checkbox + "X/Y días esta semana" counter
+- **Dashboard "Iniciar" button confusing**: Changed to "→ Ir al gym" link pointing to /gym
+
+### UX Improvements (6 abril - sesión 2)
+- **Food badges**: Changed from colored to neutral chips with emoji (🥩 Proteína ×3)
+- **Gym "Última sesión"**: Added collapsible section showing previous weights per exercise
+- **Gym exercise list**: Now shows last weight hint (→ X lbs) for each exercise
+- **Weight chart**: Shows message when only 1 data point ("Registra más días para ver la tendencia")
+- **Dashboard exercises preview**: Shows first 2-3 exercises under "Hoy toca"
+
+### Visual Fixes (6 abril - sesión 2)
+- **Food progress bars**: Changed from h-3 (12px) to h-2 (8px)
+- **Habits heatmap cells**: Changed from aspect-square to 14px × 14px with 3px gap
+
+### Previous Session Bug Fixes
 - **Duplicate habits bug**: Fixed by adding Set-based deduplication filtering by habit.name before setting state in both `habits/page.tsx` and `dashboard/page.tsx`
 - **Calendar "0 entrenamientos" bug**: Fixed by comparing date strings (YYYY-MM-DD format) instead of Date objects to avoid timezone issues
 
@@ -245,3 +261,15 @@ npx tsc --noEmit  # Verificar TypeScript
 ## Bugs Corregidos (6 abril 2026)
 1. **Duplicate habits**: Set-based deduplication en habits/page.tsx y dashboard/page.tsx
 2. **Calendar "0 entrenamientos"**: Comparación de date strings en vez de Date objects
+3. **Dashboard "Nutrición hoy" roto**: Era el hábito Lectura (weekly_frequency) sin controles UI
+4. **Habits "Lectura" sin interacción**: Agregado soporte completo para weekly_frequency
+5. **Dashboard "Iniciar" confuso**: Cambiado a "→ Ir al gym" link
+
+## Mejoras Implementadas (6 abril 2026)
+1. **Food badges**: Chips neutrales con emoji (🥩 Proteína ×3)
+2. **Gym "Última sesión"**: Sección colapsable con pesos de la sesión anterior
+3. **Gym exercise hints**: Muestra peso anterior (→ X lbs) en cada ejercicio
+4. **Weight single point**: Mensaje cuando solo hay 1 dato
+5. **Dashboard exercises**: Muestra primeros 2-3 ejercicios bajo "Hoy toca"
+6. **Food progress bars**: Ahora 8px (h-2)
+7. **Habits heatmap**: Celdas 14px con gap de 3px
