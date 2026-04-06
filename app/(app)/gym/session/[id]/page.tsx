@@ -458,12 +458,12 @@ export default function SessionPage() {
     }))
     newData[suggestion.exerciseId] = { ...current, sets: newSets }
     setExerciseData(newData)
-    setDismissedSuggestions(prev => new Set([...prev, suggestion.exerciseId]))
+    setDismissedSuggestions(prev => new Set([...Array.from(prev), suggestion.exerciseId]))
   }
 
   // Dismiss progression suggestion
   const dismissSuggestion = (exerciseId: string) => {
-    setDismissedSuggestions(prev => new Set([...prev, exerciseId]))
+    setDismissedSuggestions(prev => new Set([...Array.from(prev), exerciseId]))
   }
 
   // Check if current suggestion should show
