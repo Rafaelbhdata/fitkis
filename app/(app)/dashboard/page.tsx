@@ -34,7 +34,11 @@ const FOOD_COLORS: Record<FoodGroup, string> = {
   grasa: '#3b82f6',
 }
 
-const WEEKDAYS = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
+// Week starts on Monday (index 0 = Monday, index 6 = Sunday)
+const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+
+// Convert JS day (0=Sun) to UI index (0=Mon): (jsDay + 6) % 7
+const jsDayToUiIndex = (jsDay: number) => (jsDay + 6) % 7
 
 export default function DashboardPage() {
   const today = new Date()
@@ -114,23 +118,29 @@ export default function DashboardPage() {
     weight: w.weight_kg
   }))
 
-  // Week calendar data
+  // Week calendar data (Monday-first)
   const getWeekDays = () => {
     const days = []
-    const todayIndex = today.getDay()
+    const jsDay = today.getDay() // 0=Sun, 1=Mon, ...
+    const todayUiIndex = jsDayToUiIndex(jsDay) // 0=Mon, 1=Tue, ..., 6=Sun
+
+    // Calculate Monday of current week
+    const daysFromMonday = (jsDay + 6) % 7
+    const monday = new Date(today)
+    monday.setDate(today.getDate() - daysFromMonday)
 
     for (let i = 0; i < 7; i++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() - todayIndex + i)
+      const date = new Date(monday)
+      date.setDate(monday.getDate() + i)
       const dateStr = date.toISOString().split('T')[0]
       const hasGym = gymSessions.some(s => s.date === dateStr)
 
       days.push({
         day: WEEKDAYS[i],
         date: date.getDate(),
-        isToday: i === todayIndex,
+        isToday: i === todayUiIndex,
         hasActivity: hasGym,
-        isPast: i < todayIndex
+        isPast: i < todayUiIndex
       })
     }
     return days
@@ -139,7 +149,8 @@ export default function DashboardPage() {
   const weekDays = getWeekDays()
   const weekWorkouts = gymSessions.filter(s => {
     const weekStart = new Date(today)
-    weekStart.setDate(today.getDate() - today.getDay())
+    const daysFromMonday = (today.getDay() + 6) % 7
+    weekStart.setDate(today.getDate() - daysFromMonday)
     const weekStartStr = weekStart.toISOString().split('T')[0]
     return s.date >= weekStartStr
   }).length
