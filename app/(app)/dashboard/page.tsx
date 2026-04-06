@@ -225,23 +225,19 @@ export default function DashboardPage() {
         {/* Today's Workout */}
         <Link href="/gym" className="card-interactive col-span-2 md:col-span-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                routineType ? 'bg-blue-500/10 text-blue-400' : 'bg-surface-elevated text-muted'
-              }`}>
-                <Dumbbell className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="stat-label">Hoy toca</p>
-                <p className="font-display text-display-xs">
-                  {routineType ? getRoutineName(routineType) : 'Descanso'}
+            <div>
+              <p className="stat-label flex items-center gap-2">
+                <Dumbbell className={`w-4 h-4 ${routineType ? 'text-blue-400' : 'text-muted'}`} />
+                Hoy toca
+              </p>
+              <p className="font-display text-display-xs">
+                {routineType ? getRoutineName(routineType) : 'Descanso'}
+              </p>
+              {routineType && ROUTINES[routineType] && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {ROUTINES[routineType].exercises.slice(0, 3).map(e => e.name).join(', ')}
                 </p>
-                {routineType && ROUTINES[routineType] && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {ROUTINES[routineType].exercises.slice(0, 3).map(e => e.name).join(', ')}
-                  </p>
-                )}
-              </div>
+              )}
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </div>
@@ -304,14 +300,12 @@ export default function DashboardPage() {
       {/* Nutrition Card */}
       <Link href="/food" className="card-interactive">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-green-400" />
-            </div>
-            <div>
-              <p className="stat-label">Nutrición hoy</p>
-              <p className="font-display text-display-xs">{totalConsumed} / {totalBudget} equiv.</p>
-            </div>
+          <div>
+            <p className="stat-label flex items-center gap-2">
+              <Zap className="w-4 h-4 text-green-400" />
+              Nutrición hoy
+            </p>
+            <p className="font-display text-display-xs">{totalConsumed} / {totalBudget} equiv.</p>
           </div>
           <div className="text-right">
             <p className="font-display text-display-sm text-accent">{nutritionPercentage}%</p>
