@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import type { RoutineType } from '@/types'
+import { ROUTINE_SCHEDULE, ROUTINES } from './constants'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -32,26 +33,28 @@ export function getDayOfWeek(): number {
 }
 
 export function getRoutineForDay(dayOfWeek: number): RoutineType | null {
-  const routineMap: Record<number, RoutineType | null> = {
-    0: null,      // domingo - descanso
-    1: 'upper_a', // lunes
-    2: 'lower_a', // martes
-    3: null,      // miércoles - descanso
-    4: 'upper_b', // jueves
-    5: 'lower_b', // viernes
-    6: null,      // sábado - descanso
-  }
-  return routineMap[dayOfWeek]
+  const routineKey = ROUTINE_SCHEDULE[dayOfWeek]
+  if (routineKey === 'rest') return null
+  return routineKey as RoutineType
 }
 
 export function getRoutineName(routineType: RoutineType | string): string {
-  const names: Record<string, string> = {
-    upper_a: 'Upper A — Pecho, Hombro, Tríceps',
-    upper_b: 'Upper B — Espalda, Bíceps',
-    lower_a: 'Lower A — Cuádriceps, Glúteos',
-    lower_b: 'Lower B — Isquios, Glúteos, Core',
+  const routine = ROUTINES[routineType]
+  if (routine) {
+    return `${routine.name} — ${routine.subtitle}`
   }
-  return names[routineType] || routineType
+  return routineType
+}
+
+export function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const secs = seconds % 60
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+  return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
 export function calculateBMI(weightKg: number, heightCm: number): number {

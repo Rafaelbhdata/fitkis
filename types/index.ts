@@ -11,10 +11,23 @@ export type HabitType = 'daily_check' | 'quantity' | 'weekly_frequency'
 export interface Exercise {
   id: string
   name: string
-  defaultEquipment: string
+  equipment: string
+  sets: number
+  reps: string
+  lastWeight: number
+  weightUnit: string
+  weightNote: string
+  instructions: string[]
+  tip: string
   substitutions: string[]
-  targetSets: number
-  targetReps: number
+}
+
+export interface Routine {
+  name: string
+  subtitle: string
+  muscles: string[]
+  estimatedMinutes: number
+  exercises: Exercise[]
 }
 
 export interface FoodEquivalent {
@@ -28,6 +41,7 @@ export interface GymSession {
   user_id: string
   date: string
   routine_type: RoutineType
+  duration_seconds?: number
   cardio_minutes?: number
   cardio_speed?: number
   notes?: string
