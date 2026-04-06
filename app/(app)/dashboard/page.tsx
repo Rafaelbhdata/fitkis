@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getDayOfWeek, getRoutineForDay, getRoutineName, getToday } from '@/lib/utils'
-import { DAILY_BUDGET, FOOD_GROUP_LABELS } from '@/lib/constants'
+import { DAILY_BUDGET, FOOD_GROUP_LABELS, ROUTINES } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import {
   Dumbbell,
@@ -14,9 +14,9 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
-  Play,
   Calendar,
-  Zap
+  Zap,
+  ArrowRight
 } from 'lucide-react'
 import {
   AreaChart,
@@ -180,9 +180,9 @@ export default function DashboardPage() {
           </h1>
         </div>
         {routineType && (
-          <Link href="/gym/session/new" className="btn-primary">
-            <Play className="w-4 h-4" />
-            <span className="hidden sm:inline">Iniciar</span>
+          <Link href="/gym" className="flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent/80 transition-colors">
+            Ir al gym
+            <ArrowRight className="w-4 h-4" />
           </Link>
         )}
       </div>
@@ -236,6 +236,11 @@ export default function DashboardPage() {
                 <p className="font-display text-display-xs">
                   {routineType ? getRoutineName(routineType) : 'Descanso'}
                 </p>
+                {routineType && ROUTINES[routineType] && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {ROUTINES[routineType].slice(0, 3).map(e => e.name).join(', ')}
+                  </p>
+                )}
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -389,6 +394,17 @@ export default function DashboardPage() {
                           style={{ width: `${Math.min((habit.value / (habit.target_value || 1)) * 100, 100)}%` }}
                         />
                       </div>
+                    </div>
+                  )}
+                  {habit.type === 'weekly_frequency' && (
+                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                      habit.completed ? 'bg-accent border-accent' : 'border-border'
+                    }`}>
+                      {habit.completed && (
+                        <svg className="w-3 h-3 text-background" viewBox="0 0 12 12" fill="none">
+                          <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
                     </div>
                   )}
                 </div>

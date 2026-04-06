@@ -235,9 +235,29 @@ export default function HabitsPage() {
     return Math.round((completed / 30) * 100)
   }
 
-  const completedCount = habits.filter(h =>
-    h.completed || (h.type === 'quantity' && h.currentValue >= (h.target_value || 0))
-  ).length
+  // Get week completions for weekly_frequency habits
+  const getWeekCompletions = (habitId: string) => {
+    const todayDate = new Date()
+    const dayOfWeek = todayDate.getDay() // 0 = Sunday
+    let count = 0
+
+    // Check each day from Sunday to today
+    for (let i = 0; i <= dayOfWeek; i++) {
+      const date = new Date(todayDate)
+      date.setDate(todayDate.getDate() - (dayOfWeek - i))
+      const dateStr = date.toISOString().split('T')[0]
+      const log = monthLogs.find(l => l.habit_id === habitId && l.date === dateStr)
+      if (log?.completed) count++
+    }
+
+    return count
+  }
+
+  const completedCount = habits.filter(h => {
+    if (h.type === 'quantity') return h.currentValue >= (h.target_value || 0)
+    if (h.type === 'weekly_frequency') return h.completed // Today is marked
+    return h.completed // daily_check
+  }).length
 
   const totalStreak = Math.max(...habits.map(h => getStreak(h.id)), 0)
 
@@ -389,8 +409,7 @@ export default function HabitsPage() {
         {habits.map((habit) => {
           const Icon = habitIcons[habit.name] || Target
           const colors = habitColors[habit.name] || { bg: 'bg-accent/10', text: 'text-accent', accent: '#10b981', gradient: 'from-accent/20' }
-          const isQuantity = habit.type === 'quantity'
-          const isCompleted = isQuantity
+          const isCompleted = habit.type === 'quantity'
             ? habit.currentValue >= (habit.target_value || 0)
             : habit.completed
           const streak = getStreak(habit.id)
@@ -425,11 +444,17 @@ export default function HabitsPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
-                      {habit.type === 'quantity' ? (
+                      {habit.type === 'quantity' && (
                         <p className="text-xs text-muted-foreground">
                           {habit.currentValue}/{habit.target_value} {habit.unit}
                         </p>
-                      ) : (
+                      )}
+                      {habit.type === 'weekly_frequency' && (
+                        <p className="text-xs text-muted-foreground">
+                          {getWeekCompletions(habit.id)}/{habit.target_value} días esta semana
+                        </p>
+                      )}
+                      {habit.type === 'daily_check' && (
                         <p className="text-xs text-muted-foreground">
                           {completionRate}% en 30 días
                         </p>
@@ -470,6 +495,31 @@ export default function HabitsPage() {
                         className="w-9 h-9 rounded-lg bg-accent text-background flex items-center justify-center active:scale-95 transition-transform"
                       >
                         <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {habit.type === 'weekly_frequency' && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium tabular-nums">
+                        <span className={habit.completed ? 'text-accent' : 'text-muted-foreground'}>
+                          {getWeekCompletions(habit.id)}
+                        </span>
+                        <span className="text-muted-foreground">/{habit.target_value}</span>
+                      </span>
+                      <button
+                        onClick={() => toggleHabit(habit)}
+                        className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all active:scale-95 ${
+                          habit.completed
+                            ? 'bg-accent border-accent'
+                            : 'border-border hover:border-accent/50'
+                        }`}
+                      >
+                        {habit.completed && (
+                          <svg className="w-5 h-5 text-background" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 10L8 14L16 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
                       </button>
                     </div>
                   )}
