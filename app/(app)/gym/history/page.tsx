@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, Loader2 } from 'lucide-react'
-import { getRoutineName } from '@/lib/utils'
+import { ArrowLeft, Calendar, Loader2, Timer } from 'lucide-react'
+import { getRoutineName, formatDuration } from '@/lib/utils'
 import { useUser, useSupabase } from '@/lib/hooks'
 import type { GymSession } from '@/types'
 
@@ -68,11 +68,19 @@ export default function HistoryPage() {
                 })}
               </p>
             </div>
-            {session.cardio_minutes && (
-              <span className="text-sm text-muted">
-                +{session.cardio_minutes}min cardio
-              </span>
-            )}
+            <div className="text-right text-sm">
+              {session.duration_seconds && (
+                <div className="flex items-center gap-1 text-accent">
+                  <Timer className="w-3.5 h-3.5" />
+                  <span>{formatDuration(session.duration_seconds)}</span>
+                </div>
+              )}
+              {session.cardio_minutes && (
+                <span className="text-muted">
+                  +{session.cardio_minutes}min cardio
+                </span>
+              )}
+            </div>
           </Link>
         ))}
       </div>

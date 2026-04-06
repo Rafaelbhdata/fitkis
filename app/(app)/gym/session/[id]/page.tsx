@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Check, ChevronDown, TrendingUp, X } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, TrendingUp, X, HelpCircle, Timer, Lightbulb, Scale } from 'lucide-react'
 import { ROUTINES, FEELING_OPTIONS } from '@/lib/constants'
-import { getRoutineName, getDayOfWeek, getRoutineForDay, getToday } from '@/lib/utils'
+import { getRoutineName, formatDuration } from '@/lib/utils'
 import { useUser, useSupabase } from '@/lib/hooks'
 import type { RoutineType, Feeling, GymSession, SessionSet } from '@/types'
 
@@ -27,18 +27,29 @@ interface ProgressionSuggestion {
   reason: string
 }
 
+// Helper to parse reps string like '8–10' or '10 por pierna' to get a number
+function parseTargetReps(repsStr: string): number {
+  const match = repsStr.match(/\d+/)
+  return match ? parseInt(match[0]) : 10
+}
+
 export default function SessionPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const isNew = params.id === 'new'
   const sessionId = isNew ? null : params.id as string
+
+  // Get routine from URL params for new sessions
+  const routineFromUrl = searchParams.get('routine') as RoutineType | null
 
   const { user, loading: userLoading } = useUser()
   const supabase = useSupabase()
 
-  const dayOfWeek = getDayOfWeek()
-  const routineType = (getRoutineForDay(dayOfWeek) || 'upper_a') as RoutineType
-  const exercises = ROUTINES[routineType]
+  // Use routine from URL if available, otherwise default to upper_a
+  const routineType = routineFromUrl || 'upper_a' as RoutineType
+  const routine = ROUTINES[routineType]
+  const exercises = routine?.exercises || []
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
@@ -52,12 +63,45 @@ export default function SessionPage() {
   const [viewMode, setViewMode] = useState(false)
   const [sessionRoutineType, setSessionRoutineType] = useState<RoutineType>(routineType)
 
-  const currentExercise = exercises[currentExerciseIndex]
+  // Timer state
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Instructions state
+  const [showInstructions, setShowInstructions] = useState(false)
+
+  const displayExercises = viewMode ? ROUTINES[sessionRoutineType]?.exercises || [] : exercises
+  const currentExercise = displayExercises[currentExerciseIndex]
   const currentData = exerciseData[currentExercise?.id] || {
-    sets: Array(currentExercise?.targetSets || 3).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
+    sets: Array(currentExercise?.sets || 3).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
     feeling: null,
-    equipment: currentExercise?.defaultEquipment || '',
+    equipment: currentExercise?.equipment || '',
   }
+
+  // Start timer when session begins
+  useEffect(() => {
+    if (isNew && !viewMode && !sessionStartTime) {
+      setSessionStartTime(new Date())
+    }
+  }, [isNew, viewMode])
+
+  // Timer interval
+  useEffect(() => {
+    if (sessionStartTime && !viewMode) {
+      timerRef.current = setInterval(() => {
+        const now = new Date()
+        const elapsed = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000)
+        setElapsedSeconds(elapsed)
+      }, 1000)
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [sessionStartTime, viewMode])
 
   useEffect(() => {
     if (user && isNew) {
@@ -71,9 +115,9 @@ export default function SessionPage() {
     const initialData: Record<string, ExerciseData> = {}
     exercises.forEach(ex => {
       initialData[ex.id] = {
-        sets: Array(ex.targetSets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
+        sets: Array(ex.sets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
         feeling: null,
-        equipment: ex.defaultEquipment,
+        equipment: ex.equipment,
       }
     })
     setExerciseData(initialData)
@@ -106,6 +150,7 @@ export default function SessionPage() {
     setSessionRoutineType(typedSession.routine_type as RoutineType)
     if (typedSession.cardio_minutes) setCardioMinutes(String(typedSession.cardio_minutes))
     if (typedSession.cardio_speed) setCardioSpeed(String(typedSession.cardio_speed))
+    if (typedSession.duration_seconds) setElapsedSeconds(typedSession.duration_seconds)
 
     const { data: sets } = await supabase
       .from('session_sets')
@@ -115,7 +160,7 @@ export default function SessionPage() {
 
     const typedSets = sets as SessionSet[] | null
     const loadedData: Record<string, ExerciseData> = {}
-    const routineExercises = ROUTINES[typedSession.routine_type as RoutineType]
+    const routineExercises = ROUTINES[typedSession.routine_type as RoutineType]?.exercises || []
 
     routineExercises.forEach(ex => {
       const exerciseSets = typedSets?.filter(s => s.exercise_id === ex.id) || []
@@ -128,9 +173,9 @@ export default function SessionPage() {
               reps: s.reps ? String(s.reps) : '',
               completed: true,
             }))
-          : Array(ex.targetSets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
+          : Array(ex.sets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
         feeling,
-        equipment: ex.defaultEquipment,
+        equipment: ex.equipment,
       }
     })
 
@@ -170,8 +215,9 @@ export default function SessionPage() {
 
       if (session1Sets.length === 0 || session2Sets.length === 0) return
 
-      const session1Complete = session1Sets.every(s => s.reps && s.reps >= exercise.targetReps)
-      const session2Complete = session2Sets.every(s => s.reps && s.reps >= exercise.targetReps)
+      const targetReps = parseTargetReps(exercise.reps)
+      const session1Complete = session1Sets.every(s => s.reps && s.reps >= targetReps)
+      const session2Complete = session2Sets.every(s => s.reps && s.reps >= targetReps)
 
       if (session1Complete && session2Complete) {
         const lastWeight = Math.max(...session1Sets.map(s => s.lbs || 0))
@@ -191,9 +237,9 @@ export default function SessionPage() {
   const updateSet = (setIndex: number, field: 'lbs' | 'reps', value: string) => {
     const newData = { ...exerciseData }
     const current = newData[currentExercise.id] || {
-      sets: Array(currentExercise.targetSets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
+      sets: Array(currentExercise.sets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
       feeling: null,
-      equipment: currentExercise.defaultEquipment,
+      equipment: currentExercise.equipment,
     }
     const newSets = [...current.sets]
     newSets[setIndex] = { ...newSets[setIndex], [field]: value }
@@ -204,9 +250,9 @@ export default function SessionPage() {
   const toggleSetComplete = (setIndex: number) => {
     const newData = { ...exerciseData }
     const current = newData[currentExercise.id] || {
-      sets: Array(currentExercise.targetSets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
+      sets: Array(currentExercise.sets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
       feeling: null,
-      equipment: currentExercise.defaultEquipment,
+      equipment: currentExercise.equipment,
     }
     const newSets = [...current.sets]
     newSets[setIndex] = { ...newSets[setIndex], completed: !newSets[setIndex].completed }
@@ -217,9 +263,9 @@ export default function SessionPage() {
   const setFeeling = (feeling: Feeling) => {
     const newData = { ...exerciseData }
     const current = newData[currentExercise.id] || {
-      sets: Array(currentExercise.targetSets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
+      sets: Array(currentExercise.sets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
       feeling: null,
-      equipment: currentExercise.defaultEquipment,
+      equipment: currentExercise.equipment,
     }
     newData[currentExercise.id] = { ...current, feeling }
     setExerciseData(newData)
@@ -228,9 +274,9 @@ export default function SessionPage() {
   const selectEquipment = (equipment: string) => {
     const newData = { ...exerciseData }
     const current = newData[currentExercise.id] || {
-      sets: Array(currentExercise.targetSets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
+      sets: Array(currentExercise.sets).fill(null).map(() => ({ lbs: '', reps: '', completed: false })),
       feeling: null,
-      equipment: currentExercise.defaultEquipment,
+      equipment: currentExercise.equipment,
     }
     newData[currentExercise.id] = { ...current, equipment }
     setExerciseData(newData)
@@ -241,16 +287,23 @@ export default function SessionPage() {
     if (!user) return
     setSaving(true)
 
+    // Stop the timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+    }
+
     try {
       let sessionIdToUse = currentSessionId
 
       if (!sessionIdToUse) {
+        const today = new Date().toISOString().split('T')[0]
         const { data: newSession, error: sessionError } = await (supabase
           .from('gym_sessions') as any)
           .insert({
             user_id: user.id,
-            date: getToday(),
+            date: today,
             routine_type: routineType,
+            duration_seconds: elapsedSeconds,
             cardio_minutes: cardioMinutes ? parseInt(cardioMinutes) : null,
             cardio_speed: cardioSpeed ? parseFloat(cardioSpeed) : null,
           })
@@ -264,6 +317,7 @@ export default function SessionPage() {
         await (supabase
           .from('gym_sessions') as any)
           .update({
+            duration_seconds: elapsedSeconds,
             cardio_minutes: cardioMinutes ? parseInt(cardioMinutes) : null,
             cardio_speed: cardioSpeed ? parseFloat(cardioSpeed) : null,
           })
@@ -314,7 +368,6 @@ export default function SessionPage() {
   }
 
   const currentSuggestion = progressionSuggestions.find(s => s.exerciseId === currentExercise?.id)
-  const displayExercises = viewMode ? ROUTINES[sessionRoutineType] : exercises
 
   if (loading || userLoading) {
     return (
@@ -329,18 +382,26 @@ export default function SessionPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* Header */}
+      {/* Header with Timer */}
       <header className="flex items-center gap-4 pt-2">
         <Link href={viewMode ? '/gym/history' : '/gym'} className="btn-icon -ml-2">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="font-display text-display-sm">
             {getRoutineName(viewMode ? sessionRoutineType : routineType)}
           </h1>
           <p className="text-xs text-muted">
             Ejercicio {currentExerciseIndex + 1} de {displayExercises.length}
           </p>
+        </div>
+
+        {/* Timer Display */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-elevated border border-border">
+          <Timer className="w-4 h-4 text-accent" />
+          <span className="font-mono text-sm font-semibold tabular-nums">
+            {formatDuration(elapsedSeconds)}
+          </span>
         </div>
       </header>
 
@@ -361,16 +422,85 @@ export default function SessionPage() {
 
       {/* Exercise Card */}
       <div className="card">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="font-display text-display-sm">{displayExercises[currentExerciseIndex]?.name}</h2>
-          <button
-            onClick={() => !viewMode && setShowEquipmentModal(true)}
-            className="flex items-center gap-1 text-xs text-muted-foreground px-2 py-1 rounded-lg hover:bg-surface-elevated transition-colors"
-            disabled={viewMode}
-          >
-            {currentData.equipment}
-            {!viewMode && <ChevronDown className="w-3 h-3" />}
-          </button>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display text-display-sm">{currentExercise?.name}</h2>
+          <div className="flex items-center gap-2">
+            {/* Instructions Toggle */}
+            <button
+              onClick={() => setShowInstructions(!showInstructions)}
+              className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-all ${
+                showInstructions
+                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                  : 'bg-surface-elevated text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Instrucciones</span>
+            </button>
+
+            {/* Equipment Selector */}
+            <button
+              onClick={() => !viewMode && setShowEquipmentModal(true)}
+              className="flex items-center gap-1 text-xs text-muted-foreground px-2 py-1 rounded-lg hover:bg-surface-elevated transition-colors"
+              disabled={viewMode}
+            >
+              {currentData.equipment}
+              {!viewMode && <ChevronDown className="w-3 h-3" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Instructions Panel */}
+        {showInstructions && currentExercise && (
+          <div className="mb-5 p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 animate-slide-up">
+            {/* Instructions */}
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Pasos</p>
+              <ol className="space-y-2">
+                {currentExercise.instructions.map((instruction, index) => (
+                  <li key={index} className="flex gap-3 text-sm text-muted-foreground">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-semibold flex items-center justify-center">
+                      {index + 1}
+                    </span>
+                    <span>{instruction}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {/* Tip */}
+            {currentExercise.tip && (
+              <div className="mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <div className="flex items-start gap-2">
+                  <Lightbulb className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-200">{currentExercise.tip}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Weight Note */}
+            {currentExercise.weightNote && (
+              <div className="p-3 rounded-lg bg-surface-elevated border border-border">
+                <div className="flex items-start gap-2">
+                  <Scale className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground">{currentExercise.weightNote}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Target Info */}
+        <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
+          <span>{currentExercise?.sets} series</span>
+          <span>×</span>
+          <span>{currentExercise?.reps} reps</span>
+          {currentExercise?.lastWeight > 0 && (
+            <>
+              <span>·</span>
+              <span className="text-amber-400">Último: {currentExercise?.lastWeight} {currentExercise?.weightUnit}</span>
+            </>
+          )}
         </div>
 
         {/* Sets Grid */}
@@ -405,7 +535,7 @@ export default function SessionPage() {
                   type="number"
                   inputMode="numeric"
                   className="input text-center py-2.5 text-sm"
-                  placeholder={String(displayExercises[currentExerciseIndex]?.targetReps)}
+                  placeholder={String(parseTargetReps(currentExercise?.reps || '10'))}
                   value={set.reps}
                   onChange={(e) => updateSet(index, 'reps', e.target.value)}
                   disabled={viewMode}
@@ -523,7 +653,10 @@ export default function SessionPage() {
           return (
             <button
               key={ex.id}
-              onClick={() => setCurrentExerciseIndex(index)}
+              onClick={() => {
+                setCurrentExerciseIndex(index)
+                setShowInstructions(false)
+              }}
               className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 ${
                 index === currentExerciseIndex
                   ? 'bg-accent text-background'
@@ -539,7 +672,7 @@ export default function SessionPage() {
       </div>
 
       {/* Equipment Modal */}
-      {showEquipmentModal && (
+      {showEquipmentModal && currentExercise && (
         <>
           <div className="overlay animate-fade-in" onClick={() => setShowEquipmentModal(false)} />
           <div className="sheet p-6 animate-slide-up">
@@ -552,10 +685,10 @@ export default function SessionPage() {
             </div>
             <div className="space-y-2">
               <button
-                onClick={() => selectEquipment(currentExercise.defaultEquipment)}
+                onClick={() => selectEquipment(currentExercise.equipment)}
                 className="w-full text-left p-4 rounded-xl bg-surface hover:bg-surface-hover transition-colors active:scale-[0.99]"
               >
-                <p className="font-medium text-sm">{currentExercise.defaultEquipment}</p>
+                <p className="font-medium text-sm">{currentExercise.equipment}</p>
                 <p className="text-xs text-muted mt-0.5">Predeterminado</p>
               </button>
               {currentExercise.substitutions.map((sub) => (
