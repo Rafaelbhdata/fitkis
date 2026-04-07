@@ -5,15 +5,56 @@
 - Sistema de diseño UI ✅ COMPLETADO (Rediseño v3.0 - "Whoop-Inspired")
 - Base de datos Supabase ✅ CONFIGURADA (tablas + RLS)
 - Auth ✅ COMPLETADO (login real con Supabase Auth)
-- Módulo Weight ✅ CONECTADO a Supabase + Progress Photos
+- Módulo Weight ✅ CONECTADO a Supabase + Progress Photos + IMC
 - Módulo Habits ✅ CONECTADO a Supabase (30-day heatmap)
-- Módulo Food ✅ CONECTADO a Supabase (con selector de cantidad)
+- Módulo Food ✅ CONECTADO a Supabase (con dieta personalizable)
 - Dashboard ✅ CONECTADO a Supabase (con logout)
 - Módulo Gym ✅ CONECTADO a Supabase
-- Módulo Journal ✅ NUEVO - Reflexiones diarias con 200 preguntas
+- Módulo Journal ✅ Reflexiones diarias con 200 preguntas
+- Módulo Settings ✅ NUEVO - Perfil y configuración de dieta
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
+Agente: Settings Module & Bug Fixes
+Fecha: 7 de abril 2026
+Qué hizo:
+
+### Settings Module (7 abril) ✅
+- **Página**: `app/(app)/settings/page.tsx`
+- **Navegación**: Agregado link a Sidebar y SideMenu
+- **Funcionalidades**:
+  - **Perfil**: Altura (cm) para cálculo de IMC, Peso objetivo (kg)
+  - **Dieta**: Configuraciones con fecha efectiva
+    - Valores personalizables: Verdura, Fruta, Carb, Leguminosa, Proteína, Grasa
+    - Historial de configuraciones (la más reciente antes de hoy es la activa)
+    - Crear, ver y eliminar configuraciones
+- **Migración**: `supabase/migrations/005_user_settings.sql`
+  - Tabla `user_profiles` (height_cm, goal_weight_kg)
+  - Tabla `diet_configs` (effective_date + valores por grupo)
+  - RLS policies para ambas tablas
+
+### Actualizaciones a Módulos Existentes (7 abril)
+- **Weight**: Muestra IMC calculado con altura del perfil
+  - Categorías: Bajo peso, Normal, Sobrepeso, Obesidad
+  - Usa peso objetivo del perfil si está configurado
+- **Food**: Usa configuración de dieta del usuario
+  - Carga diet_config efectiva para la fecha actual
+  - Si no hay config, usa valores por defecto
+
+### Journal Bug Fixes (7 abril) ✅
+- **Fix 1**: Preguntas cambiaban cada segundo (loop infinito)
+  - Causa: useCallback con dependencias circulares
+  - Solución: useRef para trackear fecha cargada
+- **Fix 2**: Preguntas cambiaban al salir y volver a la página
+  - Solución: Auto-guardar entrada al generar preguntas nuevas
+  - Preguntas se marcan como "usadas" inmediatamente
+- **Fix 3**: Restricción de navegación
+  - Solo permite fechas desde el 6 de abril 2026 (día de inicio)
+  - No se puede navegar a fechas anteriores al inicio
+
+---
+
+## Agente Anterior
 Agente: Journal Module & Progress Photos
 Fecha: 6 de abril 2026
 Qué hizo:
@@ -34,10 +75,6 @@ Qué hizo:
   - 2 cambios de pregunta permitidos por día
   - Preguntas marcadas como "usadas" al guardar
   - No se pueden ver preguntas de días futuros
-  - Navegación por fechas (solo hacia el pasado)
-- **Bug fix**: Corregido loop infinito donde preguntas cambiaban cada segundo
-  - Causa: useCallback con dependencias circulares
-  - Solución: useRef para trackear fecha cargada
 
 ### Progress Photos (6 abril) ✅
 - **Ubicación**: Integrado en `app/(app)/weight/page.tsx`
@@ -48,21 +85,10 @@ Qué hizo:
   - URLs firmadas para privacidad (1 hora expiración)
 - **Storage**: Bucket privado "progress-photos" en Supabase
 
-### Migraciones SQL Nuevas
-- `supabase/migrations/003_journal.sql`:
-  - Tabla `journal_entries` (con JSONB para preguntas)
-  - Tabla `journal_used_questions` (tracking de preguntas usadas)
-  - RLS policies
-- `supabase/migrations/004_progress_photos.sql`:
-  - Tabla `progress_photos`
-  - RLS policies
-  - Instrucciones para bucket de storage
-
-### Tipos TypeScript Actualizados
-- `JournalQuestion`: index, question, answer
-- `JournalEntry`: id, user_id, date, free_text, questions[], skips_used, timestamps
-- `JournalUsedQuestion`: id, user_id, question_index, date_used, created_at
-- `ProgressPhoto`: id, user_id, date, photo_type (front/side), photo_url, notes
+### Migraciones SQL
+- `supabase/migrations/003_journal.sql`: journal_entries, journal_used_questions
+- `supabase/migrations/004_progress_photos.sql`: progress_photos
+- `supabase/migrations/005_user_settings.sql`: user_profiles, diet_configs
 
 ---
 
@@ -385,17 +411,26 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
   - Modal para seleccionar rutina o descanso
   - Indicadores visuales (punto ámbar, badge "Modificado")
   - Restaurar rutina original
-### Food: ✅ Conectado a Supabase (con cantidad variable)
-### Weight: ✅ Conectado a Supabase + Progress Photos
+### Food: ✅ Conectado a Supabase (con dieta personalizable)
+- Dieta configurable desde Settings con fecha efectiva
+- Usa valores del usuario o defaults si no hay config
+### Weight: ✅ Conectado a Supabase + Progress Photos + IMC
 - Registro de peso con gráfica de tendencia
 - **Progress Photos**: Fotos de frente y lado con comparación entre fechas
+- **IMC**: Calculado con altura del perfil (categorías: Bajo peso, Normal, Sobrepeso, Obesidad)
+- Peso objetivo configurable desde Settings
 ### Habits: ✅ Conectado a Supabase
 ### Dashboard: ✅ Conectado a Supabase (con logout)
-### Journal: ✅ NUEVO - Reflexiones diarias
+### Journal: ✅ Reflexiones diarias
 - Banco de 200 preguntas reflexivas (no rating, texto libre)
 - 3 preguntas aleatorias por día que no se repiten
 - 2 cambios de pregunta permitidos
 - Texto libre para diario personal
+- Auto-guardado al generar preguntas
+- Navegación restringida desde fecha de inicio (6 abril 2026)
+### Settings: ✅ NUEVO - Configuración
+- **Perfil**: Altura (para IMC), Peso objetivo
+- **Dieta**: Configuraciones con fecha efectiva, CRUD completo
 
 ---
 
@@ -443,9 +478,11 @@ Todas las tablas creadas según CLAUDE.md:
 - habits ✅
 - habit_logs ✅
 - schedule_overrides ✅ (6 abril 2026)
-- journal_entries ✅ (NUEVA - 6 abril 2026) - Entradas de diario con JSONB para preguntas
-- journal_used_questions ✅ (NUEVA - 6 abril 2026) - Tracking de preguntas usadas
-- progress_photos ✅ (NUEVA - 6 abril 2026) - Fotos de progreso corporal
+- journal_entries ✅ (6 abril 2026) - Entradas de diario con JSONB para preguntas
+- journal_used_questions ✅ (6 abril 2026) - Tracking de preguntas usadas
+- progress_photos ✅ (6 abril 2026) - Fotos de progreso corporal
+- user_profiles ✅ (7 abril 2026) - Altura y peso objetivo del usuario
+- diet_configs ✅ (7 abril 2026) - Configuraciones de dieta con fecha efectiva
 
 **Storage Buckets:**
 - progress-photos (privado) - Bucket para fotos de progreso con signed URLs
@@ -500,36 +537,33 @@ fitkis/
 │   ├── (app)/
 │   │   ├── layout.tsx (sidebar desktop + header mobile)
 │   │   ├── dashboard, gym/*, food/*, weight, habits/*
-│   │   ├── journal/page.tsx (NUEVO - reflexiones diarias)
+│   │   ├── journal/page.tsx (reflexiones diarias)
+│   │   ├── settings/page.tsx (NUEVO - perfil y dieta)
 │   │   └── admin/seed/page.tsx (seed data page)
 │   ├── layout.tsx, page.tsx, globals.css
 ├── components/
 │   ├── ui/
-│   │   ├── Sidebar.tsx (desktop nav - con Journal)
-│   │   ├── Header.tsx (mobile nav - con Journal)
-│   │   ├── SideMenu.tsx (mobile drawer - con Journal)
+│   │   ├── Sidebar.tsx (desktop nav - con Journal y Settings)
+│   │   ├── Header.tsx (mobile nav)
+│   │   ├── SideMenu.tsx (mobile drawer - con Journal y Settings)
 │   │   └── Toast.tsx (notifications)
 │   └── gym/
-│       ├── RestTimer.tsx (rest timer modal)
-│       ├── ExerciseInstructions.tsx (instructions panel)
-│       ├── ProgressionBanner.tsx (+5 lbs banner)
-│       ├── SetRow.tsx (individual set input)
+│       ├── RestTimer.tsx, ExerciseInstructions.tsx
+│       ├── ProgressionBanner.tsx, SetRow.tsx
 │       └── index.ts (barrel export)
 ├── __tests__/
-│   ├── components/gym/
-│   │   ├── SetRow.test.tsx
-│   │   ├── RestTimer.test.tsx
-│   │   └── ProgressionBanner.test.tsx
+│   ├── components/gym/*.test.tsx
 │   └── lib/utils.test.ts
 ├── lib/
 │   ├── constants.ts, supabase.ts, hooks.ts, utils.ts
-│   └── journal-questions.ts (NUEVO - 200 preguntas reflexivas)
+│   └── journal-questions.ts (200 preguntas reflexivas)
 ├── public/
-│   ├── favicon.svg (NUEVO - icono dumbbell)
-│   └── manifest.json (NUEVO - PWA manifest)
+│   ├── favicon.svg (icono dumbbell)
+│   └── manifest.json (PWA manifest)
 ├── supabase/migrations/
-│   ├── 003_journal.sql (NUEVO)
-│   └── 004_progress_photos.sql (NUEVO)
+│   ├── 003_journal.sql
+│   ├── 004_progress_photos.sql
+│   └── 005_user_settings.sql (NUEVO - profiles + diet_configs)
 ├── types/index.ts
 ├── middleware.ts
 ├── tailwind.config.ts
@@ -574,10 +608,10 @@ npx tsc --noEmit   # Verificar TypeScript
 4. Notificaciones push para recordatorios
 5. Exportar datos a CSV/PDF
 
-### Migraciones pendientes de ejecutar en Supabase Dashboard
-- `supabase/migrations/003_journal.sql` - Tablas para Journal
-- `supabase/migrations/004_progress_photos.sql` - Tabla para fotos de progreso
-- Crear bucket "progress-photos" en Storage con política unificada
+### Migraciones ejecutadas ✅
+- `003_journal.sql` - journal_entries, journal_used_questions
+- `004_progress_photos.sql` - progress_photos + bucket "progress-photos"
+- `005_user_settings.sql` - user_profiles, diet_configs
 
 ---
 
