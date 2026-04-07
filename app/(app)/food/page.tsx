@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Star, ChevronDown, Search, X, Trash2, Minus, Plus, Zap } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
-import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, FOOD_EQUIVALENTS } from '@/lib/constants'
+import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, FOOD_EQUIVALENTS, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
+import type { DailyBudget } from '@/types'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
 import type { MealType, FoodGroup, FoodLog, FavoriteMeal } from '@/types'
@@ -52,13 +53,42 @@ export default function FoodPage() {
   const [favorites, setFavorites] = useState<FavoriteMeal[]>([])
   const [showFavoritesModal, setShowFavoritesModal] = useState(false)
   const [applyingFavorite, setApplyingFavorite] = useState(false)
+  const [userBudget, setUserBudget] = useState<DailyBudget>(DEFAULT_DAILY_BUDGET)
 
   useEffect(() => {
     if (user) {
       loadFoodLogs()
       loadFavorites()
+      loadUserDietConfig()
     }
   }, [user])
+
+  const loadUserDietConfig = async () => {
+    try {
+      // Get the most recent diet config that's effective for today or earlier
+      const { data } = await (supabase as any)
+        .from('diet_configs')
+        .select('*')
+        .eq('user_id', user?.id)
+        .lte('effective_date', todayStr)
+        .order('effective_date', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (data) {
+        setUserBudget({
+          verdura: data.verdura,
+          fruta: data.fruta,
+          carb: data.carb,
+          leguminosa: data.leguminosa,
+          proteina: data.proteina,
+          grasa: data.grasa,
+        })
+      }
+    } catch (err) {
+      // No config found, use defaults (already set)
+    }
+  }
 
   const loadFavorites = async () => {
     try {
@@ -170,7 +200,7 @@ export default function FoodPage() {
 
   // Calculate totals
   const totalConsumed = Object.values(consumed).reduce((a, b) => a + b, 0)
-  const totalBudget = Object.values(DAILY_BUDGET).reduce((a, b) => a + b, 0)
+  const totalBudget = Object.values(userBudget).reduce((a, b) => a + b, 0)
   const nutritionPercentage = Math.round((totalConsumed / totalBudget) * 100)
 
   if (loading) {
@@ -228,8 +258,8 @@ export default function FoodPage() {
 
         {/* Large progress bars */}
         <div className="space-y-3">
-          {(Object.keys(DAILY_BUDGET) as FoodGroup[]).map((group) => {
-            const total = DAILY_BUDGET[group]
+          {(Object.keys(userBudget) as FoodGroup[]).map((group) => {
+            const total = userBudget[group]
             const current = consumed[group]
             const percentage = Math.min((current / total) * 100, 100)
             const isComplete = current >= total

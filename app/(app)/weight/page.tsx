@@ -38,12 +38,35 @@ export default function WeightPage() {
   const [compareDate1, setCompareDate1] = useState<string>('')
   const [compareDate2, setCompareDate2] = useState<string>('')
 
+  // User profile state
+  const [userHeight, setUserHeight] = useState<number | null>(null)
+  const [userGoalWeight, setUserGoalWeight] = useState<number | null>(null)
+
   useEffect(() => {
     if (user) {
       loadWeightLogs()
       loadPhotos()
+      loadUserProfile()
     }
   }, [user])
+
+  const loadUserProfile = async () => {
+    if (!user) return
+    try {
+      const { data } = await (supabase as any)
+        .from('user_profiles')
+        .select('height_cm, goal_weight_kg')
+        .eq('user_id', user.id)
+        .single()
+
+      if (data) {
+        setUserHeight(data.height_cm)
+        setUserGoalWeight(data.goal_weight_kg)
+      }
+    } catch (err) {
+      // No profile found, use defaults
+    }
+  }
 
   const loadWeightLogs = async () => {
     setLoading(true)
@@ -166,9 +189,20 @@ export default function WeightPage() {
   }
 
   const latestWeight = weightLogs[0]?.weight_kg || USER_PROFILE.initialWeight
+  const goalWeight = userGoalWeight || USER_PROFILE.goalWeight
   const weightLost = USER_PROFILE.initialWeight - latestWeight
-  const progress = ((USER_PROFILE.initialWeight - latestWeight) / (USER_PROFILE.initialWeight - USER_PROFILE.goalWeight)) * 100
-  const remaining = Math.max(0, latestWeight - USER_PROFILE.goalWeight)
+  const progress = ((USER_PROFILE.initialWeight - latestWeight) / (USER_PROFILE.initialWeight - goalWeight)) * 100
+  const remaining = Math.max(0, latestWeight - goalWeight)
+
+  // BMI calculation
+  const bmi = userHeight ? (latestWeight / Math.pow(userHeight / 100, 2)).toFixed(1) : null
+  const getBmiCategory = (bmi: number) => {
+    if (bmi < 18.5) return { label: 'Bajo peso', color: 'text-blue-400' }
+    if (bmi < 25) return { label: 'Normal', color: 'text-green-400' }
+    if (bmi < 30) return { label: 'Sobrepeso', color: 'text-yellow-400' }
+    return { label: 'Obesidad', color: 'text-red-400' }
+  }
+  const bmiCategory = bmi ? getBmiCategory(parseFloat(bmi)) : null
 
   // Filter logs based on time range
   const getFilteredLogs = () => {
@@ -208,7 +242,7 @@ export default function WeightPage() {
 
   // Chart domain
   const weights = chartData.map(d => d.weight)
-  const minWeight = Math.min(...weights, USER_PROFILE.goalWeight) - 1
+  const minWeight = Math.min(...weights, goalWeight) - 1
   const maxWeight = Math.max(...weights, USER_PROFILE.initialWeight) + 1
 
   if (loading) {
@@ -268,12 +302,32 @@ export default function WeightPage() {
             <Target className="w-4 h-4 text-accent" />
             <span className="text-xs text-muted-foreground">Meta</span>
           </div>
-          <p className="font-display text-display-sm">{USER_PROFILE.goalWeight} kg</p>
+          <p className="font-display text-display-sm">{goalWeight} kg</p>
           <p className="text-xs text-muted-foreground mt-1">Faltan {remaining.toFixed(1)} kg</p>
         </div>
 
+        {/* BMI Card */}
+        {bmi ? (
+          <div className="card !p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Scale className="w-4 h-4 text-accent" />
+              <span className="text-xs text-muted-foreground">IMC</span>
+            </div>
+            <p className={`font-display text-display-sm ${bmiCategory?.color}`}>{bmi}</p>
+            <p className="text-xs text-muted-foreground mt-1">{bmiCategory?.label}</p>
+          </div>
+        ) : (
+          <div className="card !p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Scale className="w-4 h-4 text-accent" />
+              <span className="text-xs text-muted-foreground">IMC</span>
+            </div>
+            <p className="text-sm text-muted-foreground">Configura tu altura en ajustes</p>
+          </div>
+        )}
+
         {/* Week Change */}
-        <div className="card !p-4">
+        <div className="card !p-4 col-span-2">
           <div className="flex items-center gap-2 mb-3">
             <Calendar className="w-4 h-4 text-accent" />
             <span className="text-xs text-muted-foreground">Esta semana</span>
@@ -314,7 +368,7 @@ export default function WeightPage() {
         </div>
         <div className="flex justify-between mt-2 text-xs text-muted-foreground">
           <span>{USER_PROFILE.initialWeight} kg</span>
-          <span>{USER_PROFILE.goalWeight} kg</span>
+          <span>{goalWeight} kg</span>
         </div>
       </div>
 

@@ -414,6 +414,9 @@ export const DAILY_BUDGET: DailyBudget = {
   grasa: 6,
 }
 
+// Alias para configuración
+export const DEFAULT_DAILY_BUDGET = DAILY_BUDGET
+
 export const MEAL_BUDGETS: Record<string, MealBudget> = {
   desayuno: { verdura: 0, fruta: 0, carb: 0, leguminosa: 0, proteina: 3, grasa: 0 },
   snack: { verdura: 0, fruta: 2, carb: 1, leguminosa: 0, proteina: 0, grasa: 2 },

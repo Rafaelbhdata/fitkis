@@ -117,13 +117,16 @@ export default function Sidebar({ streak = 0 }: SidebarProps) {
 
       {/* Footer Actions */}
       <div className="p-3 border-t border-border space-y-1">
-        <button
-          onClick={() => {/* TODO: Settings */}}
-          className="sidebar-nav-item w-full"
+        <Link
+          href="/settings"
+          className={cn(
+            'sidebar-nav-item',
+            pathname === '/settings' && 'sidebar-nav-item-active'
+          )}
         >
-          <Settings className="w-4 h-4" />
+          <Settings className={cn('w-4 h-4', pathname === '/settings' && 'text-accent')} />
           <span>Configuración</span>
-        </button>
+        </Link>
         <button
           onClick={handleLogout}
           className="sidebar-nav-item w-full text-danger hover:text-danger hover:bg-danger/10"
