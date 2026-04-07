@@ -320,9 +320,9 @@ export default function GymPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold tabular-nums">{exercise.sets}×{exercise.reps}</p>
-                      {(lastWeight || exercise.lastWeight > 0) && (
+                      {lastWeight && (
                         <p className="text-[10px] text-amber-400 font-medium">
-                          → {lastWeight || exercise.lastWeight} {exercise.weightUnit}
+                          → {lastWeight} {exercise.weightUnit}
                         </p>
                       )}
                     </div>
