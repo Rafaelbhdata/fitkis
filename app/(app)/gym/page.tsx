@@ -6,7 +6,7 @@ import { ROUTINES, ROUTINE_SCHEDULE } from '@/lib/constants'
 import { formatDuration } from '@/lib/utils'
 import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Zap, Clock, Coffee, ChevronDown, TrendingUp, RefreshCw, X } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
-import type { GymSession, SessionSet, RoutineType, Routine, ScheduleOverride, Database } from '@/types'
+import type { GymSession, SessionSet, RoutineType, Routine, ScheduleOverride } from '@/types'
 
 // Week starts on Monday (index 0 = Monday, index 6 = Sunday)
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -74,7 +74,8 @@ export default function GymPage() {
     const endDate = formatDateISO(weekDates[6])
 
     try {
-      const { data } = await supabase
+      // Using any cast until table exists in DB
+      const { data } = await (supabase as any)
         .from('schedule_overrides')
         .select('*')
         .gte('date', startDate)
@@ -82,7 +83,7 @@ export default function GymPage() {
 
       if (data) {
         const overridesMap: Record<string, string> = {}
-        data.forEach((override: ScheduleOverride) => {
+        ;(data as ScheduleOverride[]).forEach((override) => {
           overridesMap[override.date] = override.routine_type
         })
         setWeekOverrides(overridesMap)
@@ -167,14 +168,14 @@ export default function GymPage() {
     setSavingOverride(true)
 
     try {
-      // Upsert the override
-      const { error } = await supabase
+      // Upsert the override (using any cast until table exists in DB)
+      const { error } = await (supabase as any)
         .from('schedule_overrides')
         .upsert({
           user_id: user.id,
           date: selectedDateISO,
           routine_type: newRoutineType
-        } as Database['public']['Tables']['schedule_overrides']['Insert'], {
+        }, {
           onConflict: 'user_id,date'
         })
 
@@ -199,7 +200,8 @@ export default function GymPage() {
     setSavingOverride(true)
 
     try {
-      const { error } = await supabase
+      // Using any cast until table exists in DB
+      const { error } = await (supabase as any)
         .from('schedule_overrides')
         .delete()
         .eq('user_id', user.id)
