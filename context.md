@@ -13,6 +13,44 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
+Agente: Schedule Overrides Feature
+Fecha: 6 de abril 2026
+Qué hizo:
+
+### Schedule Overrides - Cambio Flexible de Rutinas (6 abril - sesión 8)
+
+#### 1. Nueva Tabla en Supabase ✅
+- **Tabla**: `schedule_overrides`
+- **Campos**: id, user_id, date, routine_type, created_at
+- **Constraint**: UNIQUE(user_id, date) para upsert
+- **RLS**: Políticas para SELECT, INSERT, UPDATE, DELETE por usuario
+- **Migración**: `supabase/migrations/schedule_overrides.sql`
+
+#### 2. Funcionalidad en gym/page.tsx ✅
+- **Cargar overrides**: `loadWeekOverrides()` - carga overrides de la semana visible
+- **Guardar override**: `saveOverride()` - upsert con `onConflict: 'user_id,date'`
+- **Eliminar override**: `removeOverride()` - restaura rutina original
+- **getRoutineForDate()**: Primero busca override, luego usa schedule default
+
+#### 3. UI de Cambio de Rutina ✅
+- **Botón "Cambiar"**: En la tarjeta de rutina del día
+- **Modal de selección**: Muestra todas las rutinas + opción de descanso
+- **Indicador visual**: Punto ámbar en días modificados del calendario
+- **Badge "Modificado"**: En la tarjeta cuando el día tiene override
+- **Botón "Restaurar original"**: Para eliminar el override
+
+#### 4. Restricciones del Calendario ✅
+- **No navegar al pasado**: weekOffset no puede ser < 0
+- **Días pasados deshabilitados**: Grises y no clickeables
+- **Auto-reset**: Vuelve al día actual cuando regresa de semanas futuras
+
+#### 5. Tipos TypeScript ✅
+- **types/index.ts**: Agregado `ScheduleOverride` interface
+- **Database type**: Agregado `schedule_overrides` table con Views, Functions, Enums vacíos
+
+---
+
+## Agente Anterior
 Agente: Phase 4 - Cleanup, Seed Data y Tests
 Fecha: 6 de abril 2026
 Qué hizo:
@@ -289,6 +327,10 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 - Exercise instructions panel with tips and weight notes
 - ROUTINE_SCHEDULE for weekly routine assignment
 - Full ROUTINES data with detailed exercise info
+- **Schedule Overrides**: Cambiar rutina de cualquier día futuro
+  - Modal para seleccionar rutina o descanso
+  - Indicadores visuales (punto ámbar, badge "Modificado")
+  - Restaurar rutina original
 ### Food: ✅ Conectado a Supabase (con cantidad variable)
 ### Weight: ✅ Conectado a Supabase
 ### Habits: ✅ Conectado a Supabase
@@ -323,7 +365,8 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 
 ### Mejoras de Código PENDIENTES
 - ✅ Extraer componentes de páginas grandes (gym/session ahora ~763 líneas, componentes en components/gym/)
-- Remover `as any` en operaciones Supabase (usar tipos correctos)
+- Remover `as any` en operaciones Supabase (usar tipos generados con `supabase gen types`)
+  - gym/page.tsx: 3 operaciones de schedule_overrides usan `as any`
 - Agregar skeleton loaders en vez de spinner genérico
 - Agregar aria-labels para accesibilidad completa
 
@@ -335,9 +378,10 @@ Todas las tablas creadas según CLAUDE.md:
 - session_sets ✅
 - weight_logs ✅
 - food_logs ✅
-- favorite_meals ✅ (tabla existe, UI no implementada)
+- favorite_meals ✅
 - habits ✅
 - habit_logs ✅
+- schedule_overrides ✅ (NUEVA - 6 abril 2026)
 
 RLS habilitado con políticas por usuario en todas las tablas.
 
