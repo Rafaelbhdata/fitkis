@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, Flame } from 'lucide-react'
+import { Menu, Flame, Dumbbell } from 'lucide-react'
 import SideMenu from './SideMenu'
 
 interface HeaderProps {
@@ -32,7 +32,7 @@ export default function Header({ streak = 0 }: HeaderProps) {
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-              <span className="font-display font-bold text-background text-sm">K</span>
+              <Dumbbell className="w-4 h-4 text-background" />
             </Link>
             <span className="font-display font-semibold">{pageTitle}</span>
           </div>
