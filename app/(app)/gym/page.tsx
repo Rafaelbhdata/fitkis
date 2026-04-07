@@ -249,8 +249,8 @@ export default function GymPage() {
             </div>
           </div>
 
-          {/* Last Session (Collapsible) */}
-          {lastSession && (
+          {/* Last Session (Collapsible) - only show if there are exercises with data */}
+          {lastSession && routine.exercises.some((e) => getLastWeight(e.id) !== null) && (
             <div className="card !p-0 overflow-hidden">
               <button
                 className="w-full flex items-center justify-between p-4"
@@ -279,21 +279,19 @@ export default function GymPage() {
               {showLastSession && (
                 <div className="px-4 pb-4 space-y-2 border-t border-border pt-3 animate-slide-up">
                   <p className="text-xs text-muted-foreground mb-3">Pesos utilizados:</p>
-                  {routine.exercises.map((exercise) => {
-                    const lastWeight = getLastWeight(exercise.id)
-                    return (
-                      <div key={exercise.id} className="flex items-center justify-between py-1.5">
-                        <span className="text-sm text-muted-foreground truncate flex-1 mr-3">{exercise.name}</span>
-                        {lastWeight ? (
+                  {routine.exercises
+                    .filter((exercise) => getLastWeight(exercise.id) !== null)
+                    .map((exercise) => {
+                      const lastWeight = getLastWeight(exercise.id)
+                      return (
+                        <div key={exercise.id} className="flex items-center justify-between py-1.5">
+                          <span className="text-sm text-muted-foreground truncate flex-1 mr-3">{exercise.name}</span>
                           <span className="text-sm font-semibold text-amber-400 tabular-nums whitespace-nowrap">
                             {lastWeight} lbs
                           </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </div>
-                    )
-                  })}
+                        </div>
+                      )
+                    })}
                 </div>
               )}
             </div>
