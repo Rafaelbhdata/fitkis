@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw, BookOpen, Save, Check } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { JOURNAL_QUESTIONS, getRandomQuestions, getReplacementQuestion } from '@/lib/journal-questions'
-import type { JournalEntry, JournalQuestion } from '@/types'
+import type { JournalQuestion } from '@/types'
 
 const formatDateISO = (date: Date) => date.toISOString().split('T')[0]
 
@@ -32,83 +32,78 @@ export default function JournalPage() {
   const [saved, setSaved] = useState(false)
   const [entryId, setEntryId] = useState<string | null>(null)
 
+  const loadedDateRef = useRef<string | null>(null)
+
   const selectedDateISO = formatDateISO(selectedDate)
   const isToday = selectedDateISO === formatDateISO(today)
   const isFuture = selectedDate > today
 
-  // Cargar preguntas usadas del usuario
-  const loadUsedQuestions = useCallback(async () => {
-    if (!user) return []
-
-    const { data } = await (supabase as any)
-      .from('journal_used_questions')
-      .select('question_index')
-      .eq('user_id', user.id)
-
-    if (data) {
-      const indices = data.map((d: any) => d.question_index)
-      setUsedQuestionIndices(indices)
-      return indices
-    }
-    return []
-  }, [user, supabase])
-
   // Cargar entrada del día
-  const loadEntry = useCallback(async () => {
-    if (!user) return
-    setLoading(true)
-
-    try {
-      // Cargar preguntas usadas primero
-      const usedIndices = await loadUsedQuestions()
-
-      // Buscar entrada existente
-      const { data: entry } = await (supabase as any)
-        .from('journal_entries')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', selectedDateISO)
-        .single()
-
-      if (entry) {
-        setEntryId(entry.id)
-        setFreeText(entry.free_text || '')
-        setQuestions(entry.questions || [])
-        setSkipsUsed(entry.skips_used || 0)
-      } else {
-        // Nueva entrada - generar preguntas aleatorias
-        setEntryId(null)
-        setFreeText('')
-        setSkipsUsed(0)
-
-        // Generar 3 preguntas nuevas
-        const newQuestions = getRandomQuestions(usedIndices, 3)
-        setQuestions(newQuestions.map(q => ({
-          index: q.index,
-          question: q.question,
-          answer: ''
-        })))
-      }
-    } catch (err) {
-      // No entry found, generate new questions
-      setEntryId(null)
-      setFreeText('')
-      setSkipsUsed(0)
-
-      const newQuestions = getRandomQuestions(usedQuestionIndices, 3)
-      setQuestions(newQuestions.map(q => ({
-        index: q.index,
-        question: q.question,
-        answer: ''
-      })))
-    } finally {
-      setLoading(false)
-    }
-  }, [user, supabase, selectedDateISO, loadUsedQuestions, usedQuestionIndices])
-
   useEffect(() => {
+    if (!user || isFuture) {
+      setLoading(false)
+      return
+    }
+
+    // Evitar cargar la misma fecha múltiples veces
+    if (loadedDateRef.current === selectedDateISO) {
+      return
+    }
+
+    const loadEntry = async () => {
+      setLoading(true)
+      loadedDateRef.current = selectedDateISO
+
+      try {
+        // Cargar preguntas usadas
+        const { data: usedData } = await (supabase as any)
+          .from('journal_used_questions')
+          .select('question_index')
+          .eq('user_id', user.id)
+
+        const usedIndices = usedData ? usedData.map((d: any) => d.question_index) : []
+        setUsedQuestionIndices(usedIndices)
+
+        // Buscar entrada existente
+        const { data: entry, error } = await (supabase as any)
+          .from('journal_entries')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', selectedDateISO)
+          .single()
+
+        if (entry && !error) {
+          setEntryId(entry.id)
+          setFreeText(entry.free_text || '')
+          setQuestions(entry.questions || [])
+          setSkipsUsed(entry.skips_used || 0)
+        } else {
+          // Nueva entrada - generar preguntas aleatorias
+          setEntryId(null)
+          setFreeText('')
+          setSkipsUsed(0)
+
+          const newQuestions = getRandomQuestions(usedIndices, 3)
+          setQuestions(newQuestions.map(q => ({
+            index: q.index,
+            question: q.question,
+            answer: ''
+          })))
+        }
+      } catch (err) {
+        console.error('Error loading journal:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
     loadEntry()
-  }, [loadEntry])
+  }, [user, selectedDateISO, isFuture, supabase])
+
+  // Reset loadedDateRef cuando cambia la fecha
+  useEffect(() => {
+    loadedDateRef.current = null
+  }, [selectedDateISO])
 
   // Guardar entrada
   const saveEntry = async () => {
@@ -152,6 +147,12 @@ export default function JournalPage() {
           await (supabase as any)
             .from('journal_used_questions')
             .upsert(usedQuestionsToInsert, { onConflict: 'user_id,question_index' })
+
+          // Actualizar el estado local de preguntas usadas
+          setUsedQuestionIndices(prev => [
+            ...prev,
+            ...questions.map(q => q.index).filter(idx => !prev.includes(idx))
+          ])
         }
       }
 
@@ -166,7 +167,7 @@ export default function JournalPage() {
   }
 
   // Cambiar pregunta
-  const skipQuestion = async (questionIndex: number) => {
+  const skipQuestion = (questionIndex: number) => {
     if (skipsUsed >= 2 || isFuture) return
 
     const currentIndices = questions.map(q => q.index)
