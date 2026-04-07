@@ -13,6 +13,47 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
+Agente: Phase 4 - Cleanup, Seed Data y Tests
+Fecha: 6 de abril 2026
+Qué hizo:
+
+### Phase 4 - Tareas Completadas (6 abril - sesión 7)
+
+#### 1. Seed de Sesiones Históricas ✅
+- **Ubicación**: `app/(app)/admin/seed/page.tsx` (NUEVA)
+- **Funcionalidad**: Página admin para cargar datos históricos de CLAUDE.md
+- **Sesiones**: 2 sesiones Upper A (23 marzo y 3 abril 2026)
+- **Sets**: 17 sets totales con pesos, reps y feeling
+- **Cardio**: Incluye datos de cardio (12 min @ 5.5 km/h)
+
+#### 2. Extracción de Componentes Gym ✅
+- **Componentes nuevos** en `components/gym/`:
+  - `RestTimer.tsx` - Timer de descanso modal con controles
+  - `ExerciseInstructions.tsx` - Panel de instrucciones expandible
+  - `ProgressionBanner.tsx` - Banner de sugerencia +5 lbs
+  - `SetRow.tsx` - Fila individual de serie con inputs
+  - `index.ts` - Barrel export
+- **Reducción**: gym/session de ~928 a ~763 líneas (~18% menos)
+
+#### 3. Diseño Responsive Tablet/Desktop ✅
+- **globals.css**: Utilidades `.desktop-grid-2/3/sidebar`
+- **Sheet modal**: Centrado en desktop (no slide-up)
+- **Food page**: Grid de 2 columnas en tablet+
+- **Gym page**: Grid de stats responsive
+
+#### 4. Tests Unitarios ✅
+- **Setup**: Jest + React Testing Library configurados
+- **Config**: `jest.config.js` + `jest.setup.js`
+- **Tests creados** en `__tests__/`:
+  - `components/gym/SetRow.test.tsx` (12 tests)
+  - `components/gym/RestTimer.test.tsx` (12 tests)
+  - `components/gym/ProgressionBanner.test.tsx` (8 tests)
+  - `lib/utils.test.ts` (26 tests)
+- **Total**: 58 tests pasando ✅
+
+---
+
+## Agente Anterior
 Agente: Phase 3 Features - Visualización y Gráficas
 Fecha: 6 de abril 2026
 Qué hizo:
@@ -276,12 +317,12 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 | CRUD completo de hábitos | Media | ✅ COMPLETADO |
 | Timer de descanso entre series | Media | ✅ COMPLETADO |
 | Banner de progresión (+5 lbs) UI | Media | ✅ COMPLETADO |
-| Seed de sesiones históricas | Baja | ⏳ |
-| Diseño responsive tablet/desktop | Baja | ⏳ |
-| Tests unitarios/E2E | Baja | ⏳ |
+| Seed de sesiones históricas | Baja | ✅ COMPLETADO |
+| Diseño responsive tablet/desktop | Baja | ✅ COMPLETADO |
+| Tests unitarios | Baja | ✅ COMPLETADO (58 tests) |
 
 ### Mejoras de Código PENDIENTES
-- Extraer componentes de páginas grandes (gym/session tiene 600+ líneas)
+- ✅ Extraer componentes de páginas grandes (gym/session ahora ~763 líneas, componentes en components/gym/)
 - Remover `as any` en operaciones Supabase (usar tipos correctos)
 - Agregar skeleton loaders en vez de spinner genérico
 - Agregar aria-labels para accesibilidad completa
@@ -348,16 +389,31 @@ fitkis/
 │   ├── (app)/
 │   │   ├── layout.tsx (sidebar desktop + header mobile)
 │   │   ├── dashboard, gym/*, food/*, weight, habits/*
+│   │   └── admin/seed/page.tsx (seed data page)
 │   ├── layout.tsx, page.tsx, globals.css
-├── components/ui/
-│   ├── Sidebar.tsx (NEW - desktop nav)
-│   ├── Header.tsx (mobile nav)
-│   ├── SideMenu.tsx (mobile drawer)
-│   └── BottomNav.tsx (DEPRECATED)
+├── components/
+│   ├── ui/
+│   │   ├── Sidebar.tsx (desktop nav)
+│   │   ├── Header.tsx (mobile nav)
+│   │   ├── SideMenu.tsx (mobile drawer)
+│   │   └── Toast.tsx (notifications)
+│   └── gym/
+│       ├── RestTimer.tsx (rest timer modal)
+│       ├── ExerciseInstructions.tsx (instructions panel)
+│       ├── ProgressionBanner.tsx (+5 lbs banner)
+│       ├── SetRow.tsx (individual set input)
+│       └── index.ts (barrel export)
+├── __tests__/
+│   ├── components/gym/
+│   │   ├── SetRow.test.tsx
+│   │   ├── RestTimer.test.tsx
+│   │   └── ProgressionBanner.test.tsx
+│   └── lib/utils.test.ts
 ├── lib/constants.ts, supabase.ts, hooks.ts, utils.ts
 ├── types/index.ts
 ├── middleware.ts
 ├── tailwind.config.ts
+├── jest.config.js, jest.setup.js
 ├── CLAUDE.md (spec completa)
 └── context.md (este archivo)
 ```
@@ -366,32 +422,37 @@ fitkis/
 
 ## Comandos útiles
 ```bash
-npm run dev    # Desarrollo local
-npm run build  # Build de producción
-npm run lint   # Linting
-npx tsc --noEmit  # Verificar TypeScript
+npm run dev        # Desarrollo local
+npm run build      # Build de producción
+npm run lint       # Linting
+npm test           # Ejecutar tests (58 tests)
+npm run test:watch # Tests en modo watch
+npx tsc --noEmit   # Verificar TypeScript
 ```
 
 ---
 
 ## Próximos pasos recomendados
 
-### Prioridad Alta
-1. **Configurar Vercel** - Importar repo de GitHub, agregar env vars
-2. **Probar la app** desplegada en producción
-3. **Implementar gráfica de peso** con recharts (ya instalado)
-4. **Implementar favoritos de comidas** (tabla existe, falta UI)
+### ✅ COMPLETADOS
+1. ~~Configurar Vercel~~ - Importar repo de GitHub, agregar env vars ✅
+2. ~~Probar la app desplegada en producción~~ ✅
+3. ~~Implementar gráfica de peso con recharts~~ ✅
+4. ~~Implementar favoritos de comidas~~ ✅
+5. ~~Implementar gráficas de hábitos (racha, %)~~ ✅
+6. ~~Mostrar banner de progresión (+5 lbs)~~ ✅
+7. ~~Timer de descanso entre series~~ ✅
+8. ~~CRUD completo de hábitos~~ ✅
+9. ~~Extraer componentes reutilizables~~ ✅ (components/gym/)
+10. ~~Agregar tests~~ ✅ (58 tests con Jest)
+11. ~~Diseño responsive para tablet~~ ✅
 
-### Prioridad Media
-5. Implementar gráficas de hábitos (racha, %)
-6. Mostrar banner de progresión (+5 lbs) cuando aplique
-7. Timer de descanso entre series (diferente al session timer)
-8. CRUD completo de hábitos
-
-### Prioridad Baja
-9. Extraer componentes reutilizables
-10. Agregar tests
-11. Diseño responsive para tablet
+### Pendiente (Mejoras futuras)
+1. E2E tests con Playwright
+2. Skeleton loaders para mejor UX de carga
+3. PWA: offline support, install prompt
+4. Notificaciones push para recordatorios
+5. Exportar datos a CSV/PDF
 
 ---
 
