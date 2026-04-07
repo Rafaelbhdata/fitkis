@@ -51,6 +51,17 @@ export default function GymPage() {
   }
 
   const weekDates = getWeekDates()
+
+  // If we're on current week and selected day is in the past, reset to today
+  useEffect(() => {
+    if (weekOffset === 0) {
+      const todayIndex = jsDayToUiIndex(today.getDay())
+      if (selectedDay < todayIndex) {
+        setSelectedDay(todayIndex)
+      }
+    }
+  }, [weekOffset])
+
   const selectedDate = weekDates[selectedDay]
   const isToday = selectedDate.toDateString() === today.toDateString()
 
@@ -114,16 +125,21 @@ export default function GymPage() {
       {/* Week Navigation */}
       <div className="card !p-3">
         <div className="flex items-center justify-between mb-3">
+          {/* Only allow going back if weekOffset > 0 (can't go before current week) */}
           <button
-            onClick={() => setWeekOffset(weekOffset - 1)}
-            className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors"
+            onClick={() => weekOffset > 0 && setWeekOffset(weekOffset - 1)}
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+              weekOffset > 0
+                ? 'bg-surface-elevated hover:bg-surface-hover'
+                : 'bg-surface-elevated/50 cursor-not-allowed'
+            }`}
             aria-label="Semana anterior"
+            disabled={weekOffset === 0}
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className={`w-5 h-5 ${weekOffset === 0 ? 'text-muted-foreground/30' : ''}`} />
           </button>
           <span className="text-sm font-medium">
             {weekOffset === 0 ? 'Esta semana' :
-             weekOffset === -1 ? 'Semana pasada' :
              weekOffset === 1 ? 'Próxima semana' :
              `${weekDates[0].toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} - ${weekDates[6].toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}`
             }
@@ -145,20 +161,26 @@ export default function GymPage() {
             const isSelected = index === selectedDay
             const isDayToday = date.toDateString() === today.toDateString()
             const hasRoutine = dayRoutine !== 'rest'
+            const isPast = date < today && !isDayToday
 
             return (
               <button
                 key={index}
                 onClick={() => {
+                  // Don't allow selecting past days
+                  if (isPast) return
                   setSelectedDay(index)
                   setOverrideRoutine(null)
                 }}
+                disabled={isPast}
                 className={`flex flex-col items-center py-3 px-1 rounded-lg transition-all min-h-[52px] ${
-                  isSelected
-                    ? 'bg-accent text-background'
-                    : isDayToday
-                      ? 'bg-accent/20 text-accent'
-                      : 'hover:bg-surface-elevated'
+                  isPast
+                    ? 'opacity-30 cursor-not-allowed'
+                    : isSelected
+                      ? 'bg-accent text-background'
+                      : isDayToday
+                        ? 'bg-accent/20 text-accent'
+                        : 'hover:bg-surface-elevated'
                 }`}
               >
                 <span className="text-[10px] font-medium mb-0.5">{DAY_NAMES[index]}</span>
@@ -166,9 +188,11 @@ export default function GymPage() {
                   {date.getDate()}
                 </span>
                 <div className={`w-1.5 h-1.5 rounded-full mt-1 ${
-                  hasRoutine
-                    ? isSelected ? 'bg-background' : 'bg-blue-500'
-                    : 'bg-transparent'
+                  isPast
+                    ? 'bg-transparent'
+                    : hasRoutine
+                      ? isSelected ? 'bg-background' : 'bg-blue-500'
+                      : 'bg-transparent'
                 }`} />
               </button>
             )
