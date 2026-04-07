@@ -6,7 +6,7 @@ import { ROUTINES, ROUTINE_SCHEDULE } from '@/lib/constants'
 import { formatDuration } from '@/lib/utils'
 import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Zap, Clock, Coffee, ChevronDown, TrendingUp, RefreshCw, X } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
-import type { GymSession, SessionSet, RoutineType, Routine, ScheduleOverride } from '@/types'
+import type { GymSession, SessionSet, RoutineType, Routine, ScheduleOverride, Database } from '@/types'
 
 // Week starts on Monday (index 0 = Monday, index 6 = Sunday)
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -162,7 +162,7 @@ export default function GymPage() {
     }
   }
 
-  const saveOverride = async (newRoutineType: string) => {
+  const saveOverride = async (newRoutineType: RoutineType | 'rest') => {
     if (!user) return
     setSavingOverride(true)
 
@@ -174,7 +174,7 @@ export default function GymPage() {
           user_id: user.id,
           date: selectedDateISO,
           routine_type: newRoutineType
-        }, {
+        } as Database['public']['Tables']['schedule_overrides']['Insert'], {
           onConflict: 'user_id,date'
         })
 

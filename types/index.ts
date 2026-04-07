@@ -186,5 +186,14 @@ export interface Database {
         Update: Partial<Omit<ScheduleOverride, 'id' | 'created_at'>>
       }
     }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
   }
 }
