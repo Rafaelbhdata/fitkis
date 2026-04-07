@@ -84,10 +84,10 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
-              <span className="font-display font-bold text-background">F</span>
+              <span className="font-display font-bold text-background">K</span>
             </div>
             <div>
-              <p className="font-display font-semibold text-sm">FitLife</p>
+              <p className="font-display font-semibold text-sm">Fitkis</p>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pro</p>
             </div>
           </div>

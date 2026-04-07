@@ -16,13 +16,17 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'FitLife',
+  title: 'Fitkis',
   description: 'Tu app personal de fitness y salud',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.svg',
+    apple: '/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'FitLife',
+    title: 'Fitkis',
   },
 }
 

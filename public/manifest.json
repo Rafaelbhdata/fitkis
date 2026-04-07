@@ -1,0 +1,17 @@
+{
+  "name": "Fitkis",
+  "short_name": "Fitkis",
+  "description": "Tu app personal de fitness y salud",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

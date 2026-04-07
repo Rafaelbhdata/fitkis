@@ -48,10 +48,10 @@ export default function Sidebar({ streak = 0 }: SidebarProps) {
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
-            <span className="font-display font-bold text-background text-lg">F</span>
+            <span className="font-display font-bold text-background text-lg">K</span>
           </div>
           <div>
-            <p className="font-display font-semibold text-sm">FitLife</p>
+            <p className="font-display font-semibold text-sm">Fitkis</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pro</p>
           </div>
         </div>

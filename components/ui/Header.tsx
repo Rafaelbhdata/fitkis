@@ -17,7 +17,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/food')) return 'Alimentación'
   if (pathname.startsWith('/habits')) return 'Hábitos'
   if (pathname.startsWith('/weight')) return 'Peso'
-  return 'FitLife'
+  return 'Fitkis'
 }
 
 export default function Header({ streak = 0 }: HeaderProps) {
@@ -32,7 +32,7 @@ export default function Header({ streak = 0 }: HeaderProps) {
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-              <span className="font-display font-bold text-background text-sm">F</span>
+              <span className="font-display font-bold text-background text-sm">K</span>
             </Link>
             <span className="font-display font-semibold">{pageTitle}</span>
           </div>
