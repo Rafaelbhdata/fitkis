@@ -71,7 +71,22 @@ export default function WeightPage() {
         .eq('user_id', user.id)
         .order('date', { ascending: false })
 
-      if (data) setPhotos(data as ProgressPhoto[])
+      if (data && data.length > 0) {
+        // Generate signed URLs for each photo (valid for 1 hour)
+        const photosWithSignedUrls = await Promise.all(
+          data.map(async (photo: ProgressPhoto) => {
+            const { data: signedData } = await supabase.storage
+              .from('progress-photos')
+              .createSignedUrl(photo.photo_url, 3600) // 1 hour expiry
+
+            return {
+              ...photo,
+              photo_url: signedData?.signedUrl || photo.photo_url
+            }
+          })
+        )
+        setPhotos(photosWithSignedUrls as ProgressPhoto[])
+      }
     } catch (err) {
       console.error('Error loading photos:', err)
     }
@@ -86,26 +101,21 @@ export default function WeightPage() {
       const fileExt = file.name.split('.').pop()
       const filePath = `${user.id}/${today}_${photoType}.${fileExt}`
 
-      // Upload to storage
+      // Upload to storage (private bucket)
       const { error: uploadError } = await supabase.storage
         .from('progress-photos')
         .upload(filePath, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('progress-photos')
-        .getPublicUrl(filePath)
-
-      // Save to database
+      // Save file path to database (not the URL)
       await (supabase as any)
         .from('progress_photos')
         .upsert({
           user_id: user.id,
           date: today,
           photo_type: photoType,
-          photo_url: urlData.publicUrl
+          photo_url: filePath  // Store path, not URL
         }, { onConflict: 'user_id,date,photo_type' })
 
       await loadPhotos()
