@@ -580,7 +580,7 @@ export default function GymPage() {
                 {Object.entries(ROUTINES).map(([key, r]) => (
                   <button
                     key={key}
-                    onClick={() => saveOverride(key)}
+                    onClick={() => saveOverride(key as RoutineType)}
                     disabled={savingOverride}
                     className={`w-full p-3 rounded-lg text-left transition-colors ${
                       routineKey === key
