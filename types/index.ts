@@ -123,6 +123,43 @@ export interface ScheduleOverride {
   created_at: string
 }
 
+export interface JournalQuestion {
+  index: number
+  question: string
+  answer: string
+}
+
+export interface JournalEntry {
+  id: string
+  user_id: string
+  date: string
+  free_text?: string
+  questions: JournalQuestion[]
+  skips_used: number
+  created_at: string
+  updated_at: string
+}
+
+export interface JournalUsedQuestion {
+  id: string
+  user_id: string
+  question_index: number
+  date_used: string
+  created_at: string
+}
+
+export type PhotoType = 'front' | 'side'
+
+export interface ProgressPhoto {
+  id: string
+  user_id: string
+  date: string
+  photo_type: PhotoType
+  photo_url: string
+  notes?: string
+  created_at: string
+}
+
 export interface DailyBudget {
   verdura: number
   fruta: number

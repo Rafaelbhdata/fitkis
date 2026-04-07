@@ -17,6 +17,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/food')) return 'Alimentación'
   if (pathname.startsWith('/habits')) return 'Hábitos'
   if (pathname.startsWith('/weight')) return 'Peso'
+  if (pathname.startsWith('/journal')) return 'Journal'
   return 'Fitkis'
 }
 

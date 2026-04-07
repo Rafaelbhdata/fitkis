@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, TrendingDown, TrendingUp, Target, X, Scale, Calendar, ChevronDown } from 'lucide-react'
+import { Plus, TrendingDown, TrendingUp, Target, X, Scale, Calendar, ChevronDown, Camera, Image, ArrowLeftRight } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { USER_PROFILE } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -15,7 +15,7 @@ import {
   ReferenceLine,
   Tooltip
 } from 'recharts'
-import type { WeightLog } from '@/types'
+import type { WeightLog, ProgressPhoto } from '@/types'
 
 export default function WeightPage() {
   const today = new Date()
@@ -30,8 +30,19 @@ export default function WeightPage() {
   const [error, setError] = useState<string | null>(null)
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'all'>('month')
 
+  // Progress photos state
+  const [photos, setPhotos] = useState<ProgressPhoto[]>([])
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [showCompare, setShowCompare] = useState(false)
+  const [compareDate1, setCompareDate1] = useState<string>('')
+  const [compareDate2, setCompareDate2] = useState<string>('')
+
   useEffect(() => {
-    if (user) loadWeightLogs()
+    if (user) {
+      loadWeightLogs()
+      loadPhotos()
+    }
   }, [user])
 
   const loadWeightLogs = async () => {
@@ -50,6 +61,78 @@ export default function WeightPage() {
     }
     setLoading(false)
   }
+
+  const loadPhotos = async () => {
+    if (!user) return
+    try {
+      const { data } = await (supabase as any)
+        .from('progress_photos')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+
+      if (data) setPhotos(data as ProgressPhoto[])
+    } catch (err) {
+      console.error('Error loading photos:', err)
+    }
+  }
+
+  const uploadPhoto = async (file: File, photoType: 'front' | 'side') => {
+    if (!user) return
+    setUploadingPhoto(true)
+
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const fileExt = file.name.split('.').pop()
+      const filePath = `${user.id}/${today}_${photoType}.${fileExt}`
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('progress-photos')
+        .upload(filePath, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('progress-photos')
+        .getPublicUrl(filePath)
+
+      // Save to database
+      await (supabase as any)
+        .from('progress_photos')
+        .upsert({
+          user_id: user.id,
+          date: today,
+          photo_type: photoType,
+          photo_url: urlData.publicUrl
+        }, { onConflict: 'user_id,date,photo_type' })
+
+      await loadPhotos()
+      showToast(`Foto ${photoType === 'front' ? 'frontal' : 'lateral'} guardada`)
+    } catch (err) {
+      console.error('Error uploading photo:', err)
+      alert('Error al subir la foto. Asegúrate de que el bucket "progress-photos" exista en Supabase Storage.')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, photoType: 'front' | 'side') => {
+    const file = e.target.files?.[0]
+    if (file) {
+      uploadPhoto(file, photoType)
+    }
+  }
+
+  // Group photos by date
+  const photosByDate = photos.reduce((acc, photo) => {
+    if (!acc[photo.date]) acc[photo.date] = {}
+    acc[photo.date][photo.photo_type] = photo
+    return acc
+  }, {} as Record<string, Record<string, ProgressPhoto>>)
+
+  const photoDates = Object.keys(photosByDate).sort((a, b) => b.localeCompare(a))
 
   const saveWeight = async () => {
     if (!user || !weight) return
@@ -400,6 +483,236 @@ export default function WeightPage() {
           </div>
         ) : (
           <p className="text-center text-muted py-8">Sin registros aún</p>
+        )}
+      </div>
+
+      {/* Progress Photos Section */}
+      <div className="card !p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Camera className="w-4 h-4 text-accent" />
+            <p className="text-sm font-medium">Fotos de progreso</p>
+          </div>
+          <div className="flex gap-2">
+            {photoDates.length >= 2 && (
+              <button
+                onClick={() => setShowCompare(!showCompare)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  showCompare
+                    ? 'bg-accent text-background'
+                    : 'bg-surface-elevated hover:bg-surface-hover'
+                }`}
+              >
+                <ArrowLeftRight className="w-3 h-3 inline mr-1" />
+                Comparar
+              </button>
+            )}
+            <button
+              onClick={() => setShowPhotoUpload(!showPhotoUpload)}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors"
+            >
+              <Plus className="w-3 h-3 inline mr-1" />
+              Subir
+            </button>
+          </div>
+        </div>
+
+        {/* Upload Section */}
+        {showPhotoUpload && (
+          <div className="mb-4 p-4 bg-surface-elevated rounded-lg space-y-3">
+            <p className="text-xs text-muted-foreground">Sube tus fotos de hoy</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="cursor-pointer">
+                <div className="aspect-[3/4] rounded-lg border-2 border-dashed border-border hover:border-accent/50 flex flex-col items-center justify-center gap-2 transition-colors">
+                  <Camera className="w-6 h-6 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Frontal</span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, 'front')}
+                  disabled={uploadingPhoto}
+                />
+              </label>
+              <label className="cursor-pointer">
+                <div className="aspect-[3/4] rounded-lg border-2 border-dashed border-border hover:border-accent/50 flex flex-col items-center justify-center gap-2 transition-colors">
+                  <Camera className="w-6 h-6 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Lateral</span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, 'side')}
+                  disabled={uploadingPhoto}
+                />
+              </label>
+            </div>
+            {uploadingPhoto && (
+              <div className="flex items-center justify-center gap-2 py-2">
+                <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-muted-foreground">Subiendo...</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Compare Mode */}
+        {showCompare && photoDates.length >= 2 && (
+          <div className="mb-4 p-4 bg-surface-elevated rounded-lg space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Fecha 1</label>
+                <select
+                  value={compareDate1}
+                  onChange={(e) => setCompareDate1(e.target.value)}
+                  className="w-full bg-surface rounded-lg px-3 py-2 text-sm border border-border"
+                >
+                  <option value="">Seleccionar</option>
+                  {photoDates.map(date => (
+                    <option key={date} value={date}>
+                      {new Date(date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Fecha 2</label>
+                <select
+                  value={compareDate2}
+                  onChange={(e) => setCompareDate2(e.target.value)}
+                  className="w-full bg-surface rounded-lg px-3 py-2 text-sm border border-border"
+                >
+                  <option value="">Seleccionar</option>
+                  {photoDates.map(date => (
+                    <option key={date} value={date}>
+                      {new Date(date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {compareDate1 && compareDate2 && (
+              <div className="space-y-4">
+                {/* Front comparison */}
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Frontal</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface">
+                      {photosByDate[compareDate1]?.front ? (
+                        <img
+                          src={photosByDate[compareDate1].front.photo_url}
+                          alt="Frontal"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Image className="w-8 h-8 text-muted-foreground/30" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface">
+                      {photosByDate[compareDate2]?.front ? (
+                        <img
+                          src={photosByDate[compareDate2].front.photo_url}
+                          alt="Frontal"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Image className="w-8 h-8 text-muted-foreground/30" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Side comparison */}
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Lateral</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface">
+                      {photosByDate[compareDate1]?.side ? (
+                        <img
+                          src={photosByDate[compareDate1].side.photo_url}
+                          alt="Lateral"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Image className="w-8 h-8 text-muted-foreground/30" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface">
+                      {photosByDate[compareDate2]?.side ? (
+                        <img
+                          src={photosByDate[compareDate2].side.photo_url}
+                          alt="Lateral"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Image className="w-8 h-8 text-muted-foreground/30" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Photo Gallery */}
+        {photoDates.length > 0 ? (
+          <div className="space-y-4">
+            {photoDates.slice(0, 6).map(date => (
+              <div key={date} className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  {new Date(date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface-elevated">
+                    {photosByDate[date]?.front ? (
+                      <img
+                        src={photosByDate[date].front.photo_url}
+                        alt="Frontal"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">Sin foto frontal</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface-elevated">
+                    {photosByDate[date]?.side ? (
+                      <img
+                        src={photosByDate[date].side.photo_url}
+                        alt="Lateral"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">Sin foto lateral</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Image className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Sin fotos de progreso</p>
+            <p className="text-xs text-muted-foreground mt-1">Sube tu primera foto para comenzar a trackear tu progreso visual</p>
+          </div>
         )}
       </div>
     </div>

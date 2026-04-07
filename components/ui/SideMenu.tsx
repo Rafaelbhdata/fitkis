@@ -14,7 +14,8 @@ import {
   History,
   Settings,
   LogOut,
-  Flame
+  Flame,
+  BookOpen
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -30,6 +31,7 @@ const mainNav = [
   { href: '/food', label: 'Alimentación', icon: UtensilsCrossed },
   { href: '/habits', label: 'Hábitos', icon: Target },
   { href: '/weight', label: 'Peso', icon: Scale },
+  { href: '/journal', label: 'Journal', icon: BookOpen },
 ]
 
 const secondaryNav = [
