@@ -255,19 +255,25 @@ export default function JournalPage() {
     setQuestions(newQuestions)
   }
 
-  // Navegación de fechas
+  // Navegación de fechas (solo hacia el futuro desde el día de inicio)
+  const startDate = new Date('2026-04-06') // Día de inicio del journal
+  startDate.setHours(0, 0, 0, 0)
+
+  const canGoPrevious = selectedDate > startDate
+  const canGoNext = selectedDate < today
+
   const goToPreviousDay = () => {
+    if (!canGoPrevious) return
     const prev = new Date(selectedDate)
     prev.setDate(prev.getDate() - 1)
     setSelectedDate(prev)
   }
 
   const goToNextDay = () => {
+    if (!canGoNext) return
     const next = new Date(selectedDate)
     next.setDate(next.getDate() + 1)
-    if (next <= today) {
-      setSelectedDate(next)
-    }
+    setSelectedDate(next)
   }
 
   if (loading) {
@@ -322,7 +328,8 @@ export default function JournalPage() {
         <div className="flex items-center justify-between">
           <button
             onClick={goToPreviousDay}
-            className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors"
+            disabled={!canGoPrevious}
+            className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -334,7 +341,7 @@ export default function JournalPage() {
 
           <button
             onClick={goToNextDay}
-            disabled={isToday}
+            disabled={!canGoNext}
             className="w-10 h-10 rounded-lg bg-surface-elevated flex items-center justify-center hover:bg-surface-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronRight className="w-5 h-5" />
