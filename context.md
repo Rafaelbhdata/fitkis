@@ -1,18 +1,72 @@
-# FitLife — Context
+# Fitkis — Context
 
 ## Estado general
 - Setup del proyecto ✅ COMPLETADO
 - Sistema de diseño UI ✅ COMPLETADO (Rediseño v3.0 - "Whoop-Inspired")
 - Base de datos Supabase ✅ CONFIGURADA (tablas + RLS)
 - Auth ✅ COMPLETADO (login real con Supabase Auth)
-- Módulo Weight ✅ CONECTADO a Supabase
+- Módulo Weight ✅ CONECTADO a Supabase + Progress Photos
 - Módulo Habits ✅ CONECTADO a Supabase (30-day heatmap)
 - Módulo Food ✅ CONECTADO a Supabase (con selector de cantidad)
 - Dashboard ✅ CONECTADO a Supabase (con logout)
 - Módulo Gym ✅ CONECTADO a Supabase
+- Módulo Journal ✅ NUEVO - Reflexiones diarias con 200 preguntas
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
+Agente: Journal Module & Progress Photos
+Fecha: 6 de abril 2026
+Qué hizo:
+
+### Rebranding: FitLife → Fitkis (6 abril)
+- Renombrado en todos los componentes (Sidebar, Header, SideMenu)
+- Nuevo favicon con dumbbell (public/favicon.svg)
+- PWA manifest.json
+- Logo cambiado de letra "K" a icono Dumbbell de lucide-react
+
+### Journal Module (6 abril) ✅
+- **Página**: `app/(app)/journal/page.tsx`
+- **Banco de preguntas**: `lib/journal-questions.ts` (200 preguntas únicas)
+- **Navegación**: Agregado a Sidebar, Header, SideMenu
+- **Funcionalidades**:
+  - Texto libre para diario del día
+  - 3 preguntas aleatorias por día (no se repiten)
+  - 2 cambios de pregunta permitidos por día
+  - Preguntas marcadas como "usadas" al guardar
+  - No se pueden ver preguntas de días futuros
+  - Navegación por fechas (solo hacia el pasado)
+- **Bug fix**: Corregido loop infinito donde preguntas cambiaban cada segundo
+  - Causa: useCallback con dependencias circulares
+  - Solución: useRef para trackear fecha cargada
+
+### Progress Photos (6 abril) ✅
+- **Ubicación**: Integrado en `app/(app)/weight/page.tsx`
+- **Funcionalidades**:
+  - Subir foto frontal y lateral por fecha
+  - Galería de fotos agrupadas por fecha
+  - Modo comparación lado a lado entre fechas
+  - URLs firmadas para privacidad (1 hora expiración)
+- **Storage**: Bucket privado "progress-photos" en Supabase
+
+### Migraciones SQL Nuevas
+- `supabase/migrations/003_journal.sql`:
+  - Tabla `journal_entries` (con JSONB para preguntas)
+  - Tabla `journal_used_questions` (tracking de preguntas usadas)
+  - RLS policies
+- `supabase/migrations/004_progress_photos.sql`:
+  - Tabla `progress_photos`
+  - RLS policies
+  - Instrucciones para bucket de storage
+
+### Tipos TypeScript Actualizados
+- `JournalQuestion`: index, question, answer
+- `JournalEntry`: id, user_id, date, free_text, questions[], skips_used, timestamps
+- `JournalUsedQuestion`: id, user_id, question_index, date_used, created_at
+- `ProgressPhoto`: id, user_id, date, photo_type (front/side), photo_url, notes
+
+---
+
+## Agente Anterior
 Agente: Schedule Overrides Feature
 Fecha: 6 de abril 2026
 Qué hizo:
@@ -332,9 +386,16 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
   - Indicadores visuales (punto ámbar, badge "Modificado")
   - Restaurar rutina original
 ### Food: ✅ Conectado a Supabase (con cantidad variable)
-### Weight: ✅ Conectado a Supabase
+### Weight: ✅ Conectado a Supabase + Progress Photos
+- Registro de peso con gráfica de tendencia
+- **Progress Photos**: Fotos de frente y lado con comparación entre fechas
 ### Habits: ✅ Conectado a Supabase
 ### Dashboard: ✅ Conectado a Supabase (con logout)
+### Journal: ✅ NUEVO - Reflexiones diarias
+- Banco de 200 preguntas reflexivas (no rating, texto libre)
+- 3 preguntas aleatorias por día que no se repiten
+- 2 cambios de pregunta permitidos
+- Texto libre para diario personal
 
 ---
 
@@ -381,9 +442,15 @@ Todas las tablas creadas según CLAUDE.md:
 - favorite_meals ✅
 - habits ✅
 - habit_logs ✅
-- schedule_overrides ✅ (NUEVA - 6 abril 2026)
+- schedule_overrides ✅ (6 abril 2026)
+- journal_entries ✅ (NUEVA - 6 abril 2026) - Entradas de diario con JSONB para preguntas
+- journal_used_questions ✅ (NUEVA - 6 abril 2026) - Tracking de preguntas usadas
+- progress_photos ✅ (NUEVA - 6 abril 2026) - Fotos de progreso corporal
 
-RLS habilitado con políticas por usuario en todas las tablas.
+**Storage Buckets:**
+- progress-photos (privado) - Bucket para fotos de progreso con signed URLs
+
+RLS habilitado con políticas por usuario en todas las tablas y storage.
 
 ---
 
@@ -433,13 +500,14 @@ fitkis/
 │   ├── (app)/
 │   │   ├── layout.tsx (sidebar desktop + header mobile)
 │   │   ├── dashboard, gym/*, food/*, weight, habits/*
+│   │   ├── journal/page.tsx (NUEVO - reflexiones diarias)
 │   │   └── admin/seed/page.tsx (seed data page)
 │   ├── layout.tsx, page.tsx, globals.css
 ├── components/
 │   ├── ui/
-│   │   ├── Sidebar.tsx (desktop nav)
-│   │   ├── Header.tsx (mobile nav)
-│   │   ├── SideMenu.tsx (mobile drawer)
+│   │   ├── Sidebar.tsx (desktop nav - con Journal)
+│   │   ├── Header.tsx (mobile nav - con Journal)
+│   │   ├── SideMenu.tsx (mobile drawer - con Journal)
 │   │   └── Toast.tsx (notifications)
 │   └── gym/
 │       ├── RestTimer.tsx (rest timer modal)
@@ -453,7 +521,15 @@ fitkis/
 │   │   ├── RestTimer.test.tsx
 │   │   └── ProgressionBanner.test.tsx
 │   └── lib/utils.test.ts
-├── lib/constants.ts, supabase.ts, hooks.ts, utils.ts
+├── lib/
+│   ├── constants.ts, supabase.ts, hooks.ts, utils.ts
+│   └── journal-questions.ts (NUEVO - 200 preguntas reflexivas)
+├── public/
+│   ├── favicon.svg (NUEVO - icono dumbbell)
+│   └── manifest.json (NUEVO - PWA manifest)
+├── supabase/migrations/
+│   ├── 003_journal.sql (NUEVO)
+│   └── 004_progress_photos.sql (NUEVO)
 ├── types/index.ts
 ├── middleware.ts
 ├── tailwind.config.ts
@@ -494,21 +570,28 @@ npx tsc --noEmit   # Verificar TypeScript
 ### Pendiente (Mejoras futuras)
 1. E2E tests con Playwright
 2. Skeleton loaders para mejor UX de carga
-3. PWA: offline support, install prompt
+3. PWA: offline support, install prompt (manifest.json ya existe)
 4. Notificaciones push para recordatorios
 5. Exportar datos a CSV/PDF
+
+### Migraciones pendientes de ejecutar en Supabase Dashboard
+- `supabase/migrations/003_journal.sql` - Tablas para Journal
+- `supabase/migrations/004_progress_photos.sql` - Tabla para fotos de progreso
+- Crear bucket "progress-photos" en Storage con política unificada
 
 ---
 
 ## Notas
+- **Nombre**: Fitkis (antes FitLife)
+- **Favicon**: Dumbbell icon en SVG con gradiente emerald
 - Proyecto Supabase: Fitkis (us-west-2)
 - Repo GitHub: https://github.com/Rafaelbhdata/fitkis
 - Diseño: mobile-first responsive, tema oscuro profesional
 - Concepto: "Whoop-Inspired" - dense, data-heavy, professional gym app
 - Acento: emerald (#10b981)
 - Tipografía: Outfit (display) + DM Sans (body)
-- Navegación: Sidebar (desktop ≥768px) + Drawer (mobile)
-- Estado: MVP funcional con diseño premium v3.0, listo para deploy
+- Navegación: Sidebar (desktop ≥768px) + Drawer (mobile) - ahora incluye Journal
+- Estado: MVP funcional con diseño premium v3.0, Journal y Progress Photos implementados
 
 ## Bugs Corregidos (6 abril 2026)
 1. **Duplicate habits**: Set-based deduplication en habits/page.tsx y dashboard/page.tsx
