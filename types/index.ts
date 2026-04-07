@@ -115,6 +115,14 @@ export interface HabitLog {
   created_at: string
 }
 
+export interface ScheduleOverride {
+  id: string
+  user_id: string
+  date: string
+  routine_type: RoutineType | 'rest'
+  created_at: string
+}
+
 export interface DailyBudget {
   verdura: number
   fruta: number
@@ -171,6 +179,11 @@ export interface Database {
         Row: HabitLog
         Insert: Omit<HabitLog, 'id' | 'created_at'>
         Update: Partial<Omit<HabitLog, 'id' | 'created_at'>>
+      }
+      schedule_overrides: {
+        Row: ScheduleOverride
+        Insert: Omit<ScheduleOverride, 'id' | 'created_at'>
+        Update: Partial<Omit<ScheduleOverride, 'id' | 'created_at'>>
       }
     }
   }

@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ROUTINES, ROUTINE_SCHEDULE } from '@/lib/constants'
 import { formatDuration } from '@/lib/utils'
-import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Zap, Clock, Coffee, HelpCircle, ChevronDown, TrendingUp } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Zap, Clock, Coffee, ChevronDown, TrendingUp, RefreshCw, X } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
-import type { GymSession, SessionSet, RoutineType, Routine } from '@/types'
+import type { GymSession, SessionSet, RoutineType, Routine, ScheduleOverride } from '@/types'
 
 // Week starts on Monday (index 0 = Monday, index 6 = Sunday)
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -17,6 +17,11 @@ const uiIndexToJsDay = (uiIndex: number) => (uiIndex + 1) % 7
 // Convert JS day (0=Sun) to UI index (0=Mon): (jsDay + 6) % 7
 const jsDayToUiIndex = (jsDay: number) => (jsDay + 6) % 7
 
+// Format date as YYYY-MM-DD
+const formatDateISO = (date: Date) => {
+  return date.toISOString().split('T')[0]
+}
+
 interface LastSessionData {
   session: GymSession
   sets: SessionSet[]
@@ -26,12 +31,15 @@ export default function GymPage() {
   const { user } = useUser()
   const supabase = useSupabase()
   const today = new Date()
+  today.setHours(0, 0, 0, 0) // Normalize to start of day
+
   const [selectedDay, setSelectedDay] = useState(jsDayToUiIndex(today.getDay()))
   const [weekOffset, setWeekOffset] = useState(0)
   const [lastSession, setLastSession] = useState<LastSessionData | null>(null)
   const [showLastSession, setShowLastSession] = useState(false)
-  const [showRoutineSelector, setShowRoutineSelector] = useState(false)
-  const [overrideRoutine, setOverrideRoutine] = useState<string | null>(null)
+  const [showRoutineModal, setShowRoutineModal] = useState(false)
+  const [weekOverrides, setWeekOverrides] = useState<Record<string, string>>({}) // date -> routine_type
+  const [savingOverride, setSavingOverride] = useState(false)
 
   // Get the week dates based on offset (week starts on Monday)
   const getWeekDates = () => {
@@ -39,7 +47,7 @@ export default function GymPage() {
     const startOfWeek = new Date(today)
     // Calculate Monday of current week: subtract (jsDay + 6) % 7 days
     const jsDay = today.getDay()
-    const daysFromMonday = (jsDay + 6) % 7 // 0 if Monday, 1 if Tuesday, ..., 6 if Sunday
+    const daysFromMonday = (jsDay + 6) % 7
     startOfWeek.setDate(today.getDate() - daysFromMonday + (weekOffset * 7))
 
     for (let i = 0; i < 7; i++) {
@@ -52,6 +60,38 @@ export default function GymPage() {
 
   const weekDates = getWeekDates()
 
+  // Load overrides for the displayed week
+  useEffect(() => {
+    if (user) {
+      loadWeekOverrides()
+    }
+  }, [user, weekOffset])
+
+  const loadWeekOverrides = async () => {
+    if (!user) return
+
+    const startDate = formatDateISO(weekDates[0])
+    const endDate = formatDateISO(weekDates[6])
+
+    try {
+      const { data } = await supabase
+        .from('schedule_overrides')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate)
+
+      if (data) {
+        const overridesMap: Record<string, string> = {}
+        data.forEach((override: ScheduleOverride) => {
+          overridesMap[override.date] = override.routine_type
+        })
+        setWeekOverrides(overridesMap)
+      }
+    } catch (err) {
+      console.error('Error loading overrides:', err)
+    }
+  }
+
   // If we're on current week and selected day is in the past, reset to today
   useEffect(() => {
     if (weekOffset === 0) {
@@ -63,13 +103,24 @@ export default function GymPage() {
   }, [weekOffset])
 
   const selectedDate = weekDates[selectedDay]
+  const selectedDateISO = formatDateISO(selectedDate)
   const isToday = selectedDate.toDateString() === today.toDateString()
 
-  // Get routine for selected day (convert UI index to JS day for ROUTINE_SCHEDULE lookup)
-  const selectedJsDay = uiIndexToJsDay(selectedDay)
-  const routineKey = overrideRoutine || ROUTINE_SCHEDULE[selectedJsDay]
-  const isRest = routineKey === 'rest' && !overrideRoutine
+  // Get routine for a specific date (check override first, then default schedule)
+  const getRoutineForDate = (date: Date): string => {
+    const dateISO = formatDateISO(date)
+    if (weekOverrides[dateISO]) {
+      return weekOverrides[dateISO]
+    }
+    const jsDay = date.getDay()
+    return ROUTINE_SCHEDULE[jsDay]
+  }
+
+  // Get routine for selected day
+  const routineKey = getRoutineForDate(selectedDate)
+  const isRest = routineKey === 'rest'
   const routine: Routine | null = isRest ? null : ROUTINES[routineKey]
+  const hasOverride = weekOverrides[selectedDateISO] !== undefined
 
   useEffect(() => {
     if (user && routine) {
@@ -77,7 +128,7 @@ export default function GymPage() {
     } else {
       setLastSession(null)
     }
-  }, [user, routineKey])
+  }, [user, routineKey, selectedDateISO])
 
   const loadLastSession = async (type: RoutineType) => {
     if (!user) return
@@ -111,6 +162,66 @@ export default function GymPage() {
     }
   }
 
+  const saveOverride = async (newRoutineType: string) => {
+    if (!user) return
+    setSavingOverride(true)
+
+    try {
+      // Upsert the override
+      const { error } = await supabase
+        .from('schedule_overrides')
+        .upsert({
+          user_id: user.id,
+          date: selectedDateISO,
+          routine_type: newRoutineType
+        }, {
+          onConflict: 'user_id,date'
+        })
+
+      if (error) throw error
+
+      // Update local state
+      setWeekOverrides(prev => ({
+        ...prev,
+        [selectedDateISO]: newRoutineType
+      }))
+      setShowRoutineModal(false)
+    } catch (err) {
+      console.error('Error saving override:', err)
+      alert('Error al guardar el cambio')
+    } finally {
+      setSavingOverride(false)
+    }
+  }
+
+  const removeOverride = async () => {
+    if (!user) return
+    setSavingOverride(true)
+
+    try {
+      const { error } = await supabase
+        .from('schedule_overrides')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('date', selectedDateISO)
+
+      if (error) throw error
+
+      // Update local state
+      setWeekOverrides(prev => {
+        const newOverrides = { ...prev }
+        delete newOverrides[selectedDateISO]
+        return newOverrides
+      })
+      setShowRoutineModal(false)
+    } catch (err) {
+      console.error('Error removing override:', err)
+      alert('Error al restaurar')
+    } finally {
+      setSavingOverride(false)
+    }
+  }
+
   const getLastWeight = (exerciseId: string): number | null => {
     if (!lastSession) return null
     const exerciseSets = lastSession.sets.filter(s => s.exercise_id === exerciseId && s.lbs)
@@ -120,12 +231,14 @@ export default function GymPage() {
 
   const totalSets = routine?.exercises.reduce((acc, e) => acc + e.sets, 0) || 0
 
+  // Get default routine for the selected day (before any override)
+  const defaultRoutineKey = ROUTINE_SCHEDULE[uiIndexToJsDay(selectedDay)]
+
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Week Navigation */}
       <div className="card !p-3">
         <div className="flex items-center justify-between mb-3">
-          {/* Only allow going back if weekOffset > 0 (can't go before current week) */}
           <button
             onClick={() => weekOffset > 0 && setWeekOffset(weekOffset - 1)}
             className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
@@ -156,21 +269,20 @@ export default function GymPage() {
         {/* Week Calendar */}
         <div className="grid grid-cols-7 gap-1">
           {weekDates.map((date, index) => {
-            const jsDay = uiIndexToJsDay(index)
-            const dayRoutine = ROUTINE_SCHEDULE[jsDay]
+            const dayRoutine = getRoutineForDate(date)
             const isSelected = index === selectedDay
             const isDayToday = date.toDateString() === today.toDateString()
             const hasRoutine = dayRoutine !== 'rest'
             const isPast = date < today && !isDayToday
+            const dateISO = formatDateISO(date)
+            const dayHasOverride = weekOverrides[dateISO] !== undefined
 
             return (
               <button
                 key={index}
                 onClick={() => {
-                  // Don't allow selecting past days
                   if (isPast) return
                   setSelectedDay(index)
-                  setOverrideRoutine(null)
                 }}
                 disabled={isPast}
                 className={`flex flex-col items-center py-3 px-1 rounded-lg transition-all min-h-[52px] ${
@@ -191,8 +303,14 @@ export default function GymPage() {
                   isPast
                     ? 'bg-transparent'
                     : hasRoutine
-                      ? isSelected ? 'bg-background' : 'bg-blue-500'
-                      : 'bg-transparent'
+                      ? isSelected
+                        ? 'bg-background'
+                        : dayHasOverride
+                          ? 'bg-amber-500'
+                          : 'bg-blue-500'
+                      : dayHasOverride
+                        ? 'bg-amber-500'
+                        : 'bg-transparent'
                 }`} />
               </button>
             )
@@ -208,9 +326,16 @@ export default function GymPage() {
             {selectedDate.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })}
           </p>
         </div>
-        {isToday && (
-          <span className="badge-accent">Hoy</span>
-        )}
+        <div className="flex items-center gap-2">
+          {hasOverride && (
+            <span className="text-[10px] px-2 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              Modificado
+            </span>
+          )}
+          {isToday && (
+            <span className="badge-accent">Hoy</span>
+          )}
+        </div>
       </div>
 
       {routine ? (
@@ -221,15 +346,26 @@ export default function GymPage() {
               <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center">
                 <Dumbbell className="w-6 h-6 text-white" />
               </div>
-              {isToday && (
-                <Link href={`/gym/session/new?routine=${routineKey}`} className="btn-primary">
-                  <Play className="w-4 h-4" />
-                  Iniciar
-                </Link>
-              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowRoutineModal(true)}
+                  className="btn-secondary !py-2 !px-3"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Cambiar
+                </button>
+                {isToday && (
+                  <Link href={`/gym/session/new?routine=${routineKey}`} className="btn-primary">
+                    <Play className="w-4 h-4" />
+                    Iniciar
+                  </Link>
+                )}
+              </div>
             </div>
 
-            <p className="stat-label mb-1">{isRest ? 'Rutina seleccionada' : 'Rutina programada'}</p>
+            <p className="stat-label mb-1">
+              {hasOverride ? 'Rutina modificada' : 'Rutina programada'}
+            </p>
             <h1 className="font-display text-display-md mb-3">
               {routine.name}
             </h1>
@@ -248,7 +384,7 @@ export default function GymPage() {
             </div>
           </div>
 
-          {/* Stats Row - 3 cols on mobile, 4 on desktop when we have more stats */}
+          {/* Stats Row */}
           <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
             <div className="card">
               <div className="flex items-center gap-2 mb-1">
@@ -273,7 +409,7 @@ export default function GymPage() {
             </div>
           </div>
 
-          {/* Last Session (Collapsible) - only show if there are exercises with data */}
+          {/* Last Session (Collapsible) */}
           {lastSession && routine.exercises.some((e) => getLastWeight(e.id) !== null) && (
             <div className="card !p-0 overflow-hidden">
               <button
@@ -358,45 +494,22 @@ export default function GymPage() {
         </>
       ) : (
         /* Rest Day */
-        <>
-          <div className="card text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-surface-elevated flex items-center justify-center">
-              <Coffee className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h1 className="font-display text-display-md mb-2">Día de descanso</h1>
-            <p className="text-sm text-muted-foreground max-w-[280px] mx-auto mb-6">
-              Tu cuerpo necesita recuperarse. Aprovecha para descansar, estirarte y volver con más fuerza.
-            </p>
-            <button
-              onClick={() => setShowRoutineSelector(!showRoutineSelector)}
-              className="btn-secondary mx-auto"
-            >
-              Ver rutinas de todos modos
-            </button>
+        <div className="card text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-surface-elevated flex items-center justify-center">
+            <Coffee className="w-8 h-8 text-muted-foreground" />
           </div>
-
-          {/* Routine Selector for Rest Days */}
-          {showRoutineSelector && (
-            <div className="card animate-slide-up">
-              <p className="text-sm font-medium mb-3">Selecciona una rutina</p>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries(ROUTINES).map(([key, r]) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      setOverrideRoutine(key)
-                      setShowRoutineSelector(false)
-                    }}
-                    className="p-3 rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors text-left"
-                  >
-                    <p className="font-medium text-sm">{r.name}</p>
-                    <p className="text-xs text-muted-foreground">{r.subtitle}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+          <h1 className="font-display text-display-md mb-2">Día de descanso</h1>
+          <p className="text-sm text-muted-foreground max-w-[280px] mx-auto mb-6">
+            Tu cuerpo necesita recuperarse. Aprovecha para descansar, estirarte y volver con más fuerza.
+          </p>
+          <button
+            onClick={() => setShowRoutineModal(true)}
+            className="btn-secondary mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Cambiar a entrenamiento
+          </button>
+        </div>
       )}
 
       {/* History & Progress Links */}
@@ -420,6 +533,84 @@ export default function GymPage() {
           </div>
         </Link>
       </div>
+
+      {/* Routine Change Modal */}
+      {showRoutineModal && (
+        <>
+          <div className="overlay animate-fade-in" onClick={() => setShowRoutineModal(false)} />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 animate-scale-in md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-sm">
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-display text-lg">Cambiar rutina</h2>
+                <button
+                  onClick={() => setShowRoutineModal(false)}
+                  className="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="text-sm text-muted-foreground mb-4">
+                {DAY_NAMES_FULL[selectedDay]} {selectedDate.getDate()} de {selectedDate.toLocaleDateString('es-MX', { month: 'long' })}
+              </p>
+
+              <div className="space-y-2">
+                {/* Rest option */}
+                <button
+                  onClick={() => saveOverride('rest')}
+                  disabled={savingOverride}
+                  className={`w-full p-3 rounded-lg text-left transition-colors ${
+                    routineKey === 'rest'
+                      ? 'bg-accent/20 border border-accent/30'
+                      : 'bg-surface-elevated hover:bg-surface-hover'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Coffee className="w-5 h-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium text-sm">Descanso</p>
+                      <p className="text-xs text-muted-foreground">No entrenar este día</p>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Routine options */}
+                {Object.entries(ROUTINES).map(([key, r]) => (
+                  <button
+                    key={key}
+                    onClick={() => saveOverride(key)}
+                    disabled={savingOverride}
+                    className={`w-full p-3 rounded-lg text-left transition-colors ${
+                      routineKey === key
+                        ? 'bg-accent/20 border border-accent/30'
+                        : 'bg-surface-elevated hover:bg-surface-hover'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Dumbbell className="w-5 h-5 text-blue-400" />
+                      <div>
+                        <p className="font-medium text-sm">{r.name}</p>
+                        <p className="text-xs text-muted-foreground">{r.subtitle}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Restore default button */}
+              {hasOverride && (
+                <button
+                  onClick={removeOverride}
+                  disabled={savingOverride}
+                  className="w-full mt-4 p-3 rounded-lg border border-border text-center text-sm text-muted-foreground hover:bg-surface-elevated transition-colors"
+                >
+                  Restaurar original ({defaultRoutineKey === 'rest' ? 'Descanso' : ROUTINES[defaultRoutineKey]?.name})
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
