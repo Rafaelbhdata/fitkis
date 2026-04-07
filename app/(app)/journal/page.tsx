@@ -78,17 +78,51 @@ export default function JournalPage() {
           setQuestions(entry.questions || [])
           setSkipsUsed(entry.skips_used || 0)
         } else {
-          // Nueva entrada - generar preguntas aleatorias
-          setEntryId(null)
-          setFreeText('')
-          setSkipsUsed(0)
-
+          // Nueva entrada - generar preguntas aleatorias y guardar inmediatamente
           const newQuestions = getRandomQuestions(usedIndices, 3)
-          setQuestions(newQuestions.map(q => ({
+          const questionsForDb = newQuestions.map(q => ({
             index: q.index,
             question: q.question,
             answer: ''
-          })))
+          }))
+
+          // Crear entrada inmediatamente para persistir las preguntas
+          const { data: newEntry } = await (supabase as any)
+            .from('journal_entries')
+            .insert({
+              user_id: user.id,
+              date: selectedDateISO,
+              free_text: '',
+              questions: questionsForDb,
+              skips_used: 0,
+              updated_at: new Date().toISOString()
+            })
+            .select('id')
+            .single()
+
+          if (newEntry) {
+            setEntryId(newEntry.id)
+
+            // Marcar preguntas como usadas
+            const usedQuestionsToInsert = questionsForDb.map(q => ({
+              user_id: user.id,
+              question_index: q.index,
+              date_used: selectedDateISO
+            }))
+
+            await (supabase as any)
+              .from('journal_used_questions')
+              .upsert(usedQuestionsToInsert, { onConflict: 'user_id,question_index' })
+
+            setUsedQuestionIndices(prev => [
+              ...prev,
+              ...questionsForDb.map(q => q.index).filter(idx => !prev.includes(idx))
+            ])
+          }
+
+          setFreeText('')
+          setSkipsUsed(0)
+          setQuestions(questionsForDb)
         }
       } catch (err) {
         console.error('Error loading journal:', err)
@@ -167,8 +201,8 @@ export default function JournalPage() {
   }
 
   // Cambiar pregunta
-  const skipQuestion = (questionIndex: number) => {
-    if (skipsUsed >= 2 || isFuture) return
+  const skipQuestion = async (questionIndex: number) => {
+    if (skipsUsed >= 2 || isFuture || !user || !entryId) return
 
     const currentIndices = questions.map(q => q.index)
     const replacement = getReplacementQuestion(usedQuestionIndices, currentIndices)
@@ -185,8 +219,30 @@ export default function JournalPage() {
       answer: ''
     }
 
+    const newSkipsUsed = skipsUsed + 1
+
+    // Guardar cambio inmediatamente
+    await (supabase as any)
+      .from('journal_entries')
+      .update({
+        questions: newQuestions,
+        skips_used: newSkipsUsed,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', entryId)
+
+    // Marcar nueva pregunta como usada
+    await (supabase as any)
+      .from('journal_used_questions')
+      .upsert({
+        user_id: user.id,
+        question_index: replacement.index,
+        date_used: selectedDateISO
+      }, { onConflict: 'user_id,question_index' })
+
+    setUsedQuestionIndices(prev => [...prev, replacement.index])
     setQuestions(newQuestions)
-    setSkipsUsed(prev => prev + 1)
+    setSkipsUsed(newSkipsUsed)
   }
 
   // Actualizar respuesta
