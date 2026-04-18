@@ -27,6 +27,13 @@ interface LastSessionData {
   sets: SessionSet[]
 }
 
+interface DayStatus {
+  date: string
+  wasGymDay: boolean
+  wasCompleted: boolean
+  sessionId?: string
+}
+
 export default function GymPage() {
   const { user } = useUser()
   const supabase = useSupabase()
@@ -40,6 +47,9 @@ export default function GymPage() {
   const [showRoutineModal, setShowRoutineModal] = useState(false)
   const [weekOverrides, setWeekOverrides] = useState<Record<string, string>>({}) // date -> routine_type
   const [savingOverride, setSavingOverride] = useState(false)
+  const [weekSessions, setWeekSessions] = useState<Record<string, GymSession>>({}) // date -> session
+  const [showPastSession, setShowPastSession] = useState<GymSession | null>(null)
+  const [pastSessionSets, setPastSessionSets] = useState<SessionSet[]>([])
 
   // Get the week dates based on offset (week starts on Monday)
   const getWeekDates = () => {
@@ -74,22 +84,53 @@ export default function GymPage() {
     const endDate = formatDateISO(weekDates[6])
 
     try {
-      // Using any cast until table exists in DB
-      const { data } = await (supabase as any)
-        .from('schedule_overrides')
-        .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate)
+      // Load overrides and sessions in parallel
+      const [overridesRes, sessionsRes] = await Promise.all([
+        (supabase as any)
+          .from('schedule_overrides')
+          .select('*')
+          .gte('date', startDate)
+          .lte('date', endDate),
+        supabase
+          .from('gym_sessions')
+          .select('*')
+          .gte('date', startDate)
+          .lte('date', endDate)
+      ])
 
-      if (data) {
+      if (overridesRes.data) {
         const overridesMap: Record<string, string> = {}
-        ;(data as ScheduleOverride[]).forEach((override) => {
+        ;(overridesRes.data as ScheduleOverride[]).forEach((override) => {
           overridesMap[override.date] = override.routine_type
         })
         setWeekOverrides(overridesMap)
       }
+
+      if (sessionsRes.data) {
+        const sessionsMap: Record<string, GymSession> = {}
+        ;(sessionsRes.data as GymSession[]).forEach((session) => {
+          sessionsMap[session.date] = session
+        })
+        setWeekSessions(sessionsMap)
+      }
     } catch (err) {
-      console.error('Error loading overrides:', err)
+      console.error('Error loading week data:', err)
+    }
+  }
+
+  const loadPastSessionDetails = async (session: GymSession) => {
+    try {
+      const { data: setsData } = await supabase
+        .from('session_sets')
+        .select('*')
+        .eq('session_id', session.id)
+        .order('exercise_id')
+        .order('set_number')
+
+      setPastSessionSets((setsData || []) as SessionSet[])
+      setShowPastSession(session)
+    } catch (err) {
+      console.error('Error loading session details:', err)
     }
   }
 
@@ -278,45 +319,83 @@ export default function GymPage() {
             const isPast = date < today && !isDayToday
             const dateISO = formatDateISO(date)
             const dayHasOverride = weekOverrides[dateISO] !== undefined
+            const daySession = weekSessions[dateISO]
+            const wasCompleted = !!daySession
+            const wasMissed = isPast && hasRoutine && !wasCompleted
+
+            // Determine background and text color based on status
+            let bgClass = ''
+            let textClass = ''
+            let dotClass = ''
+
+            if (isSelected) {
+              bgClass = 'bg-accent text-background'
+              dotClass = 'bg-background'
+            } else if (isDayToday) {
+              bgClass = 'bg-accent/20'
+              textClass = 'text-accent'
+              dotClass = hasRoutine ? 'bg-accent' : 'bg-transparent'
+            } else if (isPast) {
+              if (wasCompleted) {
+                // Completed - green tint
+                bgClass = 'bg-green-500/10 hover:bg-green-500/20 cursor-pointer'
+                dotClass = 'bg-green-500'
+              } else if (wasMissed) {
+                // Missed - red tint
+                bgClass = 'bg-red-500/10 hover:bg-red-500/20 cursor-pointer'
+                dotClass = 'bg-red-500'
+              } else {
+                // Rest day passed
+                bgClass = 'opacity-40'
+                dotClass = 'bg-transparent'
+              }
+            } else {
+              // Future
+              bgClass = 'hover:bg-surface-elevated'
+              dotClass = hasRoutine
+                ? dayHasOverride ? 'bg-amber-500' : 'bg-blue-500'
+                : dayHasOverride ? 'bg-amber-500' : 'bg-transparent'
+            }
 
             return (
               <button
                 key={index}
                 onClick={() => {
-                  if (isPast) return
-                  setSelectedDay(index)
+                  if (isPast && wasCompleted && daySession) {
+                    // Show past session details
+                    loadPastSessionDetails(daySession)
+                  } else if (!isPast || wasCompleted) {
+                    setSelectedDay(index)
+                  }
                 }}
-                disabled={isPast}
-                className={`flex flex-col items-center py-3 px-1 rounded-lg transition-all min-h-[52px] ${
-                  isPast
-                    ? 'opacity-30 cursor-not-allowed'
-                    : isSelected
-                      ? 'bg-accent text-background'
-                      : isDayToday
-                        ? 'bg-accent/20 text-accent'
-                        : 'hover:bg-surface-elevated'
-                }`}
+                className={`flex flex-col items-center py-3 px-1 rounded-lg transition-all min-h-[52px] ${bgClass}`}
               >
-                <span className="text-[10px] font-medium mb-0.5">{DAY_NAMES[index]}</span>
-                <span className={`text-sm font-semibold ${isSelected ? '' : isDayToday ? 'text-accent' : ''}`}>
+                <span className={`text-[10px] font-medium mb-0.5 ${isSelected ? 'text-background/70' : 'text-muted-foreground'}`}>
+                  {DAY_NAMES[index]}
+                </span>
+                <span className={`text-sm font-semibold ${textClass}`}>
                   {date.getDate()}
                 </span>
-                <div className={`w-1.5 h-1.5 rounded-full mt-1 ${
-                  isPast
-                    ? 'bg-transparent'
-                    : hasRoutine
-                      ? isSelected
-                        ? 'bg-background'
-                        : dayHasOverride
-                          ? 'bg-amber-500'
-                          : 'bg-blue-500'
-                      : dayHasOverride
-                        ? 'bg-amber-500'
-                        : 'bg-transparent'
-                }`} />
+                <div className={`w-1.5 h-1.5 rounded-full mt-1 ${dotClass}`} />
               </button>
             )
           })}
+        </div>
+
+        {/* Calendar Legend */}
+        <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-border">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-[10px] text-muted-foreground">Completado</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-red-500" />
+            <span className="text-[10px] text-muted-foreground">Saltado</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-blue-500" />
+            <span className="text-[10px] text-muted-foreground">Programado</span>
+          </div>
         </div>
       </div>
 
@@ -609,6 +688,101 @@ export default function GymPage() {
                   Restaurar original ({defaultRoutineKey === 'rest' ? 'Descanso' : ROUTINES[defaultRoutineKey]?.name})
                 </button>
               )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Past Session Modal */}
+      {showPastSession && (
+        <>
+          <div className="overlay animate-fade-in" onClick={() => setShowPastSession(null)} />
+          <div className="fixed inset-4 top-1/2 -translate-y-1/2 z-50 animate-scale-in md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-lg md:max-h-[80vh] overflow-hidden">
+            <div className="card h-full flex flex-col">
+              <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                <div>
+                  <h2 className="font-display text-lg">Sesión completada</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(showPastSession.date).toLocaleDateString('es-MX', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long'
+                    })}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowPastSession(null)}
+                  className="w-8 h-8 rounded-lg bg-surface-elevated flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Session Info */}
+              <div className="grid grid-cols-2 gap-2 mb-4 flex-shrink-0">
+                <div className="p-3 rounded-lg bg-surface-elevated">
+                  <p className="text-[10px] text-muted-foreground uppercase">Rutina</p>
+                  <p className="text-sm font-medium">
+                    {ROUTINES[showPastSession.routine_type]?.name || showPastSession.routine_type}
+                  </p>
+                </div>
+                {showPastSession.duration_seconds && (
+                  <div className="p-3 rounded-lg bg-surface-elevated">
+                    <p className="text-[10px] text-muted-foreground uppercase">Duración</p>
+                    <p className="text-sm font-medium">{formatDuration(showPastSession.duration_seconds)}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Sets */}
+              <div className="flex-1 overflow-y-auto">
+                <p className="text-sm font-medium mb-3">Ejercicios realizados</p>
+                <div className="space-y-3">
+                  {(() => {
+                    // Group sets by exercise
+                    const exerciseGroups = new Map<string, SessionSet[]>()
+                    pastSessionSets.forEach(set => {
+                      if (!exerciseGroups.has(set.exercise_id)) {
+                        exerciseGroups.set(set.exercise_id, [])
+                      }
+                      exerciseGroups.get(set.exercise_id)!.push(set)
+                    })
+
+                    return Array.from(exerciseGroups.entries()).map(([exerciseId, sets]) => {
+                      const routine = ROUTINES[showPastSession.routine_type]
+                      const exercise = routine?.exercises.find(e => e.id === exerciseId)
+
+                      return (
+                        <div key={exerciseId} className="p-3 rounded-lg bg-surface-elevated">
+                          <p className="font-medium text-sm mb-2">
+                            {exercise?.name || exerciseId}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {sets.map((set, i) => (
+                              <div
+                                key={set.id}
+                                className="px-2 py-1 rounded bg-background text-xs"
+                              >
+                                <span className="text-muted-foreground">S{set.set_number}:</span>{' '}
+                                <span className="font-medium">{set.lbs || '-'} lbs</span>
+                                <span className="text-muted-foreground"> × </span>
+                                <span className="font-medium">{set.reps || '-'}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+
+                {showPastSession.notes && (
+                  <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <p className="text-[10px] text-amber-400 uppercase mb-1">Notas</p>
+                    <p className="text-sm">{showPastSession.notes}</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>

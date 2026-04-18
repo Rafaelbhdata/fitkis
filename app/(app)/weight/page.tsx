@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, TrendingDown, TrendingUp, Target, X, Scale, Calendar, ChevronDown, Camera, Image, ArrowLeftRight } from 'lucide-react'
+import { Plus, TrendingDown, TrendingUp, Target, X, Scale, Calendar, ChevronDown, Camera, Image, ArrowLeftRight, ChevronLeft, ChevronRight, Play, Pause } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { USER_PROFILE } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -37,6 +37,12 @@ export default function WeightPage() {
   const [showCompare, setShowCompare] = useState(false)
   const [compareDate1, setCompareDate1] = useState<string>('')
   const [compareDate2, setCompareDate2] = useState<string>('')
+
+  // Slideshow state
+  const [showSlideshow, setShowSlideshow] = useState(false)
+  const [slideshowType, setSlideshowType] = useState<'front' | 'side'>('front')
+  const [slideshowIndex, setSlideshowIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   // User profile state
   const [userHeight, setUserHeight] = useState<number | null>(null)
@@ -167,6 +173,32 @@ export default function WeightPage() {
 
   const photoDates = Object.keys(photosByDate).sort((a, b) => b.localeCompare(a))
 
+  // Get photos for slideshow (sorted oldest to newest to show progress)
+  const slideshowPhotos = photoDates
+    .slice()
+    .reverse()
+    .map(date => photosByDate[date]?.[slideshowType])
+    .filter(Boolean) as ProgressPhoto[]
+
+  // Slideshow auto-play
+  useEffect(() => {
+    if (isPlaying && slideshowPhotos.length > 1) {
+      const interval = setInterval(() => {
+        setSlideshowIndex(prev =>
+          prev >= slideshowPhotos.length - 1 ? 0 : prev + 1
+        )
+      }, 2000)
+      return () => clearInterval(interval)
+    }
+  }, [isPlaying, slideshowPhotos.length])
+
+  const openSlideshow = (type: 'front' | 'side') => {
+    setSlideshowType(type)
+    setSlideshowIndex(0)
+    setShowSlideshow(true)
+    setIsPlaying(false)
+  }
+
   const saveWeight = async () => {
     if (!user || !weight) return
     setSaving(true)
@@ -239,6 +271,24 @@ export default function WeightPage() {
     const oldLog = weightLogs.find(log => new Date(log.date) <= weekAgo)
     return oldLog ? (weightLogs[0].weight_kg - oldLog.weight_kg).toFixed(1) : null
   })() : null
+
+  // Additional metrics
+  const monthChange = weightLogs.length >= 2 ? (() => {
+    const monthAgo = new Date()
+    monthAgo.setDate(monthAgo.getDate() - 30)
+    const oldLog = weightLogs.find(log => new Date(log.date) <= monthAgo)
+    return oldLog ? (weightLogs[0].weight_kg - oldLog.weight_kg).toFixed(1) : null
+  })() : null
+
+  // Average weight last 7 days
+  const recentLogs = weightLogs.slice(0, 7)
+  const avgWeight = recentLogs.length > 0
+    ? (recentLogs.reduce((sum, log) => sum + log.weight_kg, 0) / recentLogs.length).toFixed(1)
+    : null
+
+  // Lowest and highest weight
+  const lowestWeight = weightLogs.length > 0 ? Math.min(...weightLogs.map(l => l.weight_kg)) : null
+  const highestWeight = weightLogs.length > 0 ? Math.max(...weightLogs.map(l => l.weight_kg)) : null
 
   // Chart domain
   const weights = chartData.map(d => d.weight)
@@ -327,28 +377,53 @@ export default function WeightPage() {
         )}
 
         {/* Week Change */}
-        <div className="card !p-4 col-span-2">
+        <div className="card !p-4">
           <div className="flex items-center gap-2 mb-3">
             <Calendar className="w-4 h-4 text-accent" />
-            <span className="text-xs text-muted-foreground">Esta semana</span>
+            <span className="text-xs text-muted-foreground">7 días</span>
           </div>
           {weekChange ? (
             <>
               <p className={`font-display text-display-sm ${parseFloat(weekChange) <= 0 ? 'text-success' : 'text-danger'}`}>
                 {parseFloat(weekChange) > 0 ? '+' : ''}{weekChange} kg
               </p>
-              <div className="flex items-center gap-1 mt-1">
-                {parseFloat(weekChange) <= 0 ? (
-                  <TrendingDown className="w-3 h-3 text-success" />
-                ) : (
-                  <TrendingUp className="w-3 h-3 text-danger" />
-                )}
-                <span className="text-xs text-muted-foreground">vs semana pasada</span>
-              </div>
             </>
           ) : (
-            <p className="text-sm text-muted">Sin datos previos</p>
+            <p className="text-sm text-muted">--</p>
           )}
+        </div>
+
+        {/* Month Change */}
+        <div className="card !p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Calendar className="w-4 h-4 text-blue-400" />
+            <span className="text-xs text-muted-foreground">30 días</span>
+          </div>
+          {monthChange ? (
+            <>
+              <p className={`font-display text-display-sm ${parseFloat(monthChange) <= 0 ? 'text-success' : 'text-danger'}`}>
+                {parseFloat(monthChange) > 0 ? '+' : ''}{monthChange} kg
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted">--</p>
+          )}
+        </div>
+      </div>
+
+      {/* Additional Stats */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="card !p-3 text-center">
+          <p className="text-[10px] text-muted-foreground uppercase mb-1">Promedio 7d</p>
+          <p className="font-display text-lg">{avgWeight || '--'} kg</p>
+        </div>
+        <div className="card !p-3 text-center">
+          <p className="text-[10px] text-muted-foreground uppercase mb-1">Mínimo</p>
+          <p className="font-display text-lg text-green-400">{lowestWeight || '--'} kg</p>
+        </div>
+        <div className="card !p-3 text-center">
+          <p className="text-[10px] text-muted-foreground uppercase mb-1">Máximo</p>
+          <p className="font-display text-lg text-red-400">{highestWeight || '--'} kg</p>
         </div>
       </div>
 
@@ -559,26 +634,48 @@ export default function WeightPage() {
           </div>
           <div className="flex gap-2">
             {photoDates.length >= 2 && (
-              <button
-                onClick={() => setShowCompare(!showCompare)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                  showCompare
-                    ? 'bg-accent text-background'
-                    : 'bg-surface-elevated hover:bg-surface-hover'
-                }`}
-              >
-                <ArrowLeftRight className="w-3 h-3 inline mr-1" />
-                Comparar
-              </button>
+              <>
+                <button
+                  onClick={() => openSlideshow('front')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
+                >
+                  <Play className="w-3 h-3 inline mr-1" />
+                  Frontal
+                </button>
+                <button
+                  onClick={() => openSlideshow('side')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors"
+                >
+                  <Play className="w-3 h-3 inline mr-1" />
+                  Lateral
+                </button>
+              </>
             )}
-            <button
-              onClick={() => setShowPhotoUpload(!showPhotoUpload)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors"
-            >
-              <Plus className="w-3 h-3 inline mr-1" />
-              Subir
-            </button>
           </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-2 mb-4">
+          {photoDates.length >= 2 && (
+            <button
+              onClick={() => setShowCompare(!showCompare)}
+              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                showCompare
+                  ? 'bg-accent text-background'
+                  : 'bg-surface-elevated hover:bg-surface-hover'
+              }`}
+            >
+              <ArrowLeftRight className="w-3 h-3 inline mr-1" />
+              Comparar fechas
+            </button>
+          )}
+          <button
+            onClick={() => setShowPhotoUpload(!showPhotoUpload)}
+            className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors"
+          >
+            <Plus className="w-3 h-3 inline mr-1" />
+            Subir fotos
+          </button>
         </div>
 
         {/* Upload Section */}
@@ -779,6 +876,141 @@ export default function WeightPage() {
           </div>
         )}
       </div>
+
+      {/* Slideshow Modal */}
+      {showSlideshow && slideshowPhotos.length > 0 && (
+        <>
+          <div className="fixed inset-0 bg-black/95 z-50 animate-fade-in" onClick={() => setShowSlideshow(false)} />
+          <div className="fixed inset-4 z-50 flex flex-col items-center justify-center">
+            {/* Header */}
+            <div className="w-full max-w-lg flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-medium text-white">
+                  Progreso {slideshowType === 'front' ? 'Frontal' : 'Lateral'}
+                </h3>
+                <p className="text-sm text-white/60">
+                  {slideshowPhotos.length} fotos
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSlideshow(false)}
+                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Photo */}
+            <div className="relative w-full max-w-lg aspect-[3/4] rounded-xl overflow-hidden bg-white/5">
+              <img
+                src={slideshowPhotos[slideshowIndex].photo_url}
+                alt={`Progreso ${slideshowType}`}
+                className="w-full h-full object-cover"
+              />
+
+              {/* Date overlay */}
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                <div className="px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur-sm">
+                  <p className="text-sm font-medium text-white">
+                    {new Date(slideshowPhotos[slideshowIndex].date).toLocaleDateString('es-MX', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                  </p>
+                </div>
+                <div className="px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur-sm">
+                  <p className="text-sm text-white/80">
+                    {slideshowIndex + 1} / {slideshowPhotos.length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Navigation arrows */}
+              {slideshowPhotos.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSlideshowIndex(prev => prev > 0 ? prev - 1 : slideshowPhotos.length - 1)
+                    }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors"
+                  >
+                    <ChevronLeft className="w-6 h-6 text-white" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSlideshowIndex(prev => prev < slideshowPhotos.length - 1 ? prev + 1 : 0)
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors"
+                  >
+                    <ChevronRight className="w-6 h-6 text-white" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Controls */}
+            <div className="w-full max-w-lg mt-4 flex items-center justify-center gap-4">
+              {/* Type toggle */}
+              <div className="flex bg-white/10 rounded-lg p-1">
+                <button
+                  onClick={() => {
+                    setSlideshowType('front')
+                    setSlideshowIndex(0)
+                  }}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    slideshowType === 'front' ? 'bg-white text-black' : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  Frontal
+                </button>
+                <button
+                  onClick={() => {
+                    setSlideshowType('side')
+                    setSlideshowIndex(0)
+                  }}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    slideshowType === 'side' ? 'bg-white text-black' : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  Lateral
+                </button>
+              </div>
+
+              {/* Play/Pause */}
+              {slideshowPhotos.length > 1 && (
+                <button
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className="w-12 h-12 rounded-full bg-accent flex items-center justify-center hover:bg-accent/90 transition-colors"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-5 h-5 text-background" />
+                  ) : (
+                    <Play className="w-5 h-5 text-background ml-0.5" />
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Progress dots */}
+            {slideshowPhotos.length > 1 && (
+              <div className="flex gap-1.5 mt-4">
+                {slideshowPhotos.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSlideshowIndex(i)}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      i === slideshowIndex ? 'bg-accent' : 'bg-white/30'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

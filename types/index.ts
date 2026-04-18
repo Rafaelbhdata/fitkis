@@ -169,6 +169,16 @@ export interface DailyBudget {
   grasa: number
 }
 
+export interface CustomFood {
+  id: string
+  user_id: string
+  name: string
+  group_type: FoodGroup
+  portion: string
+  note?: string
+  created_at: string
+}
+
 export interface MealBudget {
   verdura: number
   fruta: number

@@ -12,7 +12,8 @@ import {
   Settings,
   LogOut,
   Flame,
-  BookOpen
+  BookOpen,
+  Sparkles
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -24,6 +25,7 @@ const mainNav = [
   { href: '/habits', label: 'Hábitos', icon: Target },
   { href: '/weight', label: 'Peso', icon: Scale },
   { href: '/journal', label: 'Journal', icon: BookOpen },
+  { href: '/coach', label: 'Coach AI', icon: Sparkles },
 ]
 
 const secondaryNav = [

@@ -15,6 +15,68 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
+Agente: Coach AI & Major Improvements
+Fecha: 18 de abril 2026
+Qué hizo:
+
+### Coach AI Integration (18 abril) ✅
+- **API Route**: `app/api/chat/route.ts`
+  - Integración con Anthropic API (claude-sonnet-4-20250514)
+  - 16 herramientas de tool-use para CRUD de la base de datos
+  - Herramientas: get_today_food_logs, add_food_log, delete_food_log, get_gym_sessions, update_session_set, get_weight_logs, add_weight_log, get_habits_status, log_habit, get_food_equivalents, get_daily_budget, get_routine_info, get_today_routine
+  - System prompt con conocimiento del plan nutricional y reglas especiales
+  - Razonamiento nutricional para alimentos no registrados
+- **Página**: `app/(app)/coach/page.tsx`
+  - Chat UI con mensajes tipo bubble (user/assistant)
+  - Quick actions predefinidas
+  - Botón para limpiar conversación
+  - Loading states y manejo de errores
+- **Componente**: `components/coach/ChatMessage.tsx`
+- **Navegación**: Agregado a Sidebar, Header y SideMenu
+- **Dependencia**: @anthropic-ai/sdk agregado a package.json
+- **Env**: ANTHROPIC_API_KEY en .env.example
+
+### Streaks Fix (18 abril) ✅
+- **Separación**: Racha Gym y Racha Dieta ahora son independientes
+- **Racha Gym**: Días de descanso no rompen la racha
+  - Función `calculateGymStreak()` en lib/utils.ts
+  - Considera schedule_overrides para días de descanso personalizados
+- **Racha Dieta**: Días con registro de alimentos dentro del presupuesto
+  - Función `calculateDietStreak()` en lib/utils.ts
+  - Compara totales por grupo vs presupuesto diario
+- **Dashboard**: Muestra ambas rachas con iconos diferenciados
+
+### Food Module Improvements (18 abril) ✅
+- **Flexibilidad**: Cualquier grupo alimenticio en cualquier comida
+  - Muestra "Recomendado" en lugar de restricciones
+  - Selector de grupo antes de seleccionar alimento
+- **Equivalentes genéricos**: Botones rápidos (+1 proteína, +1 grasa, etc.)
+- **Custom Foods**: Alimentos personalizados del usuario
+  - Migración: `006_custom_foods.sql`
+  - CRUD completo desde la búsqueda de alimentos
+  - Badge "Tuyo" para identificar alimentos custom
+  - Tipo: `CustomFood` en types/index.ts
+
+### Gym Calendar Improvements (18 abril) ✅
+- **Estados visuales**:
+  - Verde: Sesión completada
+  - Rojo: Día saltado (tenía rutina pero no entrenó)
+  - Azul: Día programado (futuro)
+- **Leyenda**: Muestra significado de colores
+- **Modal de sesión pasada**: Ver detalles de sesiones anteriores en modo lectura
+
+### Weight Module Improvements (18 abril) ✅
+- **Slideshow de fotos**: Por tipo (frontal/lateral)
+  - Navegación manual y auto-play
+  - Toggle entre tipos de foto
+- **Métricas adicionales**:
+  - Cambio en últimos 30 días
+  - Peso promedio
+  - Peso mínimo y máximo
+
+---
+
+## Agente Anterior
 Agente: Settings Module & Bug Fixes
 Fecha: 7 de abril 2026
 Qué hizo:
@@ -420,7 +482,13 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 - **IMC**: Calculado con altura del perfil (categorías: Bajo peso, Normal, Sobrepeso, Obesidad)
 - Peso objetivo configurable desde Settings
 ### Habits: ✅ Conectado a Supabase
-### Dashboard: ✅ Conectado a Supabase (con logout)
+### Dashboard: ✅ Conectado a Supabase (con logout + rachas separadas)
+- Racha Gym: Días consecutivos de entrenamiento (descansos no rompen)
+- Racha Dieta: Días consecutivos dentro del presupuesto
+### Coach AI: ✅ NUEVO - Asistente de fitness con Anthropic
+- Chat con tool-use para CRUD de base de datos
+- Razonamiento nutricional para alimentos no estándar
+- Conocimiento del plan de alimentación y rutinas
 ### Journal: ✅ Reflexiones diarias
 - Banco de 200 preguntas reflexivas (no rating, texto libre)
 - 3 preguntas aleatorias por día que no se repiten
@@ -483,6 +551,7 @@ Todas las tablas creadas según CLAUDE.md:
 - progress_photos ✅ (6 abril 2026) - Fotos de progreso corporal
 - user_profiles ✅ (7 abril 2026) - Altura y peso objetivo del usuario
 - diet_configs ✅ (7 abril 2026) - Configuraciones de dieta con fecha efectiva
+- custom_foods ✅ (18 abril 2026) - Alimentos personalizados del usuario
 
 **Storage Buckets:**
 - progress-photos (privado) - Bucket para fotos de progreso con signed URLs
@@ -496,6 +565,7 @@ RLS habilitado con políticas por usuario en todas las tablas y storage.
 NEXT_PUBLIC_SUPABASE_URL=https://lfchljualpowofdzmajz.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 Para Vercel, configurar las mismas variables en Settings > Environment Variables.
@@ -533,24 +603,29 @@ Para Vercel, configurar las mismas variables en Settings > Environment Variables
 ```
 fitkis/
 ├── app/
+│   ├── api/
+│   │   └── chat/route.ts (Coach AI - Anthropic integration)
 │   ├── (auth)/login, register
 │   ├── (app)/
 │   │   ├── layout.tsx (sidebar desktop + header mobile)
 │   │   ├── dashboard, gym/*, food/*, weight, habits/*
+│   │   ├── coach/page.tsx (NUEVO - Coach AI chat)
 │   │   ├── journal/page.tsx (reflexiones diarias)
-│   │   ├── settings/page.tsx (NUEVO - perfil y dieta)
+│   │   ├── settings/page.tsx (perfil y dieta)
 │   │   └── admin/seed/page.tsx (seed data page)
 │   ├── layout.tsx, page.tsx, globals.css
 ├── components/
 │   ├── ui/
-│   │   ├── Sidebar.tsx (desktop nav - con Journal y Settings)
+│   │   ├── Sidebar.tsx (desktop nav - con Journal, Settings y Coach)
 │   │   ├── Header.tsx (mobile nav)
-│   │   ├── SideMenu.tsx (mobile drawer - con Journal y Settings)
+│   │   ├── SideMenu.tsx (mobile drawer - con Journal, Settings y Coach)
 │   │   └── Toast.tsx (notifications)
-│   └── gym/
-│       ├── RestTimer.tsx, ExerciseInstructions.tsx
-│       ├── ProgressionBanner.tsx, SetRow.tsx
-│       └── index.ts (barrel export)
+│   ├── gym/
+│   │   ├── RestTimer.tsx, ExerciseInstructions.tsx
+│   │   ├── ProgressionBanner.tsx, SetRow.tsx
+│   │   └── index.ts (barrel export)
+│   └── coach/
+│       └── ChatMessage.tsx (mensaje del chat)
 ├── __tests__/
 │   ├── components/gym/*.test.tsx
 │   └── lib/utils.test.ts
@@ -612,6 +687,7 @@ npx tsc --noEmit   # Verificar TypeScript
 - `003_journal.sql` - journal_entries, journal_used_questions
 - `004_progress_photos.sql` - progress_photos + bucket "progress-photos"
 - `005_user_settings.sql` - user_profiles, diet_configs
+- `006_custom_foods.sql` - custom_foods (alimentos personalizados)
 
 ---
 

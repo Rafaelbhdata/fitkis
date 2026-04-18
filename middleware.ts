@@ -40,7 +40,11 @@ export async function middleware(request: NextRequest) {
                            request.nextUrl.pathname.startsWith('/gym') ||
                            request.nextUrl.pathname.startsWith('/food') ||
                            request.nextUrl.pathname.startsWith('/habits') ||
-                           request.nextUrl.pathname.startsWith('/weight')
+                           request.nextUrl.pathname.startsWith('/weight') ||
+                           request.nextUrl.pathname.startsWith('/journal') ||
+                           request.nextUrl.pathname.startsWith('/coach') ||
+                           request.nextUrl.pathname.startsWith('/settings') ||
+                           request.nextUrl.pathname.startsWith('/api/chat')
 
   // Redirect to login if accessing protected route without auth
   if (!user && isProtectedRoute) {

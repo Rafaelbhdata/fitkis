@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Star, ChevronDown, Search, X, Trash2, Minus, Plus, Zap } from 'lucide-react'
+import { Star, ChevronDown, Search, X, Trash2, Minus, Plus, Zap, PlusCircle } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, FOOD_EQUIVALENTS, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 import type { DailyBudget } from '@/types'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
-import type { MealType, FoodGroup, FoodLog, FavoriteMeal } from '@/types'
+import type { MealType, FoodGroup, FoodLog, FavoriteMeal, CustomFood } from '@/types'
 
 const FOOD_COLORS: Record<FoodGroup, string> = {
   verdura: '#22c55e',
@@ -54,14 +54,54 @@ export default function FoodPage() {
   const [showFavoritesModal, setShowFavoritesModal] = useState(false)
   const [applyingFavorite, setApplyingFavorite] = useState(false)
   const [userBudget, setUserBudget] = useState<DailyBudget>(DEFAULT_DAILY_BUDGET)
+  const [customFoods, setCustomFoods] = useState<CustomFood[]>([])
+  const [showCreateCustom, setShowCreateCustom] = useState(false)
+  const [newCustomFood, setNewCustomFood] = useState({ name: '', portion: '', note: '' })
 
   useEffect(() => {
     if (user) {
       loadFoodLogs()
       loadFavorites()
       loadUserDietConfig()
+      loadCustomFoods()
     }
   }, [user])
+
+  const loadCustomFoods = async () => {
+    if (!user) return
+    try {
+      const { data } = await (supabase as any)
+        .from('custom_foods')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name')
+      if (data) setCustomFoods(data as CustomFood[])
+    } catch (err) {
+      // Table might not exist yet
+    }
+  }
+
+  const createCustomFood = async () => {
+    if (!user || !selectedGroup || !newCustomFood.name || !newCustomFood.portion) return
+    try {
+      await (supabase as any).from('custom_foods').insert({
+        user_id: user.id,
+        name: newCustomFood.name,
+        group_type: selectedGroup,
+        portion: newCustomFood.portion,
+        note: newCustomFood.note || null,
+      })
+      await loadCustomFoods()
+      setShowCreateCustom(false)
+      setNewCustomFood({ name: '', portion: '', note: '' })
+      // Auto-select the newly created food
+      setSelectedFood({ name: newCustomFood.name, portion: newCustomFood.portion, note: newCustomFood.note })
+      setQuantity(1)
+      showToast(`"${newCustomFood.name}" creado`)
+    } catch (err) {
+      setError('Error al crear alimento')
+    }
+  }
 
   const loadUserDietConfig = async () => {
     try {
@@ -190,10 +230,18 @@ export default function FoodPage() {
   }
   foodLogs.forEach(log => { consumed[log.group_type] += log.quantity })
 
+  // Combine standard foods with user's custom foods
   const filteredFoods = selectedGroup
-    ? FOOD_EQUIVALENTS[selectedGroup].filter(f =>
-        f.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? [
+        // Custom foods first (marked as custom)
+        ...customFoods
+          .filter(f => f.group_type === selectedGroup && f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+          .map(f => ({ name: f.name, portion: f.portion, note: f.note, isCustom: true })),
+        // Standard foods
+        ...FOOD_EQUIVALENTS[selectedGroup]
+          .filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+          .map(f => ({ ...f, isCustom: false }))
+      ]
     : []
 
   const mealLogs = (meal: MealType) => foodLogs.filter(f => f.meal === meal)
@@ -340,25 +388,36 @@ export default function FoodPage() {
                     </div>
                   )}
 
-                  {/* Food Group Chips */}
-                  <div className="flex flex-wrap gap-2">
-                    {(Object.keys(budget) as FoodGroup[])
-                      .filter((g) => budget[g] > 0)
-                      .map((group) => (
-                        <button
-                          key={group}
-                          onClick={() => {
-                            setSelectedMeal(meal.key)
-                            setSelectedGroup(group)
-                            setShowAddModal(true)
-                          }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-[1.02] active:scale-[0.98] bg-surface-elevated border border-border hover:border-border-subtle"
-                        >
-                          <span className="mr-1">{FOOD_EMOJIS[group]}</span>
-                          {FOOD_GROUP_LABELS[group]} ×{budget[group]}
-                        </button>
-                      ))}
-                  </div>
+                  {/* Recommended Groups (for reference) */}
+                  {Object.values(budget).some(v => v > 0) && (
+                    <div className="mb-2">
+                      <p className="text-[10px] text-muted-foreground mb-1.5">Recomendado:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(Object.keys(budget) as FoodGroup[])
+                          .filter((g) => budget[g] > 0)
+                          .map((group) => (
+                            <span
+                              key={group}
+                              className="px-2 py-1 rounded-md text-[10px] font-medium bg-surface-elevated/50 text-muted-foreground"
+                            >
+                              {FOOD_EMOJIS[group]} {budget[group]}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add Any Food Group Button */}
+                  <button
+                    onClick={() => {
+                      setSelectedMeal(meal.key)
+                      setSelectedGroup(null)
+                      setShowAddModal(true)
+                    }}
+                    className="w-full py-2.5 rounded-lg text-sm font-medium transition-all hover:scale-[1.01] active:scale-[0.99] bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20"
+                  >
+                    + Agregar alimento
+                  </button>
 
                   {/* Food Items */}
                   {logs.length > 0 ? (
@@ -399,7 +458,7 @@ export default function FoodPage() {
       </div>
 
       {/* Add Food Modal */}
-      {showAddModal && selectedGroup && (
+      {showAddModal && (
         <>
           <div className="overlay animate-fade-in" onClick={closeModal} />
           <div className="sheet p-5 animate-slide-up">
@@ -407,17 +466,77 @@ export default function FoodPage() {
 
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-display text-display-sm">
-                {selectedFood ? selectedFood.name : `Agregar ${FOOD_GROUP_LABELS[selectedGroup]}`}
+                {selectedFood
+                  ? selectedFood.name
+                  : selectedGroup
+                    ? `Agregar ${FOOD_GROUP_LABELS[selectedGroup]}`
+                    : 'Agregar alimento'}
               </h2>
               <button onClick={closeModal} className="btn-icon">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {selectedFood ? (
-              /* Quantity Selector */
+            {!selectedGroup ? (
+              /* Step 1: Select Food Group */
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground mb-4">Selecciona el grupo alimenticio:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.keys(userBudget) as FoodGroup[]).map((group) => {
+                    const current = consumed[group]
+                    const total = userBudget[group]
+                    const isOver = current >= total
+
+                    return (
+                      <button
+                        key={group}
+                        onClick={() => setSelectedGroup(group)}
+                        className={`p-3 rounded-lg text-left transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                          isOver
+                            ? 'bg-danger/10 border border-danger/20'
+                            : 'bg-surface-elevated border border-border hover:border-accent/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">{FOOD_EMOJIS[group]}</span>
+                          <span className="text-sm font-medium">{FOOD_GROUP_LABELS[group]}</span>
+                        </div>
+                        <p className={`text-xs ${isOver ? 'text-danger' : 'text-muted-foreground'}`}>
+                          {current}/{total} equivalentes
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Quick add generic equivalents */}
+                <div className="pt-3 border-t border-border mt-4">
+                  <p className="text-xs text-muted-foreground mb-2">O agrega equivalentes genéricos:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(userBudget) as FoodGroup[]).map((group) => (
+                      <button
+                        key={`quick-${group}`}
+                        onClick={() => {
+                          setSelectedGroup(group)
+                          setSelectedFood({ name: `1 ${FOOD_GROUP_LABELS[group].toLowerCase()}`, portion: '1 equivalente' })
+                          setQuantity(1)
+                        }}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+                      >
+                        +1 {FOOD_EMOJIS[group]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : selectedFood ? (
+              /* Step 3: Quantity Selector */
               <div className="space-y-6">
                 <div className="text-center">
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <span className="text-2xl">{FOOD_EMOJIS[selectedGroup]}</span>
+                    <span className="text-sm text-muted-foreground">{FOOD_GROUP_LABELS[selectedGroup]}</span>
+                  </div>
                   <p className="text-sm text-muted-foreground mb-5">Porción: {selectedFood.portion}</p>
                   <div className="flex items-center justify-center gap-5">
                     <button
@@ -453,8 +572,15 @@ export default function FoodPage() {
                 </div>
               </div>
             ) : (
-              /* Food Search */
+              /* Step 2: Food Search */
               <div className="flex flex-col" style={{ maxHeight: 'calc(80vh - 160px)' }}>
+                <button
+                  onClick={() => setSelectedGroup(null)}
+                  className="text-xs text-accent mb-3 text-left hover:underline"
+                >
+                  ← Cambiar grupo ({FOOD_GROUP_LABELS[selectedGroup]})
+                </button>
+
                 <div className="relative mb-4">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
@@ -467,6 +593,18 @@ export default function FoodPage() {
                   />
                 </div>
 
+                {/* Quick add generic for this group */}
+                <button
+                  onClick={() => {
+                    setSelectedFood({ name: `1 ${FOOD_GROUP_LABELS[selectedGroup].toLowerCase()}`, portion: '1 equivalente' })
+                    setQuantity(1)
+                  }}
+                  className="mb-3 p-3 rounded-lg bg-accent/10 border border-accent/20 text-sm font-medium text-accent hover:bg-accent/20 transition-colors text-left"
+                >
+                  <span className="text-lg mr-2">{FOOD_EMOJIS[selectedGroup]}</span>
+                  Agregar equivalente genérico
+                </button>
+
                 <div className="flex-1 overflow-y-auto space-y-1 no-scrollbar">
                   {filteredFoods.length > 0 ? (
                     filteredFoods.map((food) => (
@@ -475,16 +613,115 @@ export default function FoodPage() {
                         onClick={() => selectFood(food)}
                         className="w-full text-left p-3 rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors active:scale-[0.99]"
                       >
-                        <p className="font-medium text-sm">{food.name}</p>
+                        <div className="flex items-center justify-between">
+                          <p className="font-medium text-sm">{food.name}</p>
+                          {food.isCustom && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent">Tuyo</span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">{food.portion}</p>
                       </button>
                     ))
                   ) : (
-                    <p className="text-center text-muted-foreground py-8">
-                      {searchQuery ? 'No se encontraron alimentos' : 'Escribe para buscar'}
-                    </p>
+                    <div className="text-center py-6">
+                      <p className="text-muted-foreground text-sm mb-3">
+                        {searchQuery ? 'No se encontró' : 'Escribe para buscar'}
+                      </p>
+                      {searchQuery && (
+                        <button
+                          onClick={() => setShowCreateCustom(true)}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/10 text-accent text-sm font-medium hover:bg-accent/20 transition-colors"
+                        >
+                          <PlusCircle className="w-4 h-4" />
+                          Crear "{searchQuery}"
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Always show create custom option at the bottom */}
+                  {filteredFoods.length > 0 && (
+                    <button
+                      onClick={() => setShowCreateCustom(true)}
+                      className="w-full p-3 rounded-lg border border-dashed border-border hover:border-accent/50 text-sm text-muted-foreground hover:text-accent transition-colors flex items-center justify-center gap-2 mt-2"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      Crear alimento nuevo
+                    </button>
                   )}
                 </div>
+
+                {/* Create Custom Food Modal */}
+                {showCreateCustom && (
+                  <div className="absolute inset-0 bg-background rounded-b-2xl p-5 animate-fade-in">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-display text-lg">Nuevo alimento</h3>
+                      <button
+                        onClick={() => {
+                          setShowCreateCustom(false)
+                          setNewCustomFood({ name: '', portion: '', note: '' })
+                        }}
+                        className="btn-icon"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="label">Nombre *</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Ej: Proteína en polvo"
+                          value={newCustomFood.name || searchQuery}
+                          onChange={(e) => setNewCustomFood(prev => ({ ...prev, name: e.target.value }))}
+                          autoFocus
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Porción (1 equivalente) *</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Ej: 1 scoop (30g)"
+                          value={newCustomFood.portion}
+                          onChange={(e) => setNewCustomFood(prev => ({ ...prev, portion: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <label className="label">Nota (opcional)</label>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Ej: Marca X, sabor chocolate"
+                          value={newCustomFood.note}
+                          onChange={(e) => setNewCustomFood(prev => ({ ...prev, note: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          onClick={() => {
+                            setShowCreateCustom(false)
+                            setNewCustomFood({ name: '', portion: '', note: '' })
+                          }}
+                          className="flex-1 btn-secondary"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={createCustomFood}
+                          disabled={!newCustomFood.name && !searchQuery || !newCustomFood.portion}
+                          className="flex-1 btn-primary disabled:opacity-50"
+                        >
+                          Crear y agregar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
             )}
           </div>

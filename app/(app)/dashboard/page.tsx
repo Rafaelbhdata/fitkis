@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getDayOfWeek, getRoutineForDay, getRoutineName, getToday } from '@/lib/utils'
-import { DAILY_BUDGET, FOOD_GROUP_LABELS, ROUTINES } from '@/lib/constants'
+import { getDayOfWeek, getRoutineForDay, getRoutineName, getToday, calculateGymStreak, calculateDietStreak } from '@/lib/utils'
+import { DAILY_BUDGET, FOOD_GROUP_LABELS, ROUTINES, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import {
   Dumbbell,
@@ -17,14 +17,15 @@ import {
   Calendar,
   Zap,
   ArrowRight,
-  X
+  X,
+  Utensils
 } from 'lucide-react'
 import {
   AreaChart,
   Area,
   ResponsiveContainer,
 } from 'recharts'
-import type { FoodGroup, FoodLog, WeightLog, Habit, HabitLog, GymSession } from '@/types'
+import type { FoodGroup, FoodLog, WeightLog, Habit, HabitLog, GymSession, ScheduleOverride, DailyBudget } from '@/types'
 
 const FOOD_COLORS: Record<FoodGroup, string> = {
   verdura: '#22c55e',
@@ -51,10 +52,13 @@ export default function DashboardPage() {
 
   const [loading, setLoading] = useState(true)
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
+  const [allFoodLogs, setAllFoodLogs] = useState<FoodLog[]>([]) // For streak calculation
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [habits, setHabits] = useState<Habit[]>([])
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([])
   const [gymSessions, setGymSessions] = useState<GymSession[]>([])
+  const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([])
+  const [userBudget, setUserBudget] = useState<DailyBudget>(DEFAULT_DAILY_BUDGET)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -65,18 +69,39 @@ export default function DashboardPage() {
     setLoading(true)
     setError(null)
     try {
-      const [foodRes, weightRes, habitsRes, habitLogsRes, gymRes] = await Promise.all([
+      // Calculate date 90 days ago for streak calculations
+      const ninetyDaysAgo = new Date()
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+      const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split('T')[0]
+
+      const [foodRes, allFoodRes, weightRes, habitsRes, habitLogsRes, gymRes, overridesRes, dietConfigRes] = await Promise.all([
         supabase.from('food_logs').select('*').eq('date', todayStr),
+        supabase.from('food_logs').select('date, group_type, quantity').gte('date', ninetyDaysAgoStr),
         supabase.from('weight_logs').select('*').order('date', { ascending: false }).limit(14),
         supabase.from('habits').select('*').eq('active', true),
         supabase.from('habit_logs').select('*').eq('date', todayStr),
-        supabase.from('gym_sessions').select('*').order('date', { ascending: false }).limit(7),
+        supabase.from('gym_sessions').select('*').order('date', { ascending: false }).limit(90),
+        (supabase as any).from('schedule_overrides').select('*').gte('date', ninetyDaysAgoStr),
+        (supabase as any).from('diet_configs').select('*').eq('user_id', user?.id).lte('effective_date', todayStr).order('effective_date', { ascending: false }).limit(1),
       ])
       if (foodRes.data) setFoodLogs(foodRes.data as FoodLog[])
+      if (allFoodRes.data) setAllFoodLogs(allFoodRes.data as FoodLog[])
       if (weightRes.data) setWeightLogs(weightRes.data as WeightLog[])
       if (habitsRes.data) setHabits(habitsRes.data as Habit[])
       if (habitLogsRes.data) setHabitLogs(habitLogsRes.data as HabitLog[])
       if (gymRes.data) setGymSessions(gymRes.data as GymSession[])
+      if (overridesRes?.data) setScheduleOverrides(overridesRes.data as ScheduleOverride[])
+      if (dietConfigRes?.data) {
+        const config = dietConfigRes.data
+        setUserBudget({
+          verdura: config.verdura,
+          fruta: config.fruta,
+          carb: config.carb,
+          leguminosa: config.leguminosa,
+          proteina: config.proteina,
+          grasa: config.grasa,
+        })
+      }
     } catch (err) {
       setError('Error al cargar datos')
     }
@@ -86,6 +111,10 @@ export default function DashboardPage() {
   // Calcular consumido por grupo
   const consumed: Record<FoodGroup, number> = { verdura: 0, fruta: 0, carb: 0, leguminosa: 0, proteina: 0, grasa: 0 }
   foodLogs.forEach(log => { consumed[log.group_type] += log.quantity })
+
+  // Calculate streaks
+  const gymStreak = calculateGymStreak(gymSessions, scheduleOverrides)
+  const dietStreak = calculateDietStreak(allFoodLogs, userBudget)
 
   // Calcular totales
   const totalConsumed = Object.values(consumed).reduce((a, b) => a + b, 0)
@@ -354,6 +383,35 @@ export default function DashboardPage() {
           })}
         </div>
       </Link>
+
+      {/* Streaks */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="card !p-4 bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+              <Dumbbell className="w-4 h-4 text-blue-400" />
+            </div>
+            <span className="text-xs text-muted-foreground">Racha Gym</span>
+          </div>
+          <p className="font-display text-display-md text-blue-400">{gymStreak}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {gymStreak === 1 ? 'día' : 'días'} consecutivos
+          </p>
+        </div>
+
+        <div className="card !p-4 bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <Utensils className="w-4 h-4 text-green-400" />
+            </div>
+            <span className="text-xs text-muted-foreground">Racha Dieta</span>
+          </div>
+          <p className="font-display text-display-md text-green-400">{dietStreak}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {dietStreak === 1 ? 'día' : 'días'} en límites
+          </p>
+        </div>
+      </div>
 
       {/* Quick Habits */}
       {uniqueHabits.length > 0 && (
