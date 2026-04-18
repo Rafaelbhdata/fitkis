@@ -1,13 +1,39 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import Anthropic from '@anthropic-ai/sdk'
-import { createRouteHandlerClient } from '@/lib/supabase'
 import {
   FOOD_EQUIVALENTS,
   DAILY_BUDGET,
   ROUTINES,
   ROUTINE_SCHEDULE,
 } from '@/lib/constants'
-import type { FoodGroup, MealType } from '@/types'
+import type { FoodGroup, MealType, Database } from '@/types'
+
+function createRouteHandlerClient() {
+  const cookieStore = cookies()
+
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {
+            // Ignore - middleware handles session refresh
+          }
+        },
+      },
+    }
+  )
+}
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
