@@ -83,6 +83,7 @@ const config: Config = {
         "slide-up": "slideUp 0.3s ease-out",
         "scale-in": "scaleIn 0.2s ease-out",
         "pulse-subtle": "pulseSub 2s ease-in-out infinite",
+        "pulse-slow": "pulseSlow 3s ease-in-out infinite",
         "slide-in-right": "slideInRight 0.25s ease-out",
         "slide-in-left": "slideInLeft 0.25s ease-out",
       },
@@ -102,6 +103,10 @@ const config: Config = {
         pulseSub: {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.7" },
+        },
+        pulseSlow: {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(168, 85, 247, 0.4)" },
+          "50%": { boxShadow: "0 0 0 12px rgba(168, 85, 247, 0)" },
         },
         slideInRight: {
           "0%": { transform: "translateX(100%)" },

@@ -6,34 +6,37 @@ import { Bot, User } from 'lucide-react'
 interface ChatMessageProps {
   role: 'user' | 'assistant'
   content: string
+  compact?: boolean
 }
 
-export default function ChatMessage({ role, content }: ChatMessageProps) {
+export default function ChatMessage({ role, content, compact = false }: ChatMessageProps) {
   const isUser = role === 'user'
 
   return (
-    <div className={cn('flex gap-3', isUser && 'flex-row-reverse')}>
+    <div className={cn('flex gap-2', isUser && 'flex-row-reverse')}>
       <div
         className={cn(
-          'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+          'rounded-full flex items-center justify-center flex-shrink-0',
+          compact ? 'w-7 h-7' : 'w-8 h-8',
           isUser ? 'bg-accent' : 'bg-gradient-to-br from-purple-500 to-pink-500'
         )}
       >
         {isUser ? (
-          <User className="w-4 h-4 text-background" />
+          <User className={cn(compact ? 'w-3 h-3' : 'w-4 h-4', 'text-background')} />
         ) : (
-          <Bot className="w-4 h-4 text-white" />
+          <Bot className={cn(compact ? 'w-3 h-3' : 'w-4 h-4', 'text-white')} />
         )}
       </div>
       <div
         className={cn(
-          'px-4 py-3 rounded-2xl max-w-[80%]',
+          'rounded-2xl max-w-[80%]',
+          compact ? 'px-3 py-2' : 'px-4 py-3',
           isUser
             ? 'bg-accent text-background rounded-tr-sm'
             : 'bg-surface border border-border rounded-tl-sm'
         )}
       >
-        <p className="text-sm whitespace-pre-wrap">{content}</p>
+        <p className={cn(compact ? 'text-xs' : 'text-sm', 'whitespace-pre-wrap')}>{content}</p>
       </div>
     </div>
   )

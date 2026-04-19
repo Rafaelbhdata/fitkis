@@ -1,5 +1,6 @@
 import Header from '@/components/ui/Header'
 import Sidebar from '@/components/ui/Sidebar'
+import CoachBubble from '@/components/coach/CoachBubble'
 
 export default function AppLayout({
   children,
@@ -24,6 +25,9 @@ export default function AppLayout({
           </div>
         </div>
       </main>
+
+      {/* Coach AI Floating Button */}
+      <CoachBubble />
     </div>
   )
 }
