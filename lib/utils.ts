@@ -174,12 +174,11 @@ export function calculateDietStreak(
   if (todayLogs && todayLogs.size > 0) {
     // Check if within budget
     let withinBudget = true
-    for (const [group, consumed] of todayLogs) {
+    todayLogs.forEach((consumed, group) => {
       if (consumed > dailyBudget[group]) {
         withinBudget = false
-        break
       }
-    }
+    })
     if (withinBudget) streak = 1
   }
 
@@ -197,12 +196,11 @@ export function calculateDietStreak(
 
     // Check if within budget for all groups
     let withinBudget = true
-    for (const [group, consumed] of dateLogs) {
+    dateLogs.forEach((consumed, group) => {
       if (consumed > dailyBudget[group]) {
         withinBudget = false
-        break
       }
-    }
+    })
 
     if (withinBudget) {
       streak++
