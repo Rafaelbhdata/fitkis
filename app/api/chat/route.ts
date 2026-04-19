@@ -8,12 +8,14 @@ import {
   ROUTINES,
   ROUTINE_SCHEDULE,
 } from '@/lib/constants'
-import type { FoodGroup, MealType, Database } from '@/types'
+import type { FoodGroup, MealType } from '@/types'
 
 function createRouteHandlerClient() {
   const cookieStore = cookies()
 
-  return createServerClient<Database>(
+  // Using 'any' for Database type since not all tables are typed
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return createServerClient<any>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
