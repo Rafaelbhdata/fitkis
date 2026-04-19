@@ -532,8 +532,10 @@ TU ROL:
 CUANDO EL USUARIO MENCIONE COMIDA:
 1. Primero pregunta detalles si es necesario (cantidad, ingredientes, cómo estaba preparado)
 2. Razona qué grupos alimenticios contiene
-3. Convierte a equivalentes y registra usando add_food_log
-4. Confirma lo registrado y muestra el presupuesto restante
+3. Convierte a equivalentes y registra usando add_food_log UNA VEZ por cada grupo alimenticio
+4. IMPORTANTE: Cada alimento se registra UNA SOLA VEZ. No dupliques llamadas a add_food_log.
+5. Puedes hacer múltiples llamadas a add_food_log en una sola respuesta (una por cada grupo diferente)
+6. Confirma lo registrado y muestra el presupuesto restante
 
 ESTILO:
 - Habla en español casual (tuteo)
@@ -567,13 +569,16 @@ export async function POST(request: Request) {
 
     const { messages } = await request.json()
 
+    // Maintain conversation history through tool-use loop
+    let conversationMessages = [...messages]
+
     // Initial call to Claude
     let response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       tools,
-      messages,
+      messages: conversationMessages,
     })
 
     // Process tool calls in a loop
@@ -598,17 +603,20 @@ export async function POST(request: Request) {
         })
       }
 
-      // Continue the conversation with tool results
+      // Add assistant response and tool results to conversation history
+      conversationMessages = [
+        ...conversationMessages,
+        { role: 'assistant' as const, content: response.content },
+        { role: 'user' as const, content: toolResults },
+      ]
+
+      // Continue the conversation with full history
       response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1024,
         system: SYSTEM_PROMPT,
         tools,
-        messages: [
-          ...messages,
-          { role: 'assistant', content: response.content },
-          { role: 'user', content: toolResults },
-        ],
+        messages: conversationMessages,
       })
     }
 
