@@ -26,13 +26,21 @@ Qué hizo:
   - Herramientas: get_today_food_logs, add_food_log, delete_food_log, get_gym_sessions, update_session_set, get_weight_logs, add_weight_log, get_habits_status, log_habit, get_food_equivalents, get_daily_budget, get_routine_info, get_today_routine
   - System prompt con conocimiento del plan nutricional y reglas especiales
   - Razonamiento nutricional para alimentos no registrados
+  - Fix: Mantiene historial de conversación en loop de tool-use para evitar duplicados
 - **Página**: `app/(app)/coach/page.tsx`
-  - Chat UI con mensajes tipo bubble (user/assistant)
+  - Chat UI completo con mensajes tipo bubble (user/assistant)
   - Quick actions predefinidas
   - Botón para limpiar conversación
   - Loading states y manejo de errores
-- **Componente**: `components/coach/ChatMessage.tsx`
-- **Navegación**: Agregado a Sidebar, Header y SideMenu
+- **Bubble flotante**: `components/coach/CoachBubble.tsx`
+  - Botón flotante morado en esquina inferior derecha
+  - Accesible desde TODAS las páginas de la app
+  - Animación pulse en el botón
+  - Panel de chat slide-up (móvil) o popup (desktop)
+  - Mensajes compactos para mejor uso del espacio
+  - Quick actions: "¿Qué me queda?", "Ideas cena", "¿Qué rutina?"
+- **Componente**: `components/coach/ChatMessage.tsx` (con modo compact)
+- **Navegación**: Agregado a Sidebar, Header y SideMenu + bubble en layout
 - **Dependencia**: @anthropic-ai/sdk agregado a package.json
 - **Env**: ANTHROPIC_API_KEY en .env.example
 
@@ -625,7 +633,8 @@ fitkis/
 │   │   ├── ProgressionBanner.tsx, SetRow.tsx
 │   │   └── index.ts (barrel export)
 │   └── coach/
-│       └── ChatMessage.tsx (mensaje del chat)
+│       ├── ChatMessage.tsx (mensaje del chat con modo compact)
+│       └── CoachBubble.tsx (botón flotante + panel de chat)
 ├── __tests__/
 │   ├── components/gym/*.test.tsx
 │   └── lib/utils.test.ts
