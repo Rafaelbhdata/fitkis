@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, Flame, Dumbbell } from 'lucide-react'
+import { Menu, Flame } from 'lucide-react'
 import SideMenu from './SideMenu'
+import LogoMark from './LogoMark'
 
 interface HeaderProps {
   streak?: number
@@ -34,10 +35,10 @@ export default function Header({ streak = 0 }: HeaderProps) {
         <div className="px-4 h-14 flex items-center justify-between">
           {/* Logo & Title */}
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-              <Dumbbell className="w-4 h-4 text-background" />
+            <Link href="/dashboard">
+              <LogoMark size={32} />
             </Link>
-            <span className="font-display font-semibold">{pageTitle}</span>
+            <span className="font-display font-semibold tracking-[-0.03em]">{pageTitle}</span>
           </div>
 
           {/* Right controls */}

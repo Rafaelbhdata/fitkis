@@ -1,17 +1,25 @@
 import type { Metadata, Viewport } from 'next'
-import { Outfit, DM_Sans } from 'next/font/google'
+import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google'
 import { Providers } from '@/components/Providers'
 import './globals.css'
 
-const outfit = Outfit({
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--font-outfit',
+  variable: '--font-geist',
   display: 'swap',
 })
 
-const dmSans = DM_Sans({
+const geistMono = Geist_Mono({
   subsets: ['latin'],
-  variable: '--font-dm-sans',
+  variable: '--font-geist-mono',
+  display: 'swap',
+})
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  variable: '--font-instrument',
   display: 'swap',
 })
 
@@ -35,7 +43,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#050505',
+  themeColor: '#0a0e1a',
 }
 
 export default function RootLayout({
@@ -44,11 +52,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" className={`${outfit.variable} ${dmSans.variable}`}>
-      <body className="min-h-screen bg-background">
-        <Providers>
-          {children}
-        </Providers>
+    <html
+      lang="es"
+      className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
+    >
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

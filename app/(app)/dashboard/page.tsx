@@ -27,13 +27,14 @@ import {
 } from 'recharts'
 import type { FoodGroup, FoodLog, WeightLog, Habit, HabitLog, GymSession, ScheduleOverride, DailyBudget } from '@/types'
 
+// New Atlético Vital food colors
 const FOOD_COLORS: Record<FoodGroup, string> = {
-  verdura: '#22c55e',
-  fruta: '#f97316',
-  carb: '#eab308',
-  leguminosa: '#a855f7',
-  proteina: '#ef4444',
-  grasa: '#3b82f6',
+  verdura: '#7ed957',
+  fruta: '#ff8a5c',
+  carb: '#ffce4a',
+  leguminosa: '#22e4d9',
+  proteina: '#ff5277',
+  grasa: '#9f7bff',
 }
 
 // Week starts on Monday (index 0 = Monday, index 6 = Sunday)

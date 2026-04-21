@@ -289,8 +289,8 @@ export default function JournalPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-purple-400" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-pink-500/20 flex items-center justify-center shadow-glow-violet">
+            <BookOpen className="w-5 h-5 text-violet-400" />
           </div>
           <div>
             <h1 className="text-xl font-display font-semibold">Journal</h1>
@@ -385,7 +385,7 @@ export default function JournalPage() {
             {questions.map((q, idx) => (
               <div key={`${q.index}-${idx}`} className="card p-4">
                 <div className="flex items-start justify-between gap-3 mb-3">
-                  <p className="text-sm font-medium text-purple-300">{q.question}</p>
+                  <p className="text-sm font-medium text-violet-300 font-instrument italic">{q.question}</p>
                   {skipsUsed < 2 && (
                     <button
                       onClick={() => skipQuestion(idx)}
@@ -400,7 +400,7 @@ export default function JournalPage() {
                   value={q.answer}
                   onChange={(e) => updateAnswer(idx, e.target.value)}
                   placeholder="Tu respuesta..."
-                  className="w-full h-24 bg-surface-elevated rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder:text-muted-foreground/50"
+                  className="w-full h-24 bg-surface-elevated rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/50 placeholder:text-muted-foreground/50 font-instrument"
                 />
               </div>
             ))}

@@ -15,10 +15,11 @@ const habitIcons: Record<string, React.ComponentType<{ className?: string }>> = 
   'Creatina': Pill,
 }
 
+// Atlético Vital habit colors
 const habitColors: Record<string, { bg: string; text: string; accent: string; gradient: string }> = {
-  'Agua': { bg: 'bg-blue-500/10', text: 'text-blue-400', accent: '#3b82f6', gradient: 'from-blue-500/20' },
-  'Lectura': { bg: 'bg-amber-500/10', text: 'text-amber-400', accent: '#f59e0b', gradient: 'from-amber-500/20' },
-  'Creatina': { bg: 'bg-pink-500/10', text: 'text-pink-400', accent: '#ec4899', gradient: 'from-pink-500/20' },
+  'Agua': { bg: 'bg-cyan-500/10', text: 'text-cyan-400', accent: '#22e4d9', gradient: 'from-cyan-500/20' },
+  'Lectura': { bg: 'bg-amber-500/10', text: 'text-amber-400', accent: '#ffb547', gradient: 'from-amber-500/20' },
+  'Creatina': { bg: 'bg-pink-500/10', text: 'text-pink-400', accent: '#ff5277', gradient: 'from-pink-500/20' },
 }
 
 interface HabitWithLog extends Habit {
@@ -408,9 +409,9 @@ export default function HabitsPage() {
             <TrendingUp className="w-4 h-4 text-accent" />
             <span className="text-xs font-medium text-accent">Progreso</span>
           </Link>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
-            <Flame className="w-4 h-4 text-orange-400" />
-            <span className="font-display text-sm font-semibold text-orange-400">{totalStreak} días</span>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <Flame className="w-4 h-4 text-amber-400 animate-flame" />
+            <span className="font-display text-sm font-semibold text-amber-400">{totalStreak} días</span>
           </div>
         </div>
       </div>
@@ -476,10 +477,10 @@ export default function HabitsPage() {
         </div>
         <div className="card">
           <div className="flex items-center gap-2 mb-1">
-            <Flame className="w-3.5 h-3.5 text-orange-400" />
+            <Flame className="w-3.5 h-3.5 text-amber-400 animate-flame" />
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Racha</span>
           </div>
-          <p className="font-display text-display-sm text-orange-400">{totalStreak}</p>
+          <p className="font-display text-display-sm text-amber-400">{totalStreak}</p>
         </div>
       </div>
 
@@ -599,9 +600,9 @@ export default function HabitsPage() {
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium text-sm">{habit.name}</h3>
                       {streak > 0 && (
-                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-orange-500/10 border border-orange-500/20">
-                          <Flame className="w-3 h-3 text-orange-400" />
-                          <span className="text-[10px] font-semibold text-orange-400">{streak} {streak === 1 ? 'día' : 'días'}</span>
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20">
+                          <Flame className="w-3 h-3 text-amber-400 animate-flame" />
+                          <span className="text-[10px] font-semibold text-amber-400">{streak} {streak === 1 ? 'día' : 'días'}</span>
                         </div>
                       )}
                       {/* Edit/Delete Actions */}

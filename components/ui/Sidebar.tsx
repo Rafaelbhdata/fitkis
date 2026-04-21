@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import LogoMark from './LogoMark'
 
 const mainNav = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
@@ -53,11 +54,9 @@ export default function Sidebar({ streak = 0 }: SidebarProps) {
       {/* Logo / Brand */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
-            <Dumbbell className="w-5 h-5 text-background" />
-          </div>
+          <LogoMark size={40} />
           <div>
-            <p className="font-display font-semibold text-sm">Fitkis</p>
+            <p className="font-display font-semibold text-sm tracking-[-0.03em]">Fitkis</p>
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pro</p>
           </div>
         </div>

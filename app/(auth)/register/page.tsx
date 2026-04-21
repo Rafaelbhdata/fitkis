@@ -45,18 +45,19 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex flex-col px-6 py-12 relative overflow-hidden">
-      {/* Subtle gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-accent/[0.02] via-transparent to-transparent pointer-events-none" />
+      {/* Atlético Vital gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 via-transparent to-pink-500/5 pointer-events-none" />
 
-      {/* Decorative elements */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[120px] pointer-events-none" />
+      {/* Decorative glow elements */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[400px] h-[400px] bg-pink-500/10 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Content */}
       <div className="relative flex-1 flex flex-col justify-center max-w-sm mx-auto w-full">
         {/* Logo & Header */}
         <div className="text-center mb-10 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 mb-6">
-            <span className="text-2xl font-display font-bold text-accent">F</span>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 border border-cyan-500/30 mb-6 shadow-glow-cyan">
+            <span className="text-3xl font-display font-bold bg-gradient-to-r from-cyan-400 to-pink-400 bg-clip-text text-transparent">F</span>
           </div>
           <h1 className="font-display text-display-lg text-foreground mb-2">
             Crear cuenta

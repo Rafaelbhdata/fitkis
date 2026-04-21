@@ -99,7 +99,7 @@ export default function CoachPage() {
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center shadow-glow-violet">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -124,10 +124,10 @@ export default function CoachPage() {
 
         {isLoading && (
           <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center shadow-glow-violet">
               <Loader2 className="w-4 h-4 text-white animate-spin" />
             </div>
-            <div className="px-4 py-3 rounded-2xl bg-surface border border-border rounded-tl-sm">
+            <div className="px-4 py-3 rounded-2xl bg-gradient-to-br from-violet-500/10 to-pink-500/10 border border-violet-500/20 rounded-tl-sm">
               <p className="text-sm text-muted-foreground">Pensando...</p>
             </div>
           </div>
@@ -143,7 +143,7 @@ export default function CoachPage() {
             <button
               key={index}
               onClick={() => sendMessage(action.message)}
-              className="px-3 py-1.5 text-xs bg-surface border border-border rounded-full hover:border-accent hover:text-accent transition-colors"
+              className="px-3 py-1.5 text-xs bg-surface border border-border rounded-full hover:border-violet-500 hover:text-violet-400 transition-colors"
             >
               {action.label}
             </button>

@@ -7,7 +7,6 @@ import { usePathname } from 'next/navigation'
 import {
   X,
   Home,
-  Dumbbell,
   UtensilsCrossed,
   Target,
   Scale,
@@ -17,10 +16,12 @@ import {
   Flame,
   BookOpen,
   Sparkles,
-  Apple
+  Apple,
+  Dumbbell
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
+import LogoMark from './LogoMark'
 
 interface SideMenuProps {
   isOpen: boolean
@@ -89,11 +90,9 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
-              <Dumbbell className="w-4 h-4 text-background" />
-            </div>
+            <LogoMark size={36} />
             <div>
-              <p className="font-display font-semibold text-sm">Fitkis</p>
+              <p className="font-display font-semibold text-sm tracking-[-0.03em]">Fitkis</p>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pro</p>
             </div>
           </div>

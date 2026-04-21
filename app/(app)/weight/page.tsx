@@ -325,12 +325,12 @@ export default function WeightPage() {
       {/* Hero Stats */}
       <div className="grid grid-cols-2 gap-3">
         {/* Current Weight */}
-        <div className="card !p-5 col-span-2 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent border-purple-500/20">
+        <div className="card !p-5 col-span-2 bg-gradient-to-br from-cyan-500/10 via-transparent to-transparent border-cyan-500/20">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Peso actual</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-mono mb-2">Peso actual</p>
               <div className="flex items-baseline gap-2">
-                <span className="font-display text-display-xl text-purple-400">{latestWeight}</span>
+                <span className="font-display text-display-xl text-cyan-400">{latestWeight}</span>
                 <span className="text-xl text-muted-foreground">kg</span>
               </div>
               {weightLost > 0 && (
@@ -340,8 +340,8 @@ export default function WeightPage() {
                 </div>
               )}
             </div>
-            <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center">
-              <Scale className="w-7 h-7 text-purple-400" />
+            <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center shadow-glow-cyan">
+              <Scale className="w-7 h-7 text-cyan-400" />
             </div>
           </div>
         </div>
@@ -478,8 +478,8 @@ export default function WeightPage() {
               <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                 <defs>
                   <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#a855f7" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#22e4d9" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#22e4d9" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis
@@ -515,18 +515,18 @@ export default function WeightPage() {
                 <Area
                   type="monotone"
                   dataKey="weight"
-                  stroke="#a855f7"
+                  stroke="#22e4d9"
                   strokeWidth={2}
                   fill="url(#weightGradient)"
-                  dot={{ fill: '#a855f7', strokeWidth: 0, r: 3 }}
-                  activeDot={{ fill: '#a855f7', strokeWidth: 2, stroke: '#fff', r: 5 }}
+                  dot={{ fill: '#22e4d9', strokeWidth: 0, r: 3 }}
+                  activeDot={{ fill: '#22e4d9', strokeWidth: 2, stroke: '#fff', r: 5 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
           <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-purple-500 rounded" />
+              <div className="w-3 h-0.5 bg-cyan-500 rounded" />
               <span>Peso</span>
             </div>
             <div className="flex items-center gap-1">

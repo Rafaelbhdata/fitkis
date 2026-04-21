@@ -200,8 +200,8 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-500/20 flex items-center justify-center">
-            <Settings className="w-5 h-5 text-slate-400" />
+          <div className="w-10 h-10 rounded-xl bg-surface-elevated flex items-center justify-center border border-border">
+            <Settings className="w-5 h-5 text-muted-foreground" />
           </div>
           <div>
             <h1 className="text-xl font-display font-semibold">Configuración</h1>
@@ -213,7 +213,7 @@ export default function SettingsPage() {
       {/* Profile Section */}
       <div className="card p-4 mb-6">
         <div className="flex items-center gap-2 mb-4">
-          <User className="w-4 h-4 text-accent" />
+          <User className="w-4 h-4 text-cyan-400" />
           <h2 className="font-medium">Perfil</h2>
         </div>
 
@@ -277,7 +277,7 @@ export default function SettingsPage() {
       <div className="card p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Utensils className="w-4 h-4 text-orange-400" />
+            <Utensils className="w-4 h-4 text-amber-400" />
             <h2 className="font-medium">Configuración de dieta</h2>
           </div>
           {!showNewDiet && (
@@ -307,12 +307,12 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-2 gap-3 mb-4">
               {[
-                { key: 'verdura', label: 'Verdura', color: 'text-green-400' },
-                { key: 'fruta', label: 'Fruta', color: 'text-pink-400' },
-                { key: 'carb', label: 'Carbohidratos', color: 'text-amber-400' },
-                { key: 'leguminosa', label: 'Leguminosa', color: 'text-orange-400' },
-                { key: 'proteina', label: 'Proteína', color: 'text-red-400' },
-                { key: 'grasa', label: 'Grasa', color: 'text-yellow-400' },
+                { key: 'verdura', label: 'Verdura', color: 'text-food-verdura' },
+                { key: 'fruta', label: 'Fruta', color: 'text-food-fruta' },
+                { key: 'carb', label: 'Carbohidratos', color: 'text-food-carb' },
+                { key: 'leguminosa', label: 'Leguminosa', color: 'text-food-leguminosa' },
+                { key: 'proteina', label: 'Proteína', color: 'text-food-proteina' },
+                { key: 'grasa', label: 'Grasa', color: 'text-food-grasa' },
               ].map(({ key, label, color }) => (
                 <div key={key}>
                   <label className={`block text-xs ${color} mb-1`}>{label}</label>
@@ -386,27 +386,27 @@ export default function SettingsPage() {
                 </div>
                 <div className="grid grid-cols-6 gap-1 text-xs">
                   <div className="text-center">
-                    <span className="text-green-400">V</span>
+                    <span className="text-food-verdura">V</span>
                     <p className="text-foreground">{config.verdura}</p>
                   </div>
                   <div className="text-center">
-                    <span className="text-pink-400">F</span>
+                    <span className="text-food-fruta">F</span>
                     <p className="text-foreground">{config.fruta}</p>
                   </div>
                   <div className="text-center">
-                    <span className="text-amber-400">C</span>
+                    <span className="text-food-carb">C</span>
                     <p className="text-foreground">{config.carb}</p>
                   </div>
                   <div className="text-center">
-                    <span className="text-orange-400">L</span>
+                    <span className="text-food-leguminosa">L</span>
                     <p className="text-foreground">{config.leguminosa}</p>
                   </div>
                   <div className="text-center">
-                    <span className="text-red-400">P</span>
+                    <span className="text-food-proteina">P</span>
                     <p className="text-foreground">{config.proteina}</p>
                   </div>
                   <div className="text-center">
-                    <span className="text-yellow-400">G</span>
+                    <span className="text-food-grasa">G</span>
                     <p className="text-foreground">{config.grasa}</p>
                   </div>
                 </div>

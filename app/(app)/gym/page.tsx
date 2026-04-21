@@ -353,7 +353,7 @@ export default function GymPage() {
               // Future
               bgClass = 'hover:bg-surface-elevated'
               dotClass = hasRoutine
-                ? dayHasOverride ? 'bg-amber-500' : 'bg-blue-500'
+                ? dayHasOverride ? 'bg-amber-500' : 'bg-cyan-500'
                 : dayHasOverride ? 'bg-amber-500' : 'bg-transparent'
             }
 
@@ -393,7 +393,7 @@ export default function GymPage() {
             <span className="text-[10px] text-muted-foreground">Saltado</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-blue-500" />
+            <div className="w-2 h-2 rounded-full bg-cyan-500" />
             <span className="text-[10px] text-muted-foreground">Programado</span>
           </div>
         </div>
@@ -422,9 +422,9 @@ export default function GymPage() {
       {routine ? (
         <>
           {/* Routine Hero Card */}
-          <div className="card bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
+          <div className="card bg-gradient-to-br from-cyan-500/10 to-transparent border-cyan-500/20">
             <div className="flex items-start justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-cyan-500 flex items-center justify-center">
                 <Dumbbell className="w-6 h-6 text-white" />
               </div>
               <div className="flex items-center gap-2">
@@ -457,7 +457,7 @@ export default function GymPage() {
               {routine.muscles.map((muscle) => (
                 <span
                   key={muscle}
-                  className="px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/20 text-xs font-medium text-blue-300"
+                  className="px-2 py-1 rounded-md bg-cyan-500/10 border border-cyan-500/20 text-xs font-medium text-cyan-300"
                 >
                   {muscle}
                 </span>
