@@ -16,7 +16,8 @@ import {
   LogOut,
   Flame,
   BookOpen,
-  Sparkles
+  Sparkles,
+  Apple
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
@@ -38,6 +39,7 @@ const mainNav = [
 
 const secondaryNav = [
   { href: '/gym/history', label: 'Historial Gym', icon: History },
+  { href: '/equivalentes', label: 'Equivalentes', icon: Apple },
 ]
 
 export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
