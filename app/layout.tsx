@@ -1,15 +1,15 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google'
+import { Inter, JetBrains_Mono, Instrument_Serif } from 'next/font/google'
 import { Providers } from '@/components/Providers'
 import './globals.css'
 
-const geist = Geist({
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-geist',
   display: 'swap',
 })
 
-const geistMono = Geist_Mono({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-geist-mono',
   display: 'swap',
@@ -54,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable}`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable}`}
     >
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers>{children}</Providers>
