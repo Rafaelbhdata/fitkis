@@ -50,6 +50,8 @@ export default function EquivalentesPage() {
     proteina: 0,
     grasa: 0,
   })
+  const [totalInGroup, setTotalInGroup] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
 
   // Load group counts on mount
   useEffect(() => {
@@ -83,29 +85,50 @@ export default function EquivalentesPage() {
   }
 
   // Search foods from database
-  const searchFoods = async (group: FoodGroup, query: string = '') => {
-    setLoading(true)
+  const searchFoods = async (group: FoodGroup, query: string = '', append: boolean = false) => {
+    if (append) {
+      setLoadingMore(true)
+    } else {
+      setLoading(true)
+      setFoods([])
+    }
+
     try {
       let queryBuilder = (supabase as any)
         .from('food_equivalents')
-        .select('*')
+        .select('*', { count: 'exact' })
         .gt(group, 0)
 
       if (query.trim()) {
         queryBuilder = queryBuilder.ilike('name', `%${query}%`)
       }
 
-      queryBuilder = queryBuilder.order('name').limit(100)
+      const offset = append ? foods.length : 0
+      queryBuilder = queryBuilder.order('name').range(offset, offset + 99)
 
-      const { data, error } = await queryBuilder
+      const { data, error, count } = await queryBuilder
 
       if (error) throw error
-      if (data) setFoods(data as FoodEquivalent[])
+      if (data) {
+        if (append) {
+          setFoods(prev => [...prev, ...(data as FoodEquivalent[])])
+        } else {
+          setFoods(data as FoodEquivalent[])
+          setTotalInGroup(count || 0)
+        }
+      }
     } catch (err) {
       console.error('Error searching foods:', err)
-      setFoods([])
+      if (!append) setFoods([])
     }
     setLoading(false)
+    setLoadingMore(false)
+  }
+
+  const loadMore = () => {
+    if (selectedGroup) {
+      searchFoods(selectedGroup, searchQuery, true)
+    }
   }
 
   // Trigger search when group or query changes
@@ -133,6 +156,7 @@ export default function EquivalentesPage() {
     setSelectedGroup(null)
     setSearchQuery('')
     setFoods([])
+    setTotalInGroup(0)
   }
 
   return (
@@ -151,7 +175,7 @@ export default function EquivalentesPage() {
         </h1>
         <p className="text-sm text-muted-foreground">
           {selectedGroup
-            ? `${foods.length} alimentos encontrados`
+            ? `${foods.length} de ${totalInGroup} alimentos`
             : 'Explora los alimentos por grupo'
           }
         </p>
@@ -251,51 +275,73 @@ export default function EquivalentesPage() {
               />
             </div>
           ) : foods.length > 0 ? (
-            <div className="grid gap-2">
-              {foods.map((food) => {
-                const groups = getFoodGroups(food)
-                const hasMultipleGroups = groups.length > 1
+            <div className="space-y-2">
+              <div className="grid gap-2">
+                {foods.map((food) => {
+                  const groups = getFoodGroups(food)
+                  const hasMultipleGroups = groups.length > 1
 
-                return (
-                  <button
-                    key={food.id}
-                    onClick={() => setSelectedFood(food)}
-                    className="w-full text-left p-3 rounded-lg bg-surface-elevated hover:bg-surface-hover transition-all border border-transparent hover:border-border"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{food.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{food.portion}</p>
+                  return (
+                    <button
+                      key={food.id}
+                      onClick={() => setSelectedFood(food)}
+                      className="w-full text-left p-3 rounded-lg bg-surface-elevated hover:bg-surface-hover transition-all border border-transparent hover:border-border"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{food.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{food.portion}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {hasMultipleGroups ? (
+                            <div className="flex -space-x-1">
+                              {groups.map(({ group }) => (
+                                <span
+                                  key={group}
+                                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-surface-elevated"
+                                  style={{ backgroundColor: `${FOOD_COLORS[group]}20` }}
+                                >
+                                  {FOOD_EMOJIS[group]}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span
+                              className="px-2 py-1 rounded-md text-xs font-medium"
+                              style={{
+                                backgroundColor: `${FOOD_COLORS[selectedGroup]}15`,
+                                color: FOOD_COLORS[selectedGroup]
+                              }}
+                            >
+                              1 eq
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {hasMultipleGroups ? (
-                          <div className="flex -space-x-1">
-                            {groups.map(({ group }) => (
-                              <span
-                                key={group}
-                                className="w-6 h-6 rounded-full flex items-center justify-center text-xs border-2 border-surface-elevated"
-                                style={{ backgroundColor: `${FOOD_COLORS[group]}20` }}
-                              >
-                                {FOOD_EMOJIS[group]}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span
-                            className="px-2 py-1 rounded-md text-xs font-medium"
-                            style={{
-                              backgroundColor: `${FOOD_COLORS[selectedGroup]}15`,
-                              color: FOOD_COLORS[selectedGroup]
-                            }}
-                          >
-                            1 eq
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Load More Button */}
+              {foods.length < totalInGroup && (
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="w-full py-3 rounded-lg border border-border hover:border-accent/50 text-sm font-medium text-muted-foreground hover:text-accent transition-colors flex items-center justify-center gap-2"
+                >
+                  {loadingMore ? (
+                    <div
+                      className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
+                      style={{ borderColor: FOOD_COLORS[selectedGroup], borderTopColor: 'transparent' }}
+                    />
+                  ) : (
+                    <>
+                      Cargar más ({totalInGroup - foods.length} restantes)
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           ) : (
             <div className="text-center py-16">
