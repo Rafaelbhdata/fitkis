@@ -1,4 +1,4 @@
-import type { FoodEquivalent, DailyBudget, MealBudget, FoodGroup, Routine } from '@/types'
+import type { FoodEquivalentLegacy, DailyBudget, MealBudget, FoodGroup, Routine } from '@/types'
 
 // ==================== GYM ====================
 
@@ -442,7 +442,7 @@ export const FOOD_GROUP_COLORS: Record<FoodGroup, string> = {
   leguminosa: '#06b6d4',
 }
 
-export const FRUITS: FoodEquivalent[] = [
+export const FRUITS: FoodEquivalentLegacy[] = [
   { name: 'Agua de coco', portion: '1 bote' },
   { name: 'Arándanos deshidratados', portion: '¼ tza' },
   { name: 'Blueberries', portion: '½ taza' },
@@ -475,7 +475,7 @@ export const FRUITS: FoodEquivalent[] = [
   { name: 'Mermelada natural', portion: '1 cda' },
 ]
 
-export const VEGETABLES: FoodEquivalent[] = [
+export const VEGETABLES: FoodEquivalentLegacy[] = [
   { name: 'Alcachofa', portion: '1 pza' },
   { name: 'Apio', portion: '2 pzas' },
   { name: 'Betabel', portion: '½ pza' },
@@ -501,7 +501,7 @@ export const VEGETABLES: FoodEquivalent[] = [
   { name: 'Palmitos', portion: '6-8 pzas (1 lata)' },
 ]
 
-export const CARBS: FoodEquivalent[] = [
+export const CARBS: FoodEquivalentLegacy[] = [
   { name: 'Arroz cocido (preferir integral)', portion: '½ tza' },
   { name: 'Avena cruda', portion: '⅓ tza' },
   { name: 'Avena cocida', portion: '½ tza' },
@@ -527,14 +527,14 @@ export const CARBS: FoodEquivalent[] = [
   { name: 'Rice cakes', portion: '2 pzas' },
 ]
 
-export const LEGUMES: FoodEquivalent[] = [
+export const LEGUMES: FoodEquivalentLegacy[] = [
   { name: 'Frijol cocido / lenteja', portion: '⅓ taza' },
   { name: 'Garbanzo cocido', portion: '1 tza' },
   { name: 'Hummus', portion: '⅓ tza' },
   { name: 'Edamames', portion: '⅓ tza' },
 ]
 
-export const PROTEINS: FoodEquivalent[] = [
+export const PROTEINS: FoodEquivalentLegacy[] = [
   { name: 'Anillos de calamar', portion: '4 pzas' },
   { name: 'Atún en agua', portion: '1 lata' },
   { name: 'Bistec', portion: '1 palma de la mano' },
@@ -557,7 +557,7 @@ export const PROTEINS: FoodEquivalent[] = [
   { name: 'Leche light', portion: '1 taza' },
 ]
 
-export const FATS: FoodEquivalent[] = [
+export const FATS: FoodEquivalentLegacy[] = [
   { name: 'Aguacate', portion: '⅓ pza' },
   { name: 'Nueces/pistache/almendra/avellana/cacahuate natural', portion: '10-12 pzas' },
   { name: 'Aceitunas', portion: '4 pzas' },
@@ -569,7 +569,7 @@ export const FATS: FoodEquivalent[] = [
   { name: 'Queso cabra', portion: '⅓ barra chica' },
 ]
 
-export const FOOD_EQUIVALENTS: Record<FoodGroup, FoodEquivalent[]> = {
+export const FOOD_EQUIVALENTS: Record<FoodGroup, FoodEquivalentLegacy[]> = {
   fruta: FRUITS,
   verdura: VEGETABLES,
   carb: CARBS,

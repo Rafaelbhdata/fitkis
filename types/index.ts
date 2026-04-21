@@ -30,10 +30,27 @@ export interface Routine {
   exercises: Exercise[]
 }
 
-export interface FoodEquivalent {
+// Tipo antiguo para compatibilidad con constants.ts
+export interface FoodEquivalentLegacy {
   name: string
   portion: string
   note?: string
+}
+
+// Tipo nuevo para la BD de equivalentes SMAE
+export interface FoodEquivalent {
+  id: string
+  name: string
+  portion: string
+  weight_g?: number
+  category_smae: string
+  verdura: number
+  fruta: number
+  carb: number
+  proteina: number
+  grasa: number
+  leguminosa: number
+  created_at: string
 }
 
 export interface GymSession {
@@ -231,6 +248,11 @@ export interface Database {
         Row: ScheduleOverride
         Insert: Omit<ScheduleOverride, 'id' | 'created_at'>
         Update: Partial<Omit<ScheduleOverride, 'id' | 'created_at'>>
+      }
+      food_equivalents: {
+        Row: FoodEquivalent
+        Insert: Omit<FoodEquivalent, 'id' | 'created_at'>
+        Update: Partial<Omit<FoodEquivalent, 'id' | 'created_at'>>
       }
     }
     Views: {

@@ -15,6 +15,35 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
+Agente: SMAE Food Database Integration
+Fecha: 21 de abril 2026
+Qué hizo:
+
+### Base de Datos de Equivalentes SMAE (21 abril) ✅
+- **Fuente**: Excel `public/equivalentes.xlsm` con 2,637 alimentos del SMAE 4ta edición
+- **Script de parseo**: `scripts/parse-excel.js`
+  - Mapeo de categorías SMAE a grupos: verdura, fruta, carb, proteina, grasa
+  - Reglas especiales:
+    - Leguminosas → carb (no separado)
+    - Solo AOA Alto en Grasa → proteina + grasa
+    - Otros AOA (Muy Bajo, Bajo, Moderado) → solo proteina
+- **Migración**: `supabase/migrations/007_food_equivalents.sql`
+  - Tabla `food_equivalents` con columnas por grupo
+  - Índice full-text search en español
+  - RLS: lectura pública, escritura solo service_role
+- **Seed script**: `scripts/seed-food-equivalents.js`
+  - 2,537 alimentos insertados (96% éxito)
+- **Módulo Food actualizado**:
+  - `app/(app)/food/page.tsx`: Búsqueda desde BD con debounce
+  - `app/(app)/food/favorites/page.tsx`: También usa BD
+  - Indicador de carga mientras busca
+  - Muestra categoría SMAE como nota
+- **Tipos**: `FoodEquivalent` interface con campos de BD
+- **constants.ts**: Cambiado a `FoodEquivalentLegacy[]` para datos legacy
+
+---
+
+## Agente Anterior
 Agente: Coach AI & Major Improvements
 Fecha: 18 de abril 2026
 Qué hizo:
@@ -481,9 +510,13 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
   - Modal para seleccionar rutina o descanso
   - Indicadores visuales (punto ámbar, badge "Modificado")
   - Restaurar rutina original
-### Food: ✅ Conectado a Supabase (con dieta personalizable)
+### Food: ✅ Conectado a Supabase (con dieta personalizable + BD SMAE)
 - Dieta configurable desde Settings con fecha efectiva
 - Usa valores del usuario o defaults si no hay config
+- **Base de datos SMAE**: 2,537 alimentos del Sistema Mexicano de Alimentos Equivalentes
+  - Búsqueda en tiempo real desde Supabase con debounce
+  - Filtrado por grupo alimenticio (verdura, fruta, carb, proteina, grasa)
+  - Muestra categoría SMAE como información adicional
 ### Weight: ✅ Conectado a Supabase + Progress Photos + IMC
 - Registro de peso con gráfica de tendencia
 - **Progress Photos**: Fotos de frente y lado con comparación entre fechas
@@ -560,6 +593,7 @@ Todas las tablas creadas según CLAUDE.md:
 - user_profiles ✅ (7 abril 2026) - Altura y peso objetivo del usuario
 - diet_configs ✅ (7 abril 2026) - Configuraciones de dieta con fecha efectiva
 - custom_foods ✅ (18 abril 2026) - Alimentos personalizados del usuario
+- food_equivalents ✅ (21 abril 2026) - Base de datos SMAE con 2,537 alimentos
 
 **Storage Buckets:**
 - progress-photos (privado) - Bucket para fotos de progreso con signed URLs
@@ -640,14 +674,19 @@ fitkis/
 │   └── lib/utils.test.ts
 ├── lib/
 │   ├── constants.ts, supabase.ts, hooks.ts, utils.ts
-│   └── journal-questions.ts (200 preguntas reflexivas)
+│   ├── journal-questions.ts (200 preguntas reflexivas)
+│   └── smae-foods.json (2,637 alimentos parseados)
 ├── public/
 │   ├── favicon.svg (icono dumbbell)
 │   └── manifest.json (PWA manifest)
+├── scripts/
+│   ├── parse-excel.js (parseo Excel SMAE)
+│   └── seed-food-equivalents.js (seed de alimentos)
 ├── supabase/migrations/
 │   ├── 003_journal.sql
 │   ├── 004_progress_photos.sql
-│   └── 005_user_settings.sql (NUEVO - profiles + diet_configs)
+│   ├── 005_user_settings.sql (profiles + diet_configs)
+│   └── 007_food_equivalents.sql (BD SMAE)
 ├── types/index.ts
 ├── middleware.ts
 ├── tailwind.config.ts
@@ -697,6 +736,7 @@ npx tsc --noEmit   # Verificar TypeScript
 - `004_progress_photos.sql` - progress_photos + bucket "progress-photos"
 - `005_user_settings.sql` - user_profiles, diet_configs
 - `006_custom_foods.sql` - custom_foods (alimentos personalizados)
+- `007_food_equivalents.sql` - food_equivalents (BD SMAE con 2,537 alimentos)
 
 ---
 

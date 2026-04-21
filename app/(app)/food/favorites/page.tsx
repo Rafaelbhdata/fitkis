@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Plus, Star, Trash2, X, Search, ChevronDown, Minus, Check } from 'lucide-react'
-import { FOOD_GROUP_LABELS, FOOD_EQUIVALENTS } from '@/lib/constants'
+import { FOOD_GROUP_LABELS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
-import type { MealType, FoodGroup, FavoriteMeal, FavoriteMealItem } from '@/types'
+import type { MealType, FoodGroup, FavoriteMeal, FavoriteMealItem, FoodEquivalent } from '@/types'
 
 const FOOD_EMOJIS: Record<FoodGroup, string> = {
   verdura: '🥬',
@@ -46,10 +46,69 @@ export default function FavoritesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFood, setSelectedFood] = useState<{ name: string; portion: string } | null>(null)
   const [quantity, setQuantity] = useState(1)
+  const [dbFoods, setDbFoods] = useState<FoodEquivalent[]>([])
+  const [searchingFoods, setSearchingFoods] = useState(false)
 
   useEffect(() => {
     if (user) loadFavorites()
   }, [user])
+
+  // Search foods from database
+  const searchFoodsFromDB = async (group: FoodGroup, query: string) => {
+    setSearchingFoods(true)
+    try {
+      let queryBuilder = (supabase as any)
+        .from('food_equivalents')
+        .select('*')
+
+      switch (group) {
+        case 'verdura':
+          queryBuilder = queryBuilder.gt('verdura', 0)
+          break
+        case 'fruta':
+          queryBuilder = queryBuilder.gt('fruta', 0)
+          break
+        case 'carb':
+          queryBuilder = queryBuilder.gt('carb', 0)
+          break
+        case 'proteina':
+          queryBuilder = queryBuilder.gt('proteina', 0)
+          break
+        case 'grasa':
+          queryBuilder = queryBuilder.gt('grasa', 0)
+          break
+        case 'leguminosa':
+          queryBuilder = queryBuilder.eq('category_smae', 'Leguminosas')
+          break
+      }
+
+      if (query.trim()) {
+        queryBuilder = queryBuilder.ilike('name', `%${query}%`)
+      }
+
+      queryBuilder = queryBuilder.order('name').limit(50)
+      const { data, error } = await queryBuilder
+
+      if (error) throw error
+      if (data) setDbFoods(data as FoodEquivalent[])
+    } catch (err) {
+      console.error('Error searching foods:', err)
+      setDbFoods([])
+    }
+    setSearchingFoods(false)
+  }
+
+  // Trigger search when group or query changes
+  useEffect(() => {
+    if (selectedGroup && showAddItemModal) {
+      const debounceTimer = setTimeout(() => {
+        searchFoodsFromDB(selectedGroup, searchQuery)
+      }, 300)
+      return () => clearTimeout(debounceTimer)
+    } else {
+      setDbFoods([])
+    }
+  }, [selectedGroup, searchQuery, showAddItemModal])
 
   const loadFavorites = async () => {
     setLoading(true)
@@ -103,6 +162,7 @@ export default function FavoritesPage() {
     setSelectedGroup(null)
     setSelectedFood(null)
     setSearchQuery('')
+    setDbFoods([])
   }
 
   const addItemToFavorite = () => {
@@ -142,11 +202,11 @@ export default function FavoritesPage() {
     setSaving(false)
   }
 
-  const filteredFoods = selectedGroup
-    ? FOOD_EQUIVALENTS[selectedGroup].filter(f =>
-        f.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : []
+  const filteredFoods = dbFoods.map(f => ({
+    name: f.name,
+    portion: f.portion,
+    note: f.category_smae
+  }))
 
   if (loading) {
     return (
@@ -412,15 +472,22 @@ export default function FavoritesPage() {
                 </button>
 
                 <div className="flex-1 overflow-y-auto space-y-1 no-scrollbar">
-                  {filteredFoods.length > 0 ? (
-                    filteredFoods.map((food) => (
+                  {searchingFoods ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-6 h-6 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                    </div>
+                  ) : filteredFoods.length > 0 ? (
+                    filteredFoods.map((food, index) => (
                       <button
-                        key={food.name}
+                        key={`${food.name}-${index}`}
                         onClick={() => setSelectedFood(food)}
                         className="w-full text-left p-3 rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors active:scale-[0.99]"
                       >
                         <p className="font-medium text-sm">{food.name}</p>
                         <p className="text-xs text-muted-foreground">{food.portion}</p>
+                        {food.note && (
+                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">{food.note}</p>
+                        )}
                       </button>
                     ))
                   ) : (

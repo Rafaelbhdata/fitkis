@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Star, ChevronDown, Search, X, Trash2, Minus, Plus, Zap, PlusCircle } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
-import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, FOOD_EQUIVALENTS, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
-import type { DailyBudget } from '@/types'
+import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
+import type { DailyBudget, FoodEquivalent } from '@/types'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
 import type { MealType, FoodGroup, FoodLog, FavoriteMeal, CustomFood } from '@/types'
@@ -57,6 +57,8 @@ export default function FoodPage() {
   const [customFoods, setCustomFoods] = useState<CustomFood[]>([])
   const [showCreateCustom, setShowCreateCustom] = useState(false)
   const [newCustomFood, setNewCustomFood] = useState({ name: '', portion: '', note: '' })
+  const [dbFoods, setDbFoods] = useState<FoodEquivalent[]>([])
+  const [searchingFoods, setSearchingFoods] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -80,6 +82,69 @@ export default function FoodPage() {
       // Table might not exist yet
     }
   }
+
+  // Search foods from database based on selected group and search query
+  const searchFoodsFromDB = async (group: FoodGroup, query: string) => {
+    setSearchingFoods(true)
+    try {
+      // Map our food groups to SMAE equivalent columns
+      let queryBuilder = (supabase as any)
+        .from('food_equivalents')
+        .select('*')
+
+      // Filter by the food group (column value > 0)
+      switch (group) {
+        case 'verdura':
+          queryBuilder = queryBuilder.gt('verdura', 0)
+          break
+        case 'fruta':
+          queryBuilder = queryBuilder.gt('fruta', 0)
+          break
+        case 'carb':
+          queryBuilder = queryBuilder.gt('carb', 0)
+          break
+        case 'proteina':
+          queryBuilder = queryBuilder.gt('proteina', 0)
+          break
+        case 'grasa':
+          queryBuilder = queryBuilder.gt('grasa', 0)
+          break
+        case 'leguminosa':
+          // Leguminosa is mapped to carb, but we can still filter by category
+          queryBuilder = queryBuilder.eq('category_smae', 'Leguminosas')
+          break
+      }
+
+      // Search by name if query provided
+      if (query.trim()) {
+        queryBuilder = queryBuilder.ilike('name', `%${query}%`)
+      }
+
+      // Limit results for performance
+      queryBuilder = queryBuilder.order('name').limit(50)
+
+      const { data, error } = await queryBuilder
+
+      if (error) throw error
+      if (data) setDbFoods(data as FoodEquivalent[])
+    } catch (err) {
+      console.error('Error searching foods:', err)
+      setDbFoods([])
+    }
+    setSearchingFoods(false)
+  }
+
+  // Trigger search when group or query changes
+  useEffect(() => {
+    if (selectedGroup && showAddModal) {
+      const debounceTimer = setTimeout(() => {
+        searchFoodsFromDB(selectedGroup, searchQuery)
+      }, 300)
+      return () => clearTimeout(debounceTimer)
+    } else {
+      setDbFoods([])
+    }
+  }, [selectedGroup, searchQuery, showAddModal])
 
   const createCustomFood = async () => {
     if (!user || !selectedGroup || !newCustomFood.name || !newCustomFood.portion) return
@@ -189,6 +254,7 @@ export default function FoodPage() {
     setSelectedFood(null)
     setSearchQuery('')
     setQuantity(1)
+    setDbFoods([])
   }
 
   const deleteFood = async (id: string) => {
@@ -230,17 +296,21 @@ export default function FoodPage() {
   }
   foodLogs.forEach(log => { consumed[log.group_type] += log.quantity })
 
-  // Combine standard foods with user's custom foods
+  // Combine custom foods with database foods
   const filteredFoods = selectedGroup
     ? [
         // Custom foods first (marked as custom)
         ...customFoods
           .filter(f => f.group_type === selectedGroup && f.name.toLowerCase().includes(searchQuery.toLowerCase()))
-          .map(f => ({ name: f.name, portion: f.portion, note: f.note, isCustom: true })),
-        // Standard foods
-        ...FOOD_EQUIVALENTS[selectedGroup]
-          .filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()))
-          .map(f => ({ ...f, isCustom: false }))
+          .map(f => ({ name: f.name, portion: f.portion, note: f.note, isCustom: true, isDb: false })),
+        // Database foods from SMAE
+        ...dbFoods.map(f => ({
+          name: f.name,
+          portion: f.portion,
+          note: f.category_smae,
+          isCustom: false,
+          isDb: true
+        }))
       ]
     : []
 
@@ -606,10 +676,14 @@ export default function FoodPage() {
                 </button>
 
                 <div className="flex-1 overflow-y-auto space-y-1 no-scrollbar">
-                  {filteredFoods.length > 0 ? (
-                    filteredFoods.map((food) => (
+                  {searchingFoods ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-6 h-6 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                    </div>
+                  ) : filteredFoods.length > 0 ? (
+                    filteredFoods.map((food, index) => (
                       <button
-                        key={food.name}
+                        key={`${food.name}-${index}`}
                         onClick={() => selectFood(food)}
                         className="w-full text-left p-3 rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors active:scale-[0.99]"
                       >
@@ -620,6 +694,9 @@ export default function FoodPage() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">{food.portion}</p>
+                        {food.note && !food.isCustom && (
+                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">{food.note}</p>
+                        )}
                       </button>
                     ))
                   ) : (
