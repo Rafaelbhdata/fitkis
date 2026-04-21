@@ -15,6 +15,27 @@
 - Deploy ✅ GitHub + Vercel configurado
 
 ## Último agente
+Agente: Equivalentes Explorer
+Fecha: 21 de abril 2026
+Qué hizo:
+
+### Página de Equivalentes con Búsqueda Global y Custom Foods (21 abril) ✅
+- **Página**: `app/(app)/equivalentes/page.tsx`
+- **Navegación**: Agregado a Sidebar y SideMenu con Apple icon
+- **Funcionalidades**:
+  - **Buscador global**: Busca en toda la BD de equivalentes desde la vista principal
+  - **Navegación por grupos**: Cards con colores y emojis para cada grupo (verdura, fruta, carb, proteina, grasa)
+  - **Paginación**: "Cargar más" para manejar grupos grandes (700+ proteínas)
+  - **Custom foods**: Ver, crear y gestionar alimentos personalizados
+    - Modal de creación con selección de grupo visual
+    - Integración con tabla `custom_foods` existente
+    - Badge "Tuyo" para identificar alimentos custom en resultados
+  - **Sugerencia de creación**: Si búsqueda no encuentra resultados, ofrece crear el alimento
+  - **Modal de detalles**: Información del alimento con categoría SMAE y porción
+
+---
+
+## Agente Anterior
 Agente: SMAE Food Database Integration
 Fecha: 21 de abril 2026
 Qué hizo:
