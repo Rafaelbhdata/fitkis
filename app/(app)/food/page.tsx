@@ -2,47 +2,42 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Star, ChevronDown, Search, X, Trash2, Minus, Plus, Zap, PlusCircle } from 'lucide-react'
+import { ChevronLeft, Plus, Star, Search, X, Trash2, Minus } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 import type { DailyBudget, FoodEquivalent } from '@/types'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
+import { PulseLine } from '@/components/ui/PulseLine'
 import type { MealType, FoodGroup, FoodLog, FavoriteMeal, CustomFood } from '@/types'
 
-// New Atlético Vital food colors
-const FOOD_COLORS: Record<FoodGroup, string> = {
-  verdura: '#7ed957',
-  fruta: '#ff8a5c',
-  carb: '#ffce4a',
-  leguminosa: '#22e4d9',
-  proteina: '#ff5277',
-  grasa: '#9f7bff',
+// v5 Paper & Pulse food colors
+const FOOD_COLORS: Record<FoodGroup, { bg: string; text: string; fill: string }> = {
+  verdura: { bg: 'var(--leaf-soft)', text: 'var(--leaf)', fill: '#4a7c3a' },
+  fruta: { bg: 'var(--signal-soft)', text: 'var(--signal)', fill: '#ff5a1f' },
+  carb: { bg: 'var(--honey-soft)', text: '#8a6411', fill: '#d4a017' },
+  leguminosa: { bg: 'var(--sky-soft)', text: 'var(--sky)', fill: '#3a6b8c' },
+  proteina: { bg: 'var(--berry-soft)', text: 'var(--berry)', fill: '#c13b5a' },
+  grasa: { bg: 'var(--paper-3)', text: 'var(--ink-3)', fill: '#737373' },
 }
 
-const FOOD_EMOJIS: Record<FoodGroup, string> = {
-  verdura: '🥬',
-  fruta: '🍎',
-  carb: '🍞',
-  leguminosa: '🫘',
-  proteina: '🥩',
-  grasa: '🥑',
-}
-
-const meals: { key: MealType; label: string }[] = [
-  { key: 'desayuno', label: 'Desayuno' },
-  { key: 'snack', label: 'Snack' },
-  { key: 'comida', label: 'Comida' },
-  { key: 'cena', label: 'Cena' },
+const meals: { key: MealType; label: string; time?: string }[] = [
+  { key: 'desayuno', label: 'Desayuno', time: '07:20' },
+  { key: 'snack', label: 'Snack', time: '11:00' },
+  { key: 'comida', label: 'Comida', time: '13:45' },
+  { key: 'cena', label: 'Cena', time: '19:30' },
 ]
 
 export default function FoodPage() {
   const todayStr = getToday()
+  const today = new Date()
+  const dateStr = today.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })
+  const capitalizedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1)
+
   const { user } = useUser()
   const supabase = useSupabase()
   const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
-  const [expandedMeal, setExpandedMeal] = useState<MealType | null>('desayuno')
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [selectedMeal, setSelectedMeal] = useState<MealType>('desayuno')
@@ -52,12 +47,8 @@ export default function FoodPage() {
   const [quantity, setQuantity] = useState(1)
   const [error, setError] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<FavoriteMeal[]>([])
-  const [showFavoritesModal, setShowFavoritesModal] = useState(false)
-  const [applyingFavorite, setApplyingFavorite] = useState(false)
   const [userBudget, setUserBudget] = useState<DailyBudget>(DEFAULT_DAILY_BUDGET)
   const [customFoods, setCustomFoods] = useState<CustomFood[]>([])
-  const [showCreateCustom, setShowCreateCustom] = useState(false)
-  const [newCustomFood, setNewCustomFood] = useState({ name: '', portion: '', note: '' })
   const [dbFoods, setDbFoods] = useState<FoodEquivalent[]>([])
   const [searchingFoods, setSearchingFoods] = useState(false)
 
@@ -79,99 +70,39 @@ export default function FoodPage() {
         .eq('user_id', user.id)
         .order('name')
       if (data) setCustomFoods(data as CustomFood[])
-    } catch (err) {
-      // Table might not exist yet
-    }
+    } catch (err) { /* ignore */ }
   }
 
-  // Search foods from database based on selected group and search query
   const searchFoodsFromDB = async (group: FoodGroup, query: string) => {
     setSearchingFoods(true)
     try {
-      // Map our food groups to SMAE equivalent columns
-      let queryBuilder = (supabase as any)
-        .from('food_equivalents')
-        .select('*')
-
-      // Filter by the food group (column value > 0)
+      let queryBuilder = (supabase as any).from('food_equivalents').select('*')
       switch (group) {
-        case 'verdura':
-          queryBuilder = queryBuilder.gt('verdura', 0)
-          break
-        case 'fruta':
-          queryBuilder = queryBuilder.gt('fruta', 0)
-          break
-        case 'carb':
-          queryBuilder = queryBuilder.gt('carb', 0)
-          break
-        case 'proteina':
-          queryBuilder = queryBuilder.gt('proteina', 0)
-          break
-        case 'grasa':
-          queryBuilder = queryBuilder.gt('grasa', 0)
-          break
-        case 'leguminosa':
-          // Leguminosa is mapped to carb, but we can still filter by category
-          queryBuilder = queryBuilder.eq('category_smae', 'Leguminosas')
-          break
+        case 'verdura': queryBuilder = queryBuilder.gt('verdura', 0); break
+        case 'fruta': queryBuilder = queryBuilder.gt('fruta', 0); break
+        case 'carb': queryBuilder = queryBuilder.gt('carb', 0); break
+        case 'proteina': queryBuilder = queryBuilder.gt('proteina', 0); break
+        case 'grasa': queryBuilder = queryBuilder.gt('grasa', 0); break
+        case 'leguminosa': queryBuilder = queryBuilder.eq('category_smae', 'Leguminosas'); break
       }
-
-      // Search by name if query provided
-      if (query.trim()) {
-        queryBuilder = queryBuilder.ilike('name', `%${query}%`)
-      }
-
-      // Limit results for performance
+      if (query.trim()) queryBuilder = queryBuilder.ilike('name', `%${query}%`)
       queryBuilder = queryBuilder.order('name').limit(50)
-
       const { data, error } = await queryBuilder
-
       if (error) throw error
       if (data) setDbFoods(data as FoodEquivalent[])
-    } catch (err) {
-      console.error('Error searching foods:', err)
-      setDbFoods([])
-    }
+    } catch (err) { setDbFoods([]) }
     setSearchingFoods(false)
   }
 
-  // Trigger search when group or query changes
   useEffect(() => {
     if (selectedGroup && showAddModal) {
-      const debounceTimer = setTimeout(() => {
-        searchFoodsFromDB(selectedGroup, searchQuery)
-      }, 300)
-      return () => clearTimeout(debounceTimer)
-    } else {
-      setDbFoods([])
-    }
+      const timer = setTimeout(() => searchFoodsFromDB(selectedGroup, searchQuery), 300)
+      return () => clearTimeout(timer)
+    } else { setDbFoods([]) }
   }, [selectedGroup, searchQuery, showAddModal])
-
-  const createCustomFood = async () => {
-    if (!user || !selectedGroup || !newCustomFood.name || !newCustomFood.portion) return
-    try {
-      await (supabase as any).from('custom_foods').insert({
-        user_id: user.id,
-        name: newCustomFood.name,
-        group_type: selectedGroup,
-        portion: newCustomFood.portion,
-        note: newCustomFood.note || null,
-      })
-      await loadCustomFoods()
-      setShowCreateCustom(false)
-      setNewCustomFood({ name: '', portion: '', note: '' })
-      // Auto-select the newly created food
-      setSelectedFood({ name: newCustomFood.name, portion: newCustomFood.portion, note: newCustomFood.note })
-      setQuantity(1)
-      showToast(`"${newCustomFood.name}" creado`)
-    } catch (err) {
-      setError('Error al crear alimento')
-    }
-  }
 
   const loadUserDietConfig = async () => {
     try {
-      // Get the most recent diet config that's effective for today or earlier
       const { data } = await (supabase as any)
         .from('diet_configs')
         .select('*')
@@ -180,73 +111,44 @@ export default function FoodPage() {
         .order('effective_date', { ascending: false })
         .limit(1)
         .single()
-
       if (data) {
         setUserBudget({
-          verdura: data.verdura,
-          fruta: data.fruta,
-          carb: data.carb,
-          leguminosa: data.leguminosa,
-          proteina: data.proteina,
-          grasa: data.grasa,
+          verdura: data.verdura, fruta: data.fruta, carb: data.carb,
+          leguminosa: data.leguminosa, proteina: data.proteina, grasa: data.grasa,
         })
       }
-    } catch (err) {
-      // No config found, use defaults (already set)
-    }
+    } catch (err) { /* use defaults */ }
   }
 
   const loadFavorites = async () => {
     try {
-      const { data } = await supabase
-        .from('favorite_meals')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const { data } = await supabase.from('favorite_meals').select('*').order('created_at', { ascending: false })
       if (data) setFavorites(data as FavoriteMeal[])
-    } catch (err) {
-      // Silent fail for favorites
-    }
+    } catch (err) { /* ignore */ }
   }
 
   const loadFoodLogs = async () => {
     setLoading(true)
     setError(null)
     try {
-      const { data, error: fetchError } = await supabase
-        .from('food_logs')
-        .select('*')
-        .eq('date', todayStr)
-        .order('created_at')
+      const { data, error: fetchError } = await supabase.from('food_logs').select('*').eq('date', todayStr).order('created_at')
       if (fetchError) throw fetchError
       if (data) setFoodLogs(data as FoodLog[])
-    } catch (err) {
-      setError('Error al cargar alimentos')
-    }
+    } catch (err) { setError('Error al cargar alimentos') }
     setLoading(false)
-  }
-
-  const selectFood = (food: { name: string; portion: string; note?: string }) => {
-    setSelectedFood(food)
-    setQuantity(1)
   }
 
   const addFood = async () => {
     if (!user || !selectedGroup || !selectedFood) return
     try {
       await (supabase.from('food_logs') as any).insert({
-        user_id: user.id,
-        date: todayStr,
-        meal: selectedMeal,
-        group_type: selectedGroup,
-        quantity: quantity,
-        food_name: selectedFood.name,
+        user_id: user.id, date: todayStr, meal: selectedMeal,
+        group_type: selectedGroup, quantity, food_name: selectedFood.name,
       })
       await loadFoodLogs()
       closeModal()
       showToast(`${selectedFood.name} agregado`)
-    } catch (err) {
-      setError('Error al agregar alimento')
-    }
+    } catch (err) { setError('Error al agregar alimento') }
   }
 
   const closeModal = () => {
@@ -262,546 +164,320 @@ export default function FoodPage() {
     try {
       await (supabase.from('food_logs') as any).delete().eq('id', id)
       setFoodLogs(foodLogs.filter(f => f.id !== id))
-    } catch (err) {
-      setError('Error al eliminar alimento')
-    }
+    } catch (err) { setError('Error al eliminar alimento') }
   }
 
-  const applyFavorite = async (favorite: FavoriteMeal) => {
-    if (!user) return
-    setApplyingFavorite(true)
-    try {
-      const logsToInsert = favorite.items.map(item => ({
-        user_id: user.id,
-        date: todayStr,
-        meal: favorite.meal,
-        group_type: item.group_type,
-        quantity: item.quantity,
-        food_name: item.food_name,
-      }))
-      await (supabase.from('food_logs') as any).insert(logsToInsert)
-      await loadFoodLogs()
-      setShowFavoritesModal(false)
-      showToast(`"${favorite.name}" agregado`)
-    } catch (err) {
-      setError('Error al agregar favorito')
-    }
-    setApplyingFavorite(false)
-  }
-
-  const mealFavorites = (meal: MealType) => favorites.filter(f => f.meal === meal)
-
-  // Calcular consumido por grupo
-  const consumed: Record<FoodGroup, number> = {
-    verdura: 0, fruta: 0, carb: 0, leguminosa: 0, proteina: 0, grasa: 0,
-  }
+  // Calculate consumed per group
+  const consumed: Record<FoodGroup, number> = { verdura: 0, fruta: 0, carb: 0, leguminosa: 0, proteina: 0, grasa: 0 }
   foodLogs.forEach(log => { consumed[log.group_type] += log.quantity })
 
-  // Combine custom foods with database foods
+  // Calculate missing for message
+  const missingVerduras = Math.max(0, userBudget.verdura - consumed.verdura)
+  const totalConsumed = Object.values(consumed).reduce((a, b) => a + b, 0)
+  const totalBudget = Object.values(userBudget).reduce((a, b) => a + b, 0)
+
+  // Get motivational message
+  const getMessage = () => {
+    if (missingVerduras > 0) return `te faltan ${missingVerduras === 1 ? 'una verdura' : `${missingVerduras} verduras`}.`
+    if (totalConsumed >= totalBudget) return 'completaste tu plato de hoy.'
+    return 'buen camino.'
+  }
+
+  // Filter foods
   const filteredFoods = selectedGroup
     ? [
-        // Custom foods first (marked as custom)
-        ...customFoods
-          .filter(f => f.group_type === selectedGroup && f.name.toLowerCase().includes(searchQuery.toLowerCase()))
-          .map(f => ({ name: f.name, portion: f.portion, note: f.note, isCustom: true, isDb: false })),
-        // Database foods from SMAE
-        ...dbFoods.map(f => ({
-          name: f.name,
-          portion: f.portion,
-          note: f.category_smae,
-          isCustom: false,
-          isDb: true
-        }))
+        ...customFoods.filter(f => f.group_type === selectedGroup && f.name.toLowerCase().includes(searchQuery.toLowerCase()))
+          .map(f => ({ name: f.name, portion: f.portion, note: f.note, isCustom: true })),
+        ...dbFoods.map(f => ({ name: f.name, portion: f.portion, note: f.category_smae, isCustom: false }))
       ]
     : []
 
   const mealLogs = (meal: MealType) => foodLogs.filter(f => f.meal === meal)
 
-  // Calculate totals
-  const totalConsumed = Object.values(consumed).reduce((a, b) => a + b, 0)
-  const totalBudget = Object.values(userBudget).reduce((a, b) => a + b, 0)
-  const nutritionPercentage = Math.round((totalConsumed / totalBudget) * 100)
+  // Group tags for meal items
+  const getGroupTags = (logs: FoodLog[]) => {
+    const groups: Record<FoodGroup, number> = { verdura: 0, fruta: 0, carb: 0, leguminosa: 0, proteina: 0, grasa: 0 }
+    logs.forEach(l => groups[l.group_type] += l.quantity)
+    return Object.entries(groups).filter(([_, v]) => v > 0).map(([g]) => g as FoodGroup)
+  }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-          <p className="text-sm text-muted-foreground">Cargando...</p>
+        <div className="flex flex-col items-center gap-4">
+          <PulseLine w={80} h={24} color="var(--signal)" strokeWidth={2} active />
+          <p className="fk-mono text-sm text-ink-4">Cargando...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="pb-4">
       {error && (
-        <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm flex items-center justify-between">
+        <div className="mx-5 mb-4 p-3 bg-berry-soft border border-berry/20 rounded-lg text-berry text-sm flex items-center justify-between">
           <span>{error}</span>
-          <div className="flex items-center gap-2">
-            <button onClick={loadFoodLogs} className="text-xs font-medium underline hover:no-underline">
-              Reintentar
-            </button>
-            <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+          <button onClick={() => setError(null)} className="text-berry"><X className="w-4 h-4" /></button>
         </div>
       )}
 
-      {/* Header with summary */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-display-md">Alimentación</h1>
-          <p className="text-sm text-muted-foreground">
-            {totalConsumed} / {totalBudget} equivalentes
-          </p>
+      {/* Header */}
+      <div className="px-5 pt-3 flex items-center justify-between">
+        <Link href="/dashboard" className="w-[34px] h-[34px] rounded-full bg-white border border-ink-7 flex items-center justify-center">
+          <ChevronLeft className="w-4 h-4 text-ink" />
+        </Link>
+        <div className="text-center">
+          <div className="fk-eyebrow">Plato del día</div>
+          <div className="text-sm font-medium">{capitalizedDate}</div>
         </div>
-        <Link
-          href="/food/favorites"
-          className="w-10 h-10 rounded-lg bg-surface-elevated border border-border flex items-center justify-center hover:bg-surface-hover transition-colors"
-        >
-          <Star className="w-5 h-5 text-muted-foreground" />
+        <Link href="/food/favorites" className="w-[34px] h-[34px] rounded-full bg-white border border-ink-7 flex items-center justify-center">
+          <Star className="w-4 h-4 text-ink" />
         </Link>
       </div>
 
-      {/* Progress Overview */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-accent" />
-            <span className="text-sm font-medium">Progreso del día</span>
+      {/* Hero Card - SMAE Plate */}
+      <div className="mx-5 mt-5 bg-cream rounded-[20px] p-5 relative overflow-hidden">
+        <div className="fk-eyebrow mb-1.5">SMAE · Plato del Bien Comer</div>
+        <h2 className="font-serif text-[26px] font-light tracking-tight leading-tight mb-4">
+          Vas por <span className="italic text-signal">{getMessage().includes('faltan') ? 'buen camino' : 'excelente'}</span>,<br/>{getMessage()}
+        </h2>
+
+        {/* Plate Visualization */}
+        <div className="relative w-[190px] h-[190px] mx-auto">
+          <svg width="190" height="190" viewBox="0 0 190 190" className="absolute inset-0">
+            <circle cx="95" cy="95" r="88" fill="#fff" stroke="var(--ink-7)" />
+            {/* Three wedges */}
+            <path d="M95 95 L95 7 A88 88 0 0 1 177.5 128.5 Z" fill="var(--leaf-soft)" />
+            <path d="M95 95 L177.5 128.5 A88 88 0 0 1 12.5 128.5 Z" fill="var(--honey-soft)" />
+            <path d="M95 95 L12.5 128.5 A88 88 0 0 1 95 7 Z" fill="var(--berry-soft)" />
+            <circle cx="95" cy="95" r="88" fill="none" stroke="var(--ink)" strokeWidth="1.5" />
+            <line x1="95" y1="95" x2="95" y2="7" stroke="var(--ink-6)" />
+            <line x1="95" y1="95" x2="177.5" y2="128.5" stroke="var(--ink-6)" />
+            <line x1="95" y1="95" x2="12.5" y2="128.5" stroke="var(--ink-6)" />
+          </svg>
+          {/* Group Labels */}
+          <div className="absolute top-5 left-1/2 -translate-x-1/2 text-center">
+            <div className="fk-mono text-[9px] text-leaf uppercase tracking-wider font-semibold">Verduras</div>
+            <div className="font-serif text-[22px] text-leaf">
+              {consumed.verdura}<span className="text-ink-5 text-xs">/{userBudget.verdura}</span>
+            </div>
           </div>
-          <span className="font-display text-display-xs text-accent">{nutritionPercentage}%</span>
-        </div>
-
-        {/* Large progress bars */}
-        <div className="space-y-3">
-          {(Object.keys(userBudget) as FoodGroup[]).map((group) => {
-            const total = userBudget[group]
-            const current = consumed[group]
-            const percentage = Math.min((current / total) * 100, 100)
-            const isComplete = current >= total
-            const isOver = current > total
-
-            return (
-              <div key={group}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: isOver ? '#ef4444' : FOOD_COLORS[group] }}
-                    />
-                    <span className="text-sm font-medium">{FOOD_GROUP_LABELS[group]}</span>
-                    {isOver && (
-                      <span className="text-[10px] font-semibold text-danger bg-danger/10 px-1.5 py-0.5 rounded">
-                        +{current - total}
-                      </span>
-                    )}
-                  </div>
-                  <span className={`text-sm font-semibold tabular-nums ${isOver ? 'text-danger' : isComplete ? 'text-accent' : ''}`}>
-                    {current}/{total}
-                  </span>
-                </div>
-                <div className={`progress-track-lg ${isOver ? 'bg-danger/20' : ''}`}>
-                  <div
-                    className="progress-fill"
-                    style={{
-                      width: `${percentage}%`,
-                      backgroundColor: isOver ? '#ef4444' : isComplete ? '#10b981' : FOOD_COLORS[group],
-                    }}
-                  />
-                </div>
-              </div>
-            )
-          })}
+          <div className="absolute bottom-7 right-2 text-right">
+            <div className="fk-mono text-[9px] text-[#8a6411] uppercase tracking-wider font-semibold">Cereales</div>
+            <div className="font-serif text-[22px] text-[#8a6411]">
+              {consumed.carb}<span className="text-ink-5 text-xs">/{userBudget.carb}</span>
+            </div>
+          </div>
+          <div className="absolute bottom-7 left-2.5">
+            <div className="fk-mono text-[9px] text-berry uppercase tracking-wider font-semibold">Leg / Orig.</div>
+            <div className="font-serif text-[22px] text-berry">
+              {consumed.proteina + consumed.leguminosa}<span className="text-ink-5 text-xs">/{userBudget.proteina + userBudget.leguminosa}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Meals - 2 columns on tablet+ */}
-      <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+      {/* Meals List */}
+      <div className="px-5 mt-6">
+        <div className="fk-eyebrow mb-2.5">Lo que comiste</div>
+
         {meals.map((meal) => {
-          const budget = MEAL_BUDGETS[meal.key]
-          const isExpanded = expandedMeal === meal.key
           const logs = mealLogs(meal.key)
+          const tags = getGroupTags(logs)
+          const foodNames = logs.map(l => l.food_name || FOOD_GROUP_LABELS[l.group_type]).slice(0, 3).join(' · ')
 
           return (
-            <div key={meal.key} className="card !p-0 overflow-hidden">
-              <button
-                className="w-full flex items-center justify-between p-4"
-                onClick={() => setExpandedMeal(isExpanded ? null : meal.key)}
-              >
-                <div className="flex items-center gap-3">
-                  <h3 className="font-display text-display-xs">{meal.label}</h3>
-                  {logs.length > 0 && (
-                    <span className="badge-accent">{logs.length}</span>
-                  )}
-                </div>
-                <ChevronDown className={`w-5 h-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isExpanded && (
-                <div className="px-4 pb-4 space-y-3 animate-slide-up">
-                  {/* Quick Add Favorites */}
-                  {mealFavorites(meal.key).length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                      {mealFavorites(meal.key).map((fav) => (
-                        <button
-                          key={fav.id}
-                          onClick={() => applyFavorite(fav)}
-                          disabled={applyingFavorite}
-                          className="flex-shrink-0 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs font-medium text-amber-300 hover:bg-amber-500/20 transition-all active:scale-[0.98] flex items-center gap-1.5"
-                        >
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                          {fav.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Recommended Groups (for reference) */}
-                  {Object.values(budget).some(v => v > 0) && (
-                    <div className="mb-2">
-                      <p className="text-[10px] text-muted-foreground mb-1.5">Recomendado:</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(Object.keys(budget) as FoodGroup[])
-                          .filter((g) => budget[g] > 0)
-                          .map((group) => (
-                            <span
-                              key={group}
-                              className="px-2 py-1 rounded-md text-[10px] font-medium bg-surface-elevated/50 text-muted-foreground"
-                            >
-                              {FOOD_EMOJIS[group]} {budget[group]}
-                            </span>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Add Any Food Group Button */}
+            <div key={meal.key} className="flex gap-3 py-3 border-b border-ink-7 last:border-0">
+              <div className="w-11 text-right shrink-0">
+                <div className="fk-mono text-[11px] text-ink-3">{meal.time}</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-baseline mb-0.5">
                   <button
-                    onClick={() => {
-                      setSelectedMeal(meal.key)
-                      setSelectedGroup(null)
-                      setShowAddModal(true)
-                    }}
-                    className="w-full py-2.5 rounded-lg text-sm font-medium transition-all hover:scale-[1.01] active:scale-[0.99] bg-accent/10 border border-accent/20 text-accent hover:bg-accent/20"
+                    onClick={() => { setSelectedMeal(meal.key); setShowAddModal(true) }}
+                    className="text-sm font-medium hover:text-signal transition-colors"
                   >
-                    + Agregar alimento
+                    {meal.label}
                   </button>
-
-                  {/* Food Items */}
-                  {logs.length > 0 ? (
-                    <div className="space-y-1 pt-2 border-t border-border">
-                      {logs.map((log) => (
-                        <div key={log.id} className="flex items-center justify-between py-2">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-2 h-2 rounded-full"
-                              style={{ backgroundColor: FOOD_COLORS[log.group_type] }}
-                            />
-                            <span className="text-sm">
-                              {log.quantity !== 1 && (
-                                <span className="text-accent font-medium">{log.quantity}× </span>
-                              )}
-                              {log.food_name || FOOD_GROUP_LABELS[log.group_type]}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => deleteFood(log.id)}
-                            className="p-1.5 text-muted-foreground hover:text-danger transition-colors rounded-lg hover:bg-danger/10"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground text-center py-3 border-t border-border">
-                      Toca un grupo para agregar
-                    </p>
-                  )}
+                  <div className="flex gap-1">
+                    {tags.map(g => (
+                      <span
+                        key={g}
+                        className="px-1.5 py-0.5 rounded-full text-[9px] fk-mono font-medium uppercase"
+                        style={{ background: FOOD_COLORS[g].bg, color: FOOD_COLORS[g].text }}
+                      >
+                        {g.charAt(0).toUpperCase()}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              )}
+                {logs.length > 0 ? (
+                  <div className="text-xs text-ink-4 truncate">{foodNames}</div>
+                ) : (
+                  <button
+                    onClick={() => { setSelectedMeal(meal.key); setShowAddModal(true) }}
+                    className="text-xs text-signal hover:underline"
+                  >
+                    + Agregar
+                  </button>
+                )}
+                {/* Show individual items for editing */}
+                {logs.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {logs.map(log => (
+                      <div key={log.id} className="flex items-center justify-between text-xs py-1 px-2 -mx-2 rounded hover:bg-paper-2 group">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: FOOD_COLORS[log.group_type].fill }} />
+                          <span>{log.quantity > 1 && <span className="text-signal font-medium">{log.quantity}× </span>}{log.food_name || FOOD_GROUP_LABELS[log.group_type]}</span>
+                        </div>
+                        <button onClick={() => deleteFood(log.id)} className="opacity-0 group-hover:opacity-100 text-ink-4 hover:text-berry transition-all">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )
         })}
       </div>
 
+      {/* FAB for quick add */}
+      <button
+        onClick={() => setShowAddModal(true)}
+        className="fixed bottom-24 right-5 w-14 h-14 bg-signal rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform md:hidden"
+        style={{ boxShadow: '0 4px 16px rgba(255,90,31,0.35)' }}
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
       {/* Add Food Modal */}
       {showAddModal && (
         <>
-          <div className="overlay animate-fade-in" onClick={closeModal} />
-          <div className="sheet p-5 animate-slide-up">
-            <div className="w-10 h-1 rounded-full bg-border mx-auto mb-5" />
+          <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50 animate-fade-in" onClick={closeModal} />
+          <div className="fixed inset-x-0 bottom-0 z-50 bg-paper rounded-t-3xl border-t border-ink-7 shadow-2xl max-h-[85vh] overflow-hidden animate-slide-up">
+            <div className="p-5">
+              <div className="w-9 h-1 rounded-full bg-ink-6 mx-auto mb-4" />
 
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="font-display text-display-sm">
-                {selectedFood
-                  ? selectedFood.name
-                  : selectedGroup
-                    ? `Agregar ${FOOD_GROUP_LABELS[selectedGroup]}`
-                    : 'Agregar alimento'}
-              </h2>
-              <button onClick={closeModal} className="btn-icon">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="fk-eyebrow mb-0.5">Registrar</div>
+                  <h2 className="font-serif text-3xl font-light tracking-tight">
+                    ¿Qué <span className="italic">pasó</span>?
+                  </h2>
+                </div>
+                <button onClick={closeModal} className="w-8 h-8 rounded-full bg-paper-3 flex items-center justify-center">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-            {!selectedGroup ? (
-              /* Step 1: Select Food Group */
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground mb-4">Selecciona el grupo alimenticio:</p>
+              {!selectedGroup ? (
+                /* Step 1: Select Food Group */
                 <div className="grid grid-cols-2 gap-2">
                   {(Object.keys(userBudget) as FoodGroup[]).map((group) => {
                     const current = consumed[group]
                     const total = userBudget[group]
-                    const isOver = current >= total
-
                     return (
                       <button
                         key={group}
                         onClick={() => setSelectedGroup(group)}
-                        className={`p-3 rounded-lg text-left transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                          isOver
-                            ? 'bg-danger/10 border border-danger/20'
-                            : 'bg-surface-elevated border border-border hover:border-accent/50'
-                        }`}
+                        className="bg-white border border-ink-7 rounded-xl p-3 text-left hover:bg-paper-2 transition-colors"
                       >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-lg">{FOOD_EMOJIS[group]}</span>
-                          <span className="text-sm font-medium">{FOOD_GROUP_LABELS[group]}</span>
+                        <div className="w-7 h-7 rounded-lg mb-2 flex items-center justify-center" style={{ background: FOOD_COLORS[group].bg }}>
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ background: FOOD_COLORS[group].fill }} />
                         </div>
-                        <p className={`text-xs ${isOver ? 'text-danger' : 'text-muted-foreground'}`}>
-                          {current}/{total} equivalentes
-                        </p>
+                        <div className="text-sm font-medium">{FOOD_GROUP_LABELS[group]}</div>
+                        <div className="fk-mono text-[9px] text-ink-4 uppercase tracking-wider mt-0.5">
+                          {current}/{total} equiv.
+                        </div>
                       </button>
                     )
                   })}
                 </div>
-
-                {/* Quick add generic equivalents */}
-                <div className="pt-3 border-t border-border mt-4">
-                  <p className="text-xs text-muted-foreground mb-2">O agrega equivalentes genéricos:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(Object.keys(userBudget) as FoodGroup[]).map((group) => (
-                      <button
-                        key={`quick-${group}`}
-                        onClick={() => {
-                          setSelectedGroup(group)
-                          setSelectedFood({ name: `1 ${FOOD_GROUP_LABELS[group].toLowerCase()}`, portion: '1 equivalente' })
-                          setQuantity(1)
-                        }}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
-                      >
-                        +1 {FOOD_EMOJIS[group]}
-                      </button>
-                    ))}
+              ) : selectedFood ? (
+                /* Step 3: Quantity */
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: FOOD_COLORS[selectedGroup].bg }}>
+                      <div className="w-4 h-4 rounded-full" style={{ background: FOOD_COLORS[selectedGroup].fill }} />
+                    </div>
+                    <p className="font-medium">{selectedFood.name}</p>
+                    <p className="text-sm text-ink-4">{selectedFood.portion}</p>
                   </div>
-                </div>
-              </div>
-            ) : selectedFood ? (
-              /* Step 3: Quantity Selector */
-              <div className="space-y-6">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 mb-3">
-                    <span className="text-2xl">{FOOD_EMOJIS[selectedGroup]}</span>
-                    <span className="text-sm text-muted-foreground">{FOOD_GROUP_LABELS[selectedGroup]}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-5">Porción: {selectedFood.portion}</p>
                   <div className="flex items-center justify-center gap-5">
                     <button
                       onClick={() => setQuantity(Math.max(0.5, quantity - 0.5))}
-                      className="w-12 h-12 rounded-lg bg-surface-elevated border border-border flex items-center justify-center active:scale-95 transition-transform"
+                      className="w-12 h-12 rounded-lg bg-paper-3 flex items-center justify-center active:scale-95 transition-transform"
                     >
                       <Minus className="w-5 h-5" />
                     </button>
-                    <span className="font-display text-display-lg text-accent w-16 text-center tabular-nums">
-                      {quantity}
-                    </span>
+                    <span className="font-serif text-5xl font-light w-16 text-center tabular-nums">{quantity}</span>
                     <button
                       onClick={() => setQuantity(quantity + 0.5)}
-                      className="w-12 h-12 rounded-lg bg-accent text-background flex items-center justify-center active:scale-95 transition-transform"
+                      className="w-12 h-12 rounded-lg bg-signal text-white flex items-center justify-center active:scale-95 transition-transform"
                     >
                       <Plus className="w-5 h-5" />
                     </button>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">equivalentes</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setSelectedFood(null)} className="flex-1 py-3 rounded-full border border-ink-7 text-sm font-medium hover:bg-paper-2 transition-colors">
+                      Cambiar
+                    </button>
+                    <button onClick={addFood} className="flex-1 py-3 rounded-full bg-ink text-paper text-sm font-semibold hover:bg-ink-2 transition-colors">
+                      Agregar
+                    </button>
+                  </div>
                 </div>
-                {selectedFood.note && (
-                  <p className="text-xs text-accent text-center bg-accent/10 rounded-lg py-2 px-3">
-                    {selectedFood.note}
-                  </p>
-                )}
-                <div className="flex gap-3">
-                  <button onClick={() => setSelectedFood(null)} className="flex-1 btn-secondary">
-                    Cambiar
+              ) : (
+                /* Step 2: Search Foods */
+                <div className="flex flex-col" style={{ maxHeight: 'calc(70vh - 200px)' }}>
+                  <button onClick={() => setSelectedGroup(null)} className="text-xs text-signal mb-3 text-left hover:underline">
+                    ← Cambiar grupo
                   </button>
-                  <button onClick={addFood} className="flex-1 btn-primary">
-                    Agregar
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-4" />
+                    <input
+                      type="text"
+                      className="w-full bg-white rounded-lg pl-10 pr-4 py-2.5 text-sm border border-ink-7 focus:border-ink focus:ring-1 focus:ring-ink/20"
+                      placeholder="Buscar alimento..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    onClick={() => { setSelectedFood({ name: `1 ${FOOD_GROUP_LABELS[selectedGroup].toLowerCase()}`, portion: '1 equivalente' }); setQuantity(1) }}
+                    className="mb-3 p-3 rounded-xl bg-signal-soft border border-signal/20 text-sm font-medium text-signal text-left hover:bg-signal/15"
+                  >
+                    <div className="w-2 h-2 rounded-full inline-block mr-2" style={{ background: FOOD_COLORS[selectedGroup].fill }} />
+                    Agregar equivalente genérico
                   </button>
-                </div>
-              </div>
-            ) : (
-              /* Step 2: Food Search */
-              <div className="flex flex-col" style={{ maxHeight: 'calc(80vh - 160px)' }}>
-                <button
-                  onClick={() => setSelectedGroup(null)}
-                  className="text-xs text-accent mb-3 text-left hover:underline"
-                >
-                  ← Cambiar grupo ({FOOD_GROUP_LABELS[selectedGroup]})
-                </button>
-
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    className="input pl-10"
-                    placeholder="Buscar alimento..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-
-                {/* Quick add generic for this group */}
-                <button
-                  onClick={() => {
-                    setSelectedFood({ name: `1 ${FOOD_GROUP_LABELS[selectedGroup].toLowerCase()}`, portion: '1 equivalente' })
-                    setQuantity(1)
-                  }}
-                  className="mb-3 p-3 rounded-lg bg-accent/10 border border-accent/20 text-sm font-medium text-accent hover:bg-accent/20 transition-colors text-left"
-                >
-                  <span className="text-lg mr-2">{FOOD_EMOJIS[selectedGroup]}</span>
-                  Agregar equivalente genérico
-                </button>
-
-                <div className="flex-1 overflow-y-auto space-y-1 no-scrollbar">
-                  {searchingFoods ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="w-6 h-6 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-                    </div>
-                  ) : filteredFoods.length > 0 ? (
-                    filteredFoods.map((food, index) => (
-                      <button
-                        key={`${food.name}-${index}`}
-                        onClick={() => selectFood(food)}
-                        className="w-full text-left p-3 rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors active:scale-[0.99]"
-                      >
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium text-sm">{food.name}</p>
-                          {food.isCustom && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent">Tuyo</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{food.portion}</p>
-                        {food.note && !food.isCustom && (
-                          <p className="text-[10px] text-muted-foreground/60 mt-0.5">{food.note}</p>
-                        )}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="text-center py-6">
-                      <p className="text-muted-foreground text-sm mb-3">
+                  <div className="flex-1 overflow-y-auto space-y-1 no-scrollbar">
+                    {searchingFoods ? (
+                      <div className="flex items-center justify-center py-8">
+                        <PulseLine w={60} h={18} color="var(--signal)" strokeWidth={1.5} active />
+                      </div>
+                    ) : filteredFoods.length > 0 ? (
+                      filteredFoods.map((food, i) => (
+                        <button
+                          key={`${food.name}-${i}`}
+                          onClick={() => { setSelectedFood(food); setQuantity(1) }}
+                          className="w-full text-left p-3 rounded-lg bg-white border border-ink-7 hover:bg-paper-2 transition-colors"
+                        >
+                          <p className="text-sm font-medium">{food.name}</p>
+                          <p className="text-xs text-ink-4">{food.portion}</p>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-center text-ink-4 text-sm py-6">
                         {searchQuery ? 'No se encontró' : 'Escribe para buscar'}
                       </p>
-                      {searchQuery && (
-                        <button
-                          onClick={() => setShowCreateCustom(true)}
-                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent/10 text-accent text-sm font-medium hover:bg-accent/20 transition-colors"
-                        >
-                          <PlusCircle className="w-4 h-4" />
-                          Crear "{searchQuery}"
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Always show create custom option at the bottom */}
-                  {filteredFoods.length > 0 && (
-                    <button
-                      onClick={() => setShowCreateCustom(true)}
-                      className="w-full p-3 rounded-lg border border-dashed border-border hover:border-accent/50 text-sm text-muted-foreground hover:text-accent transition-colors flex items-center justify-center gap-2 mt-2"
-                    >
-                      <PlusCircle className="w-4 h-4" />
-                      Crear alimento nuevo
-                    </button>
-                  )}
-                </div>
-
-                {/* Create Custom Food Modal */}
-                {showCreateCustom && (
-                  <div className="absolute inset-0 bg-background rounded-b-2xl p-5 animate-fade-in">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-display text-lg">Nuevo alimento</h3>
-                      <button
-                        onClick={() => {
-                          setShowCreateCustom(false)
-                          setNewCustomFood({ name: '', portion: '', note: '' })
-                        }}
-                        className="btn-icon"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <label className="label">Nombre *</label>
-                        <input
-                          type="text"
-                          className="input"
-                          placeholder="Ej: Proteína en polvo"
-                          value={newCustomFood.name || searchQuery}
-                          onChange={(e) => setNewCustomFood(prev => ({ ...prev, name: e.target.value }))}
-                          autoFocus
-                        />
-                      </div>
-                      <div>
-                        <label className="label">Porción (1 equivalente) *</label>
-                        <input
-                          type="text"
-                          className="input"
-                          placeholder="Ej: 1 scoop (30g)"
-                          value={newCustomFood.portion}
-                          onChange={(e) => setNewCustomFood(prev => ({ ...prev, portion: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <label className="label">Nota (opcional)</label>
-                        <input
-                          type="text"
-                          className="input"
-                          placeholder="Ej: Marca X, sabor chocolate"
-                          value={newCustomFood.note}
-                          onChange={(e) => setNewCustomFood(prev => ({ ...prev, note: e.target.value }))}
-                        />
-                      </div>
-
-                      <div className="flex gap-3 pt-2">
-                        <button
-                          onClick={() => {
-                            setShowCreateCustom(false)
-                            setNewCustomFood({ name: '', portion: '', note: '' })
-                          }}
-                          className="flex-1 btn-secondary"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          onClick={createCustomFood}
-                          disabled={!newCustomFood.name && !searchQuery || !newCustomFood.portion}
-                          className="flex-1 btn-primary disabled:opacity-50"
-                        >
-                          Crear y agregar
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
-
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}
