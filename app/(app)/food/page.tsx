@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Plus, Star, Search, X, Trash2, Minus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Star, Search, X, Trash2, Minus, Mic, Droplet } from 'lucide-react'
 import { formatDate, getToday } from '@/lib/utils'
 import { DAILY_BUDGET, MEAL_BUDGETS, FOOD_GROUP_LABELS, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 import type { DailyBudget, FoodEquivalent } from '@/types'
@@ -12,26 +12,142 @@ import { PulseLine } from '@/components/ui/PulseLine'
 import type { MealType, FoodGroup, FoodLog, FavoriteMeal, CustomFood } from '@/types'
 
 // v5 Paper & Pulse food colors
-const FOOD_COLORS: Record<FoodGroup, { bg: string; text: string; fill: string }> = {
-  verdura: { bg: 'var(--leaf-soft)', text: 'var(--leaf)', fill: '#4a7c3a' },
-  fruta: { bg: 'var(--signal-soft)', text: 'var(--signal)', fill: '#ff5a1f' },
-  carb: { bg: 'var(--honey-soft)', text: '#8a6411', fill: '#d4a017' },
-  leguminosa: { bg: 'var(--sky-soft)', text: 'var(--sky)', fill: '#3a6b8c' },
-  proteina: { bg: 'var(--berry-soft)', text: 'var(--berry)', fill: '#c13b5a' },
-  grasa: { bg: 'var(--paper-3)', text: 'var(--ink-3)', fill: '#737373' },
+const FOOD_COLORS: Record<FoodGroup, { bg: string; text: string; fill: string; label: string }> = {
+  verdura: { bg: 'var(--leaf-soft)', text: 'var(--leaf)', fill: '#4a7c3a', label: 'Verduras' },
+  fruta: { bg: 'var(--signal-soft)', text: 'var(--signal)', fill: '#ff5a1f', label: 'Frutas' },
+  carb: { bg: 'var(--honey-soft)', text: '#8a6411', fill: '#d4a017', label: 'Cereales' },
+  leguminosa: { bg: 'var(--sky-soft)', text: 'var(--sky)', fill: '#3a6b8c', label: 'Leguminosas' },
+  proteina: { bg: 'var(--berry-soft)', text: 'var(--berry)', fill: '#c13b5a', label: 'Origen Animal' },
+  grasa: { bg: 'var(--paper-3)', text: 'var(--ink-3)', fill: '#737373', label: 'Grasas' },
 }
 
-const meals: { key: MealType; label: string; time?: string }[] = [
+const meals: { key: MealType; label: string; time: string }[] = [
   { key: 'desayuno', label: 'Desayuno', time: '07:20' },
   { key: 'snack', label: 'Snack', time: '11:00' },
   { key: 'comida', label: 'Comida', time: '13:45' },
   { key: 'cena', label: 'Cena', time: '19:30' },
 ]
 
+// Donut Chart Component
+const DonutChart = ({
+  consumed,
+  budget
+}: {
+  consumed: Record<FoodGroup, number>
+  budget: DailyBudget
+}) => {
+  const groups: FoodGroup[] = ['verdura', 'fruta', 'carb', 'proteina', 'leguminosa']
+  const totalBudget = Object.values(budget).reduce((a, b) => a + b, 0)
+  const totalConsumed = Object.values(consumed).reduce((a, b) => a + b, 0)
+  const percentage = Math.round((totalConsumed / totalBudget) * 100)
+
+  // Calculate arc segments
+  const radius = 85
+  const strokeWidth = 18
+  const circumference = 2 * Math.PI * radius
+  let currentAngle = -90 // Start at top
+
+  const segments = groups.map((group) => {
+    const groupTotal = budget[group]
+    const groupConsumed = consumed[group]
+    const budgetRatio = groupTotal / totalBudget
+    const arcLength = budgetRatio * circumference
+    const consumedRatio = Math.min(groupConsumed / groupTotal, 1)
+    const filledLength = arcLength * consumedRatio
+
+    const startAngle = currentAngle
+    currentAngle += (budgetRatio * 360)
+
+    return {
+      group,
+      startAngle,
+      arcLength,
+      filledLength,
+      consumed: groupConsumed,
+      total: groupTotal,
+      color: FOOD_COLORS[group].fill,
+    }
+  })
+
+  return (
+    <div className="relative w-[220px] h-[220px]">
+      <svg width="220" height="220" viewBox="0 0 220 220" className="transform -rotate-90">
+        {/* Background arcs */}
+        {segments.map((seg, i) => {
+          const dashArray = `${seg.arcLength} ${circumference - seg.arcLength}`
+          const dashOffset = -segments.slice(0, i).reduce((acc, s) => acc + s.arcLength, 0)
+          return (
+            <circle
+              key={`bg-${seg.group}`}
+              cx="110"
+              cy="110"
+              r={radius}
+              fill="none"
+              stroke="#e5e5e5"
+              strokeWidth={strokeWidth}
+              strokeDasharray={dashArray}
+              strokeDashoffset={dashOffset}
+            />
+          )
+        })}
+        {/* Filled arcs */}
+        {segments.map((seg, i) => {
+          const dashArray = `${seg.filledLength} ${circumference - seg.filledLength}`
+          const dashOffset = -segments.slice(0, i).reduce((acc, s) => acc + s.arcLength, 0)
+          return (
+            <circle
+              key={`fill-${seg.group}`}
+              cx="110"
+              cy="110"
+              r={radius}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth={strokeWidth}
+              strokeDasharray={dashArray}
+              strokeDashoffset={dashOffset}
+              strokeLinecap="round"
+            />
+          )
+        })}
+      </svg>
+      {/* Center percentage */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="text-center">
+          <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest">Completo</div>
+          <div className="font-serif text-[42px] font-light text-signal leading-none">{percentage}<span className="text-xl">%</span></div>
+        </div>
+      </div>
+      {/* Group labels around the chart */}
+      <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-center">
+        <div className="fk-mono text-[9px] text-ink-4 uppercase">Leguminosas</div>
+        <div className="font-serif text-sm"><span className="text-signal">{consumed.leguminosa}</span><span className="text-ink-5">/{budget.leguminosa}</span></div>
+      </div>
+      <div className="absolute top-4 -right-4 text-right">
+        <div className="fk-mono text-[9px] text-leaf uppercase">Verduras</div>
+        <div className="font-serif text-sm"><span className="text-signal">{consumed.verdura}</span><span className="text-ink-5">/{budget.verdura}</span></div>
+      </div>
+      <div className="absolute top-1/2 -right-6 -translate-y-1/2 text-right">
+        <div className="fk-mono text-[9px] text-[#ff5a1f] uppercase">Frutas</div>
+        <div className="font-serif text-sm"><span className="text-signal">{consumed.fruta}</span><span className="text-ink-5">/{budget.fruta}</span></div>
+      </div>
+      <div className="absolute bottom-4 -right-2 text-right">
+        <div className="fk-mono text-[9px] text-[#8a6411] uppercase">Cereales</div>
+        <div className="font-serif text-sm"><span className="text-signal">{consumed.carb}</span><span className="text-ink-5">/{budget.carb}</span></div>
+      </div>
+      <div className="absolute top-1/2 -left-8 -translate-y-1/2">
+        <div className="fk-mono text-[9px] text-berry uppercase">Origen Animal</div>
+        <div className="font-serif text-sm"><span className="text-signal">{consumed.proteina}</span><span className="text-ink-5">/{budget.proteina}</span></div>
+      </div>
+    </div>
+  )
+}
+
 export default function FoodPage() {
-  const todayStr = getToday()
-  const today = new Date()
-  const dateStr = today.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const todayStr = selectedDate.toISOString().split('T')[0]
+  const isToday = todayStr === getToday()
+
+  const dateStr = selectedDate.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
   const capitalizedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1)
 
   const { user } = useUser()
@@ -51,6 +167,20 @@ export default function FoodPage() {
   const [customFoods, setCustomFoods] = useState<CustomFood[]>([])
   const [dbFoods, setDbFoods] = useState<FoodEquivalent[]>([])
   const [searchingFoods, setSearchingFoods] = useState(false)
+  const [waterGlasses, setWaterGlasses] = useState(0)
+
+  // Date navigation
+  const goToPrevDay = () => {
+    const prev = new Date(selectedDate)
+    prev.setDate(prev.getDate() - 1)
+    setSelectedDate(prev)
+  }
+  const goToNextDay = () => {
+    const next = new Date(selectedDate)
+    next.setDate(next.getDate() + 1)
+    setSelectedDate(next)
+  }
+  const goToToday = () => setSelectedDate(new Date())
 
   useEffect(() => {
     if (user) {
@@ -59,7 +189,7 @@ export default function FoodPage() {
       loadUserDietConfig()
       loadCustomFoods()
     }
-  }, [user])
+  }, [user, todayStr])
 
   const loadCustomFoods = async () => {
     if (!user) return
@@ -171,17 +301,18 @@ export default function FoodPage() {
   const consumed: Record<FoodGroup, number> = { verdura: 0, fruta: 0, carb: 0, leguminosa: 0, proteina: 0, grasa: 0 }
   foodLogs.forEach(log => { consumed[log.group_type] += log.quantity })
 
-  // Calculate missing for message
-  const missingVerduras = Math.max(0, userBudget.verdura - consumed.verdura)
+  // Calculate totals
   const totalConsumed = Object.values(consumed).reduce((a, b) => a + b, 0)
   const totalBudget = Object.values(userBudget).reduce((a, b) => a + b, 0)
+  const missingVerduras = Math.max(0, userBudget.verdura - consumed.verdura)
 
   // Get motivational message
   const getMessage = () => {
-    if (missingVerduras > 0) return `te faltan ${missingVerduras === 1 ? 'una verdura' : `${missingVerduras} verduras`}.`
-    if (totalConsumed >= totalBudget) return 'completaste tu plato de hoy.'
-    return 'buen camino.'
+    if (missingVerduras > 0) return { prefix: 'Vas por ', highlight: 'buen camino', suffix: `, te faltan `, highlight2: `${missingVerduras} verduras`, end: '.' }
+    if (totalConsumed >= totalBudget) return { prefix: '', highlight: 'Excelente', suffix: ', ', highlight2: 'completaste tu plato', end: ' de hoy.' }
+    return { prefix: 'Vas por ', highlight: 'buen camino', suffix: '.', highlight2: '', end: '' }
   }
+  const msg = getMessage()
 
   // Filter foods
   const filteredFoods = selectedGroup
@@ -200,6 +331,18 @@ export default function FoodPage() {
     logs.forEach(l => groups[l.group_type] += l.quantity)
     return Object.entries(groups).filter(([_, v]) => v > 0).map(([g]) => g as FoodGroup)
   }
+
+  // Current meal based on time
+  const getCurrentMeal = (): MealType => {
+    const hour = new Date().getHours()
+    if (hour < 10) return 'desayuno'
+    if (hour < 13) return 'snack'
+    if (hour < 17) return 'comida'
+    return 'cena'
+  }
+  const currentMeal = getCurrentMeal()
+
+  const registeredMeals = meals.filter(m => mealLogs(m.key).length > 0).length
 
   if (loading) {
     return (
@@ -222,135 +365,267 @@ export default function FoodPage() {
       )}
 
       {/* Header */}
-      <div className="px-5 pt-3 flex items-center justify-between">
-        <Link href="/dashboard" className="w-[34px] h-[34px] rounded-full bg-white border border-ink-7 flex items-center justify-center">
-          <ChevronLeft className="w-4 h-4 text-ink" />
-        </Link>
-        <div className="text-center">
-          <div className="fk-eyebrow">Plato del día</div>
-          <div className="text-sm font-medium">{capitalizedDate}</div>
+      <div className="px-5 pt-3 pb-4 flex items-start justify-between">
+        <div>
+          <div className="fk-eyebrow mb-1">Plato del Bien Comer · SMAE</div>
+          <h1 className="font-serif text-[28px] font-light tracking-tight">
+            {capitalizedDate.split(' ')[0]} <span className="italic text-signal">{capitalizedDate.split(' ').slice(1).join(' ')}</span>
+          </h1>
         </div>
-        <Link href="/food/favorites" className="w-[34px] h-[34px] rounded-full bg-white border border-ink-7 flex items-center justify-center">
-          <Star className="w-4 h-4 text-ink" />
-        </Link>
-      </div>
-
-      {/* Hero Card - SMAE Plate */}
-      <div className="mx-5 mt-5 bg-cream rounded-[20px] p-5 relative overflow-hidden">
-        <div className="fk-eyebrow mb-1.5">SMAE · Plato del Bien Comer</div>
-        <h2 className="font-serif text-[26px] font-light tracking-tight leading-tight mb-4">
-          Vas por <span className="italic text-signal">{getMessage().includes('faltan') ? 'buen camino' : 'excelente'}</span>,<br/>{getMessage()}
-        </h2>
-
-        {/* Plate Visualization */}
-        <div className="relative w-[190px] h-[190px] mx-auto">
-          <svg width="190" height="190" viewBox="0 0 190 190" className="absolute inset-0">
-            <circle cx="95" cy="95" r="88" fill="#fff" stroke="var(--ink-7)" />
-            {/* Three wedges */}
-            <path d="M95 95 L95 7 A88 88 0 0 1 177.5 128.5 Z" fill="var(--leaf-soft)" />
-            <path d="M95 95 L177.5 128.5 A88 88 0 0 1 12.5 128.5 Z" fill="var(--honey-soft)" />
-            <path d="M95 95 L12.5 128.5 A88 88 0 0 1 95 7 Z" fill="var(--berry-soft)" />
-            <circle cx="95" cy="95" r="88" fill="none" stroke="var(--ink)" strokeWidth="1.5" />
-            <line x1="95" y1="95" x2="95" y2="7" stroke="var(--ink-6)" />
-            <line x1="95" y1="95" x2="177.5" y2="128.5" stroke="var(--ink-6)" />
-            <line x1="95" y1="95" x2="12.5" y2="128.5" stroke="var(--ink-6)" />
-          </svg>
-          {/* Group Labels */}
-          <div className="absolute top-5 left-1/2 -translate-x-1/2 text-center">
-            <div className="fk-mono text-[9px] text-leaf uppercase tracking-wider font-semibold">Verduras</div>
-            <div className="font-serif text-[22px] text-leaf">
-              {consumed.verdura}<span className="text-ink-5 text-xs">/{userBudget.verdura}</span>
-            </div>
-          </div>
-          <div className="absolute bottom-7 right-2 text-right">
-            <div className="fk-mono text-[9px] text-[#8a6411] uppercase tracking-wider font-semibold">Cereales</div>
-            <div className="font-serif text-[22px] text-[#8a6411]">
-              {consumed.carb}<span className="text-ink-5 text-xs">/{userBudget.carb}</span>
-            </div>
-          </div>
-          <div className="absolute bottom-7 left-2.5">
-            <div className="fk-mono text-[9px] text-berry uppercase tracking-wider font-semibold">Leg / Orig.</div>
-            <div className="font-serif text-[22px] text-berry">
-              {consumed.proteina + consumed.leguminosa}<span className="text-ink-5 text-xs">/{userBudget.proteina + userBudget.leguminosa}</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <button onClick={goToPrevDay} className="px-3 py-1.5 rounded-lg border border-ink-7 text-xs fk-mono hover:bg-paper-2 flex items-center gap-1">
+            <ChevronLeft className="w-3 h-3" />
+            {new Date(selectedDate.getTime() - 86400000).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric' }).toUpperCase()}
+          </button>
+          <button
+            onClick={goToToday}
+            className={`px-3 py-1.5 rounded-lg text-xs fk-mono font-medium ${isToday ? 'bg-ink text-paper' : 'border border-ink-7 hover:bg-paper-2'}`}
+          >
+            HOY
+          </button>
+          <button onClick={goToNextDay} className="px-3 py-1.5 rounded-lg border border-ink-7 text-xs fk-mono hover:bg-paper-2 flex items-center gap-1">
+            {new Date(selectedDate.getTime() + 86400000).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric' }).toUpperCase()}
+            <ChevronRight className="w-3 h-3" />
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-4 py-1.5 rounded-full bg-signal text-white text-xs font-medium flex items-center gap-1.5 hover:bg-signal/90"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Registrar comida
+          </button>
         </div>
       </div>
 
-      {/* Meals List */}
-      <div className="px-5 mt-6">
-        <div className="fk-eyebrow mb-2.5">Lo que comiste</div>
+      {/* Main Content Grid */}
+      <div className="px-5 grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Left Column - Hero + Timeline */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* Hero Card */}
+          <div className="bg-cream rounded-[20px] p-6 relative overflow-hidden">
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Left side - Message */}
+              <div className="flex-1">
+                <div className="fk-eyebrow mb-2">Tu Plato · Resumen</div>
+                <h2 className="font-serif text-[32px] font-light tracking-tight leading-tight mb-3">
+                  {msg.prefix}<span className="italic text-signal">{msg.highlight}</span>{msg.suffix}
+                  {msg.highlight2 && <span className="italic text-signal">{msg.highlight2}</span>}{msg.end}
+                </h2>
+                <p className="text-sm text-ink-4 mb-5 max-w-sm">
+                  {missingVerduras > 0
+                    ? `Come una ensalada en la comida y una taza de brócoli en la cena — terminas el día.`
+                    : `Has completado tus equivalentes del día. ¡Buen trabajo!`
+                  }
+                </p>
 
-        {meals.map((meal) => {
-          const logs = mealLogs(meal.key)
-          const tags = getGroupTags(logs)
-          const foodNames = logs.map(l => l.food_name || FOOD_GROUP_LABELS[l.group_type]).slice(0, 3).join(' · ')
-
-          return (
-            <div key={meal.key} className="flex gap-3 py-3 border-b border-ink-7 last:border-0">
-              <div className="w-11 text-right shrink-0">
-                <div className="fk-mono text-[11px] text-ink-3">{meal.time}</div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-baseline mb-0.5">
-                  <button
-                    onClick={() => { setSelectedMeal(meal.key); setShowAddModal(true) }}
-                    className="text-sm font-medium hover:text-signal transition-colors"
-                  >
-                    {meal.label}
-                  </button>
-                  <div className="flex gap-1">
-                    {tags.map(g => (
-                      <span
-                        key={g}
-                        className="px-1.5 py-0.5 rounded-full text-[9px] fk-mono font-medium uppercase"
-                        style={{ background: FOOD_COLORS[g].bg, color: FOOD_COLORS[g].text }}
-                      >
-                        {g.charAt(0).toUpperCase()}
-                      </span>
-                    ))}
+                {/* Equivalents Bar */}
+                <div className="bg-white rounded-xl p-4 border border-ink-7">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest">Equivalentes</div>
+                    <div className="font-serif text-2xl text-signal">{totalConsumed}<span className="text-ink-4 text-sm"> / {totalBudget}</span></div>
                   </div>
-                </div>
-                {logs.length > 0 ? (
-                  <div className="text-xs text-ink-4 truncate">{foodNames}</div>
-                ) : (
-                  <button
-                    onClick={() => { setSelectedMeal(meal.key); setShowAddModal(true) }}
-                    className="text-xs text-signal hover:underline"
-                  >
-                    + Agregar
-                  </button>
-                )}
-                {/* Show individual items for editing */}
-                {logs.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {logs.map(log => (
-                      <div key={log.id} className="flex items-center justify-between text-xs py-1 px-2 -mx-2 rounded hover:bg-paper-2 group">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: FOOD_COLORS[log.group_type].fill }} />
-                          <span>{log.quantity > 1 && <span className="text-signal font-medium">{log.quantity}× </span>}{log.food_name || FOOD_GROUP_LABELS[log.group_type]}</span>
+                  {/* Segmented bar */}
+                  <div className="flex gap-0.5 h-3 rounded-full overflow-hidden bg-ink-7 mb-2">
+                    {(['verdura', 'fruta', 'carb', 'proteina', 'leguminosa'] as FoodGroup[]).map(group => {
+                      const ratio = userBudget[group] / totalBudget
+                      const fillRatio = Math.min(consumed[group] / userBudget[group], 1)
+                      return (
+                        <div key={group} className="relative" style={{ width: `${ratio * 100}%` }}>
+                          <div
+                            className="absolute inset-y-0 left-0 transition-all"
+                            style={{ width: `${fillRatio * 100}%`, background: FOOD_COLORS[group].fill }}
+                          />
                         </div>
-                        <button onClick={() => deleteFood(log.id)} className="opacity-0 group-hover:opacity-100 text-ink-4 hover:text-berry transition-all">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                      )
+                    })}
+                  </div>
+                  {/* Labels */}
+                  <div className="flex gap-3 text-[9px] fk-mono uppercase tracking-wider text-ink-4">
+                    {(['verdura', 'fruta', 'carb', 'proteina', 'leguminosa'] as FoodGroup[]).map(group => (
+                      <div key={group} className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full" style={{ background: FOOD_COLORS[group].fill }} />
+                        <span>{FOOD_COLORS[group].label.split(' ')[0]}</span>
+                        <span className="text-ink-5">{consumed[group]}/{userBudget[group]}</span>
                       </div>
                     ))}
                   </div>
-                )}
+                </div>
+              </div>
+
+              {/* Right side - Donut Chart */}
+              <div className="flex justify-center lg:justify-end">
+                <DonutChart consumed={consumed} budget={userBudget} />
               </div>
             </div>
-          )
-        })}
-      </div>
+          </div>
 
-      {/* FAB for quick add */}
-      <button
-        onClick={() => setShowAddModal(true)}
-        className="fixed bottom-24 right-5 w-14 h-14 bg-signal rounded-full flex items-center justify-center text-white shadow-lg active:scale-95 transition-transform md:hidden"
-        style={{ boxShadow: '0 4px 16px rgba(255,90,31,0.35)' }}
-      >
-        <Plus className="w-6 h-6" />
-      </button>
+          {/* Meals Timeline */}
+          <div className="bg-white rounded-[20px] border border-ink-7 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="fk-eyebrow mb-0.5">Lo que comiste</div>
+                <div className="text-sm text-ink-4">{meals.length} momentos · {registeredMeals} registrados</div>
+              </div>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-ink-7 text-xs fk-mono hover:bg-paper-2">
+                <Mic className="w-3.5 h-3.5" />
+                Dictar
+              </button>
+            </div>
+
+            <div className="space-y-0">
+              {meals.map((meal, idx) => {
+                const logs = mealLogs(meal.key)
+                const tags = getGroupTags(logs)
+                const foodNames = logs.map(l => l.food_name || FOOD_GROUP_LABELS[l.group_type]).slice(0, 3).join(' · ')
+                const isCurrent = meal.key === currentMeal && isToday
+                const isRegistered = logs.length > 0
+
+                return (
+                  <div key={meal.key} className="flex gap-4 py-4 border-b border-ink-7 last:border-0">
+                    {/* Timeline dot and line */}
+                    <div className="flex flex-col items-center">
+                      <div className={`w-3 h-3 rounded-full ${isCurrent ? 'bg-signal' : isRegistered ? 'bg-leaf' : 'bg-ink-6'}`} />
+                      {idx < meals.length - 1 && <div className="w-px flex-1 bg-ink-7 mt-1" />}
+                    </div>
+
+                    {/* Time */}
+                    <div className="w-12 shrink-0">
+                      <div className="fk-mono text-sm text-ink-3">{meal.time}</div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium">{meal.label}</span>
+                        {isRegistered && (
+                          <span className="px-2 py-0.5 rounded-full bg-leaf-soft text-leaf text-[10px] fk-mono font-medium flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-leaf" />
+                            REGISTRADO
+                          </span>
+                        )}
+                        {isCurrent && !isRegistered && (
+                          <span className="px-2 py-0.5 rounded-full bg-signal-soft text-signal text-[10px] fk-mono font-medium">
+                            AHORA
+                          </span>
+                        )}
+                      </div>
+
+                      {logs.length > 0 ? (
+                        <>
+                          <div className="text-sm text-ink-4 mb-2">{foodNames}</div>
+                          <div className="flex gap-1">
+                            {tags.map(g => (
+                              <span
+                                key={g}
+                                className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] fk-mono font-bold text-white"
+                                style={{ background: FOOD_COLORS[g].fill }}
+                              >
+                                {g.charAt(0).toUpperCase()}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => { setSelectedMeal(meal.key); setShowAddModal(true) }}
+                          className="text-sm text-signal hover:underline"
+                        >
+                          + Agregar
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Action button */}
+                    {isCurrent && !isRegistered && (
+                      <button
+                        onClick={() => { setSelectedMeal(meal.key); setShowAddModal(true) }}
+                        className="px-3 py-1.5 rounded-lg bg-signal text-white text-xs font-medium flex items-center gap-1 self-start"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Agregar
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="space-y-4">
+          {/* Coach Suggestion Card */}
+          <div className="bg-ink rounded-[16px] p-5 text-paper">
+            <div className="fk-eyebrow text-ink-5 mb-2 flex items-center gap-2">
+              <PulseLine w={16} h={8} color="var(--signal)" strokeWidth={1.5} />
+              Coach · Sugerencia
+            </div>
+            <p className="font-serif text-[17px] leading-snug mb-4">
+              Para tu comida: <span className="italic text-signal">ensalada grande</span> con pollo ya cuenta{' '}
+              <span className="italic text-signal">2 verduras + 1 origen animal</span>.
+            </p>
+            <div className="flex gap-2">
+              <button className="px-4 py-2 rounded-lg bg-signal text-white text-xs font-medium hover:bg-signal/90">
+                Agregar al plato
+              </button>
+              <button className="px-4 py-2 rounded-lg border border-ink-5 text-paper text-xs font-medium hover:bg-ink-2">
+                Otra idea
+              </button>
+            </div>
+          </div>
+
+          {/* Water Card */}
+          <div className="bg-white rounded-[16px] border border-ink-7 p-4">
+            <div className="fk-eyebrow text-ink-4 mb-2">Agua · Hoy</div>
+            <div className="flex items-baseline gap-1 mb-3">
+              <span className="font-serif text-[36px] font-light text-signal">{waterGlasses}</span>
+              <span className="text-ink-4 text-sm">/ 8 vasos</span>
+            </div>
+            <div className="flex gap-1 mb-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-6 h-8 rounded ${i < waterGlasses ? 'bg-sky' : 'bg-ink-7'}`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => setWaterGlasses(w => Math.min(w + 1, 8))}
+              className="w-full py-2 rounded-lg border border-ink-7 text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-paper-2"
+            >
+              <Plus className="w-3 h-3" />
+              +1 vaso
+            </button>
+          </div>
+
+          {/* Favorites Quick Access */}
+          <div className="bg-white rounded-[16px] border border-ink-7 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="fk-eyebrow text-ink-4">Favoritos</div>
+              <Link href="/food/favorites" className="text-xs text-signal hover:underline">Ver todos</Link>
+            </div>
+            {favorites.slice(0, 3).map(fav => (
+              <button
+                key={fav.id}
+                onClick={async () => {
+                  for (const item of fav.items) {
+                    await (supabase.from('food_logs') as any).insert({
+                      user_id: user?.id, date: todayStr, meal: fav.meal,
+                      group_type: item.group_type, quantity: item.quantity, food_name: item.food_name,
+                    })
+                  }
+                  await loadFoodLogs()
+                  showToast(`${fav.name} agregado`)
+                }}
+                className="w-full text-left p-2 -mx-1 rounded-lg hover:bg-paper-2 transition-colors"
+              >
+                <div className="text-sm font-medium">{fav.name}</div>
+                <div className="text-xs text-ink-4">{fav.meal}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* Add Food Modal */}
       {showAddModal && (
@@ -412,7 +687,7 @@ export default function FoodPage() {
                     >
                       <Minus className="w-5 h-5" />
                     </button>
-                    <span className="font-serif text-5xl font-light w-16 text-center tabular-nums">{quantity}</span>
+                    <span className="font-serif text-5xl font-light w-16 text-center tabular-nums text-signal">{quantity}</span>
                     <button
                       onClick={() => setQuantity(quantity + 0.5)}
                       className="w-12 h-12 rounded-lg bg-signal text-white flex items-center justify-center active:scale-95 transition-transform"
