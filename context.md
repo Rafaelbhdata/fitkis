@@ -7,6 +7,30 @@
 ---
 
 ## Ultimo agente
+Agente: v5 Page Redesigns
+Fecha: 21 de abril 2026
+Que hizo:
+
+### Rediseno de Paginas a v5 "Paper & Pulse" (21 abril) ✅
+
+**Todas las paginas principales actualizadas al nuevo diseno:**
+- Dashboard: Hero "Tu pulso" card con fondo oscuro, PulseLine, grid de stats
+- Food: Plato SMAE con 3 wedges SVG, hero card cream, timeline de comidas
+- Gym: Week progress card oscuro con dots de completado, hero cream, lista de ejercicios
+- Habits: Cards de estadisticas (streak oscuro + porcentaje cream), habit list con mini charts 7 dias
+- Weight: Numero hero 88px serif, sparkline SVG personalizado, quick log row oscuro, insight card
+
+**Elementos v5 aplicados en todas las paginas:**
+- Eyebrow labels con fk-eyebrow utility
+- Titulos serif con italic spans
+- Cards cream/ink para jerarquia visual
+- PulseLine como loading indicator
+- Modales bottom sheet con rounded corners
+- Chips con colores semanticos (leaf-soft, berry-soft, etc.)
+
+---
+
+## Agente Anterior
 Agente: Design Migration v5.0 "Paper & Pulse"
 Fecha: 21 de abril 2026
 Que hizo:
