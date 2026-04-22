@@ -650,9 +650,7 @@ export default function FoodPage() {
             </p>
             {coachSuggestion.tip && (
               <p className={`text-xs mb-4 ${
-                coachSuggestion.type === 'warning' ? 'text-white/70' :
-                coachSuggestion.type === 'success' ? 'text-white/70' :
-                'text-paper/60'
+                coachSuggestion.type === 'warning' ? 'text-white/70' : 'text-paper/60'
               }`}>
                 {coachSuggestion.tip}
               </p>
