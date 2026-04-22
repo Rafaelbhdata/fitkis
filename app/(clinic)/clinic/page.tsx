@@ -194,9 +194,11 @@ export default function ClinicDashboard() {
     setInviteLoading(false)
   }
 
-  const filteredPatients = patients.filter(p =>
-    p.patient_email?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredPatients = searchQuery.trim()
+    ? patients.filter(p =>
+        p.patient_email?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : patients
 
   const activeCount = patients.filter(p => p.status === 'active').length
   const pendingCount = patients.filter(p => p.status === 'pending').length
