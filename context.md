@@ -22,6 +22,10 @@ Transformación de Fitkis de app self-tracking a plataforma B2B para nutricionis
 - Add patient: Vinculación por email (paciente crea su propia cuenta)
 - Reports: HTML print-friendly (no PDF)
 
+**Funciones SQL adicionales ejecutadas en Supabase:**
+- `get_practitioner_patients(practitioner_uuid)` - Devuelve pacientes con email y nombre
+- `display_name` columna agregada a `user_profiles`
+
 **Archivos creados:**
 
 1. **Migración 009** - `supabase/migrations/009_practitioner_model.sql`
@@ -82,6 +86,28 @@ Transformación de Fitkis de app self-tracking a plataforma B2B para nutricionis
 10. **Middleware Actualizado** - `middleware.ts`
     - Rutas /clinic protegidas (requieren auth)
     - Comentario sobre verificación de rol en páginas
+
+**Mejoras adicionales (sesión 2):**
+
+11. **Dashboard Clinic mejorado** - `app/(clinic)/clinic/page.tsx`
+    - Muestra nombre del paciente (display_name)
+    - Métricas de composición corporal (peso, grasa%, músculo, grasa kg)
+    - Mini gráficas sparkline con hover para ver valor/fecha
+    - Búsqueda por nombre o email
+
+12. **Perfil Paciente mejorado** - `app/(clinic)/clinic/patient/[id]/page.tsx`
+    - Header muestra nombre y email del paciente
+    - Tab Resumen: Card de composición corporal con 4 métricas y gráficas
+    - Tab Peso: Sección de tendencias con gráficas + historial con todas las métricas
+
+13. **Settings actualizado** - `app/(app)/settings/page.tsx`
+    - Campo "Nombre" (display_name) para que el paciente configure su nombre
+    - Nota: "Visible para tu nutricionista"
+
+14. **Dashboard paciente** - `app/(app)/dashboard/page.tsx`
+    - Banner de invitaciones pendientes
+    - Muestra nombre del nutricionista que invita
+    - Botón "Aceptar" para aceptar la invitación
 
 ---
 
@@ -1003,7 +1029,7 @@ npx tsc --noEmit   # Verificar TypeScript
 - `006_custom_foods.sql` - custom_foods (alimentos personalizados)
 - `007_food_equivalents.sql` - food_equivalents (BD SMAE con 2,537 alimentos)
 - `008_food_logs_favorite_name.sql` - Columna favorite_name para agrupar items de favoritos
-- `009_practitioner_model.sql` - **PENDIENTE** B2B: practitioners, practitioner_patients, RLS, 6 meals
+- `009_practitioner_model.sql` - ✅ B2B: practitioners, practitioner_patients, RLS, 6 meals
 
 ---
 

@@ -6,6 +6,7 @@ import { useUser, useSupabase } from '@/lib/hooks'
 import { DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 
 interface UserProfile {
+  display_name: string | null
   height_cm: number | null
   goal_weight_kg: number | null
 }
@@ -39,6 +40,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
 
   // Profile state
+  const [displayName, setDisplayName] = useState<string>('')
   const [heightCm, setHeightCm] = useState<string>('')
   const [goalWeightKg, setGoalWeightKg] = useState<string>('')
 
@@ -69,6 +71,7 @@ export default function SettingsPage() {
           .single()
 
         if (profile) {
+          setDisplayName(profile.display_name || '')
           setHeightCm(profile.height_cm?.toString() || '')
           setGoalWeightKg(profile.goal_weight_kg?.toString() || '')
         }
@@ -100,6 +103,7 @@ export default function SettingsPage() {
     try {
       const profileData = {
         user_id: user.id,
+        display_name: displayName.trim() || null,
         height_cm: heightCm ? parseFloat(heightCm) : null,
         goal_weight_kg: goalWeightKg ? parseFloat(goalWeightKg) : null,
         updated_at: new Date().toISOString()
@@ -218,6 +222,22 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">
+              Nombre
+            </label>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Tu nombre"
+              className="w-full bg-surface-elevated rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Visible para tu nutricionista
+            </p>
+          </div>
+
           <div>
             <label className="block text-sm text-muted-foreground mb-1">
               Altura (cm)

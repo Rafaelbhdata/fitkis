@@ -7,6 +7,14 @@ import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
 import type { PatientStatus, UserProfile, WeightLog, DietConfig } from '@/types'
 
+interface WeightRecord {
+  weight_kg: number
+  muscle_mass_kg?: number
+  body_fat_mass_kg?: number
+  body_fat_percentage?: number
+  date: string
+}
+
 interface PatientData {
   id: string
   patient_id: string
@@ -14,18 +22,112 @@ interface PatientData {
   invited_at: string
   accepted_at?: string
   patient_email?: string
+  patient_name?: string
   patient_profile?: {
     height_cm?: number
     goal_weight_kg?: number
   }
-  latest_weight?: {
-    weight_kg: number
-    date: string
-  }
+  weight_history: WeightRecord[]
   latest_diet?: {
     effective_date: string
     version: number
   }
+}
+
+// Mini sparkline component with hover
+function WeightMetricCard({
+  label,
+  value,
+  unit,
+  history,
+  color
+}: {
+  label: string
+  value?: number
+  unit: string
+  history: { value?: number; date: string }[]
+  color: string
+}) {
+  const [hoveredPoint, setHoveredPoint] = useState<{ value: number; date: string; x: number } | null>(null)
+
+  // Reverse to show oldest to newest (left to right)
+  const data = [...history].reverse().slice(-10)
+  const hasChart = data.length >= 2
+
+  const width = 100
+  const height = 36
+  const padding = 4
+
+  let points: { x: number; y: number; value: number; date: string }[] = []
+  let pathD = ''
+
+  if (hasChart) {
+    const values = data.map(d => d.value || 0)
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const range = max - min || 1
+
+    points = data.map((d, i) => ({
+      x: padding + (i / (data.length - 1)) * (width - padding * 2),
+      y: padding + (1 - ((d.value || 0) - min) / range) * (height - padding * 2),
+      value: d.value || 0,
+      date: d.date
+    }))
+
+    pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+  }
+
+  return (
+    <div className="relative flex flex-col items-center min-w-[80px]">
+      <div className="text-[10px] text-ink-4 uppercase tracking-wide">{label}</div>
+      <div className="font-serif text-xl leading-none mt-0.5">
+        {value != null ? value : <span className="text-ink-5">--</span>}
+        <span className="text-xs text-ink-4 ml-0.5">{unit}</span>
+      </div>
+      {hasChart ? (
+        <svg
+          width={width}
+          height={height}
+          className="mt-1"
+          onMouseLeave={() => setHoveredPoint(null)}
+        >
+          <path
+            d={pathD}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {points.map((p, i) => (
+            <circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={hoveredPoint?.x === p.x ? 5 : 3}
+              fill={hoveredPoint?.x === p.x ? color : 'white'}
+              stroke={color}
+              strokeWidth={2}
+              className="cursor-pointer transition-all"
+              onMouseEnter={() => setHoveredPoint({ value: p.value, date: p.date, x: p.x })}
+            />
+          ))}
+        </svg>
+      ) : (
+        <div className="h-[36px] mt-1 flex items-center">
+          <span className="text-[10px] text-ink-5">Sin historial</span>
+        </div>
+      )}
+      {hoveredPoint && (
+        <div
+          className="absolute -top-8 bg-ink text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10"
+          style={{ left: '50%', transform: 'translateX(-50%)' }}
+        >
+          {hoveredPoint.value} {unit} · {new Date(hoveredPoint.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const STATUS_LABELS: Record<PatientStatus, { label: string; color: string; bg: string }> = {
@@ -73,32 +175,28 @@ export default function ClinicDashboard() {
 
       setPractitionerId(practitioner.id)
 
-      // Get all patients for this practitioner
+      // Get all patients for this practitioner using RPC
       const { data: patientRelations } = await (supabase as any)
-        .from('practitioner_patients')
-        .select('*')
-        .eq('practitioner_id', practitioner.id)
-        .order('created_at', { ascending: false })
+        .rpc('get_practitioner_patients', { practitioner_uuid: practitioner.id })
 
       if (patientRelations && patientRelations.length > 0) {
         // Fetch additional data for each patient
         const enrichedPatients = await Promise.all(
           patientRelations.map(async (rel: any) => {
-            // Get patient email from auth (if accessible) or user_profiles
+            // Get patient profile
             const { data: profile } = await (supabase as any)
               .from('user_profiles')
               .select('height_cm, goal_weight_kg')
               .eq('user_id', rel.patient_id)
               .single()
 
-            // Get latest weight
-            const { data: weight } = await (supabase as any)
+            // Get weight history (last 30 records)
+            const { data: weightHistory } = await (supabase as any)
               .from('weight_logs')
-              .select('weight_kg, date')
+              .select('weight_kg, muscle_mass_kg, body_fat_mass_kg, body_fat_percentage, date')
               .eq('user_id', rel.patient_id)
               .order('date', { ascending: false })
-              .limit(1)
-              .single()
+              .limit(30)
 
             // Get latest diet config
             const { data: diet } = await (supabase as any)
@@ -111,9 +209,15 @@ export default function ClinicDashboard() {
               .single()
 
             return {
-              ...rel,
+              id: rel.relation_id,
+              patient_id: rel.patient_id,
+              patient_email: rel.patient_email,
+              patient_name: rel.patient_name,
+              status: rel.status,
+              invited_at: rel.invited_at,
+              accepted_at: rel.accepted_at,
               patient_profile: profile || undefined,
-              latest_weight: weight || undefined,
+              weight_history: weightHistory || [],
               latest_diet: diet || undefined,
             }
           })
@@ -196,7 +300,8 @@ export default function ClinicDashboard() {
 
   const filteredPatients = searchQuery.trim()
     ? patients.filter(p =>
-        p.patient_email?.toLowerCase().includes(searchQuery.toLowerCase())
+        p.patient_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.patient_name?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : patients
 
@@ -345,30 +450,57 @@ export default function ClinicDashboard() {
                   href={`/clinic/patient/${patient.patient_id}`}
                   className="flex items-center justify-between p-4 hover:bg-paper-2 transition-colors"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-sky-soft flex items-center justify-center">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="w-12 h-12 rounded-full bg-sky-soft flex items-center justify-center flex-shrink-0">
                       <span className="font-serif text-lg text-sky">
-                        {patient.patient_email?.charAt(0).toUpperCase() || 'P'}
+                        {patient.patient_name?.charAt(0).toUpperCase() || patient.patient_email?.charAt(0).toUpperCase() || 'P'}
                       </span>
                     </div>
-                    <div>
-                      <div className="font-medium">
-                        {patient.patient_email || `Paciente ${patient.patient_id.slice(0, 8)}`}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">
+                        {patient.patient_name || patient.patient_email || `Paciente ${patient.patient_id.slice(0, 8)}`}
                       </div>
                       <div className="flex items-center gap-3 text-sm text-ink-4">
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${statusInfo.bg} ${statusInfo.color}`}>
+                        {patient.patient_name && patient.patient_email && (
+                          <span className="truncate">{patient.patient_email}</span>
+                        )}
+                        <span className={`px-2 py-0.5 rounded-full text-xs flex-shrink-0 ${statusInfo.bg} ${statusInfo.color}`}>
                           {statusInfo.label}
                         </span>
-                        {patient.latest_weight && (
-                          <span className="flex items-center gap-1">
-                            <Scale className="w-3.5 h-3.5" />
-                            {patient.latest_weight.weight_kg} kg
-                          </span>
-                        )}
                         {patient.latest_diet && (
-                          <span>Plan v{patient.latest_diet.version}</span>
+                          <span className="flex-shrink-0">Plan v{patient.latest_diet.version}</span>
                         )}
                       </div>
+                    </div>
+                    <div className="flex items-center gap-6 flex-shrink-0 ml-auto">
+                      <WeightMetricCard
+                        label="Peso"
+                        value={patient.weight_history[0]?.weight_kg}
+                        unit="kg"
+                        history={patient.weight_history.map(w => ({ value: w.weight_kg, date: w.date }))}
+                        color="#2563eb"
+                      />
+                      <WeightMetricCard
+                        label="Grasa"
+                        value={patient.weight_history[0]?.body_fat_percentage}
+                        unit="%"
+                        history={patient.weight_history.map(w => ({ value: w.body_fat_percentage, date: w.date })).filter(w => w.value != null)}
+                        color="#ef4444"
+                      />
+                      <WeightMetricCard
+                        label="Músculo"
+                        value={patient.weight_history[0]?.muscle_mass_kg}
+                        unit="kg"
+                        history={patient.weight_history.map(w => ({ value: w.muscle_mass_kg, date: w.date })).filter(w => w.value != null)}
+                        color="#22c55e"
+                      />
+                      <WeightMetricCard
+                        label="Grasa kg"
+                        value={patient.weight_history[0]?.body_fat_mass_kg}
+                        unit="kg"
+                        history={patient.weight_history.map(w => ({ value: w.body_fat_mass_kg, date: w.date })).filter(w => w.value != null)}
+                        color="#f97316"
+                      />
                     </div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-ink-4" />

@@ -39,6 +39,103 @@ const GROUP_COLORS: Record<FoodGroup, string> = {
   leguminosa: 'bg-sky-soft text-sky',
 }
 
+// Mini sparkline component with hover
+function MetricCard({
+  label,
+  value,
+  unit,
+  history,
+  color,
+  large = false
+}: {
+  label: string
+  value?: number
+  unit: string
+  history: { value?: number; date: string }[]
+  color: string
+  large?: boolean
+}) {
+  const [hoveredPoint, setHoveredPoint] = useState<{ value: number; date: string; x: number } | null>(null)
+
+  const data = [...history].reverse().slice(-15)
+  const hasChart = data.length >= 2
+
+  const width = large ? 200 : 120
+  const height = large ? 60 : 40
+  const padding = 4
+
+  let points: { x: number; y: number; value: number; date: string }[] = []
+  let pathD = ''
+
+  if (hasChart) {
+    const values = data.map(d => d.value || 0)
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const range = max - min || 1
+
+    points = data.map((d, i) => ({
+      x: padding + (i / (data.length - 1)) * (width - padding * 2),
+      y: padding + (1 - ((d.value || 0) - min) / range) * (height - padding * 2),
+      value: d.value || 0,
+      date: d.date
+    }))
+
+    pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+  }
+
+  return (
+    <div className="relative flex flex-col">
+      <div className="text-xs text-ink-4 uppercase tracking-wide mb-1">{label}</div>
+      <div className={`font-serif leading-none ${large ? 'text-4xl' : 'text-2xl'}`}>
+        {value != null ? value : <span className="text-ink-5">--</span>}
+        <span className={`text-ink-4 ml-1 ${large ? 'text-lg' : 'text-sm'}`}>{unit}</span>
+      </div>
+      {hasChart ? (
+        <svg
+          width={width}
+          height={height}
+          className="mt-2"
+          onMouseLeave={() => setHoveredPoint(null)}
+        >
+          <path
+            d={pathD}
+            fill="none"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {points.map((p, i) => (
+            <circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={hoveredPoint?.x === p.x ? 5 : 3}
+              fill={hoveredPoint?.x === p.x ? color : 'white'}
+              stroke={color}
+              strokeWidth={2}
+              className="cursor-pointer transition-all"
+              onMouseEnter={() => setHoveredPoint({ value: p.value, date: p.date, x: p.x })}
+            />
+          ))}
+        </svg>
+      ) : (
+        <div className={`${large ? 'h-[60px]' : 'h-[40px]'} mt-2 flex items-center`}>
+          <span className="text-xs text-ink-5">Sin historial</span>
+        </div>
+      )}
+      {hoveredPoint && (
+        <div
+          className="absolute -top-6 bg-ink text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10"
+          style={{ left: '50%', transform: 'translateX(-50%)' }}
+        >
+          {hoveredPoint.value} {unit} · {new Date(hoveredPoint.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function PatientDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -48,6 +145,7 @@ export default function PatientDetailPage() {
 
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [patientName, setPatientName] = useState<string>('')
   const [patientEmail, setPatientEmail] = useState<string>('')
   const [relationStatus, setRelationStatus] = useState<string>('')
 
@@ -103,6 +201,17 @@ export default function PatientDetailPage() {
         .single()
       if (diet) setDietConfig(diet)
 
+      // Load patient profile (name)
+      const { data: profile } = await (supabase as any)
+        .from('user_profiles')
+        .select('display_name')
+        .eq('user_id', patientId)
+        .single()
+
+      if (profile?.display_name) {
+        setPatientName(profile.display_name)
+      }
+
       // Load patient relationship info
       const { data: practitioner } = await (supabase as any)
         .from('practitioners')
@@ -111,15 +220,16 @@ export default function PatientDetailPage() {
         .single()
 
       if (practitioner) {
-        const { data: relation } = await (supabase as any)
-          .from('practitioner_patients')
-          .select('*')
-          .eq('practitioner_id', practitioner.id)
-          .eq('patient_id', patientId)
-          .single()
+        // Get patient email using RPC
+        const { data: patients } = await (supabase as any)
+          .rpc('get_practitioner_patients', { practitioner_uuid: practitioner.id })
 
-        if (relation) {
-          setRelationStatus(relation.status)
+        const patientInfo = patients?.find((p: any) => p.patient_id === patientId)
+        if (patientInfo) {
+          setRelationStatus(patientInfo.status)
+          if (patientInfo.patient_email) {
+            setPatientEmail(patientInfo.patient_email)
+          }
         }
       }
 
@@ -181,10 +291,13 @@ export default function PatientDetailPage() {
         </button>
         <div className="flex-1">
           <h1 className="font-serif text-2xl md:text-3xl font-light tracking-tight">
-            {patientEmail || `Paciente`}
+            {patientName || patientEmail || `Paciente`}
           </h1>
           <p className="text-ink-4 text-sm">
-            ID: {patientId.slice(0, 8)}... · {relationStatus === 'active' ? 'Activo' : 'Pendiente'}
+            {patientName && patientEmail && <span>{patientEmail} · </span>}
+            <span className={relationStatus === 'active' ? 'text-leaf' : 'text-honey'}>
+              {relationStatus === 'active' ? 'Activo' : 'Pendiente'}
+            </span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -229,108 +342,210 @@ export default function PatientDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Weight Card */}
+        <div className="space-y-4">
+          {/* Body Composition Card */}
           <div className="bg-white rounded-2xl border border-ink-7 p-5">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-6">
               <Scale className="w-5 h-5 text-signal" />
-              <span className="font-medium">Peso corporal</span>
+              <span className="font-medium">Composición corporal</span>
+              {latestWeight && (
+                <span className="text-xs text-ink-4 ml-auto">
+                  Última medición: {new Date(latestWeight.date).toLocaleDateString('es-MX')}
+                </span>
+              )}
             </div>
             {latestWeight ? (
-              <>
-                <div className="flex items-baseline gap-2 mb-2">
-                  <span className="font-serif text-4xl">{latestWeight.weight_kg}</span>
-                  <span className="text-ink-4">kg</span>
-                </div>
-                {weightChange !== null && (
-                  <div className={`flex items-center gap-1 text-sm ${
-                    weightChange < 0 ? 'text-leaf' : weightChange > 0 ? 'text-berry' : 'text-ink-4'
-                  }`}>
-                    {weightChange < 0 ? <TrendingDown className="w-4 h-4" /> :
-                     weightChange > 0 ? <TrendingUp className="w-4 h-4" /> :
-                     <Minus className="w-4 h-4" />}
-                    {Math.abs(weightChange).toFixed(1)} kg desde última medición
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <MetricCard
+                  label="Peso"
+                  value={latestWeight.weight_kg}
+                  unit="kg"
+                  history={weightLogs.map(w => ({ value: w.weight_kg, date: w.date }))}
+                  color="#2563eb"
+                  large
+                />
+                <MetricCard
+                  label="Grasa corporal"
+                  value={latestWeight.body_fat_percentage}
+                  unit="%"
+                  history={weightLogs.map(w => ({ value: w.body_fat_percentage, date: w.date })).filter(w => w.value != null)}
+                  color="#ef4444"
+                  large
+                />
+                <MetricCard
+                  label="Masa muscular"
+                  value={latestWeight.muscle_mass_kg}
+                  unit="kg"
+                  history={weightLogs.map(w => ({ value: w.muscle_mass_kg, date: w.date })).filter(w => w.value != null)}
+                  color="#22c55e"
+                  large
+                />
+                <MetricCard
+                  label="Grasa (kg)"
+                  value={latestWeight.body_fat_mass_kg}
+                  unit="kg"
+                  history={weightLogs.map(w => ({ value: w.body_fat_mass_kg, date: w.date })).filter(w => w.value != null)}
+                  color="#f97316"
+                  large
+                />
+              </div>
+            ) : (
+              <p className="text-ink-4">Sin registros de composición corporal</p>
+            )}
+            {weightChange !== null && (
+              <div className={`flex items-center gap-1 text-sm mt-4 pt-4 border-t border-ink-7 ${
+                weightChange < 0 ? 'text-leaf' : weightChange > 0 ? 'text-berry' : 'text-ink-4'
+              }`}>
+                {weightChange < 0 ? <TrendingDown className="w-4 h-4" /> :
+                 weightChange > 0 ? <TrendingUp className="w-4 h-4" /> :
+                 <Minus className="w-4 h-4" />}
+                {Math.abs(weightChange).toFixed(1)} kg desde última medición
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Diet Plan Card */}
+            <div className="bg-white rounded-2xl border border-ink-7 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Utensils className="w-5 h-5 text-signal" />
+                <span className="font-medium">Plan alimenticio</span>
+              </div>
+              {dietConfig ? (
+                <>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {(['verdura', 'fruta', 'carb', 'proteina', 'grasa', 'leguminosa'] as FoodGroup[]).map(group => (
+                      <div key={group} className={`rounded-lg p-2 text-center ${GROUP_COLORS[group]}`}>
+                        <div className="font-serif text-lg">{dietConfig[group]}</div>
+                        <div className="text-[10px] uppercase">{FOOD_GROUP_LABELS[group].slice(0, 4)}</div>
+                      </div>
+                    ))}
                   </div>
-                )}
-                <p className="text-xs text-ink-4 mt-2">
-                  Última medición: {new Date(latestWeight.date).toLocaleDateString('es-MX')}
-                </p>
-              </>
-            ) : (
-              <p className="text-ink-4">Sin registros de peso</p>
-            )}
-          </div>
+                  <p className="text-xs text-ink-4">
+                    Versión {dietConfig.version} · Desde {new Date(dietConfig.effective_date).toLocaleDateString('es-MX')}
+                  </p>
+                </>
+              ) : (
+                <p className="text-ink-4">Sin plan asignado</p>
+              )}
+            </div>
 
-          {/* Diet Plan Card */}
-          <div className="bg-white rounded-2xl border border-ink-7 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Utensils className="w-5 h-5 text-signal" />
-              <span className="font-medium">Plan alimenticio</span>
+            {/* Gym Card */}
+            <div className="bg-white rounded-2xl border border-ink-7 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Dumbbell className="w-5 h-5 text-signal" />
+                <span className="font-medium">Entrenamiento</span>
+              </div>
+              <div className="flex items-baseline gap-2 mb-2">
+                <span className="font-serif text-4xl">{sessionsThisWeek}</span>
+                <span className="text-ink-4">esta semana</span>
+              </div>
+              <p className="text-sm text-ink-4">
+                {gymSessions.length} sesiones totales registradas
+              </p>
             </div>
-            {dietConfig ? (
-              <>
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  {(['verdura', 'fruta', 'carb', 'proteina', 'grasa', 'leguminosa'] as FoodGroup[]).map(group => (
-                    <div key={group} className={`rounded-lg p-2 text-center ${GROUP_COLORS[group]}`}>
-                      <div className="font-serif text-lg">{dietConfig[group]}</div>
-                      <div className="text-[10px] uppercase">{FOOD_GROUP_LABELS[group].slice(0, 4)}</div>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-ink-4">
-                  Versión {dietConfig.version} · Desde {new Date(dietConfig.effective_date).toLocaleDateString('es-MX')}
-                </p>
-              </>
-            ) : (
-              <p className="text-ink-4">Sin plan asignado</p>
-            )}
-          </div>
-
-          {/* Gym Card */}
-          <div className="bg-white rounded-2xl border border-ink-7 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Dumbbell className="w-5 h-5 text-signal" />
-              <span className="font-medium">Entrenamiento</span>
-            </div>
-            <div className="flex items-baseline gap-2 mb-2">
-              <span className="font-serif text-4xl">{sessionsThisWeek}</span>
-              <span className="text-ink-4">esta semana</span>
-            </div>
-            <p className="text-sm text-ink-4">
-              {gymSessions.length} sesiones totales registradas
-            </p>
           </div>
         </div>
       )}
 
       {activeTab === 'weight' && (
-        <div className="bg-white rounded-2xl border border-ink-7 overflow-hidden">
-          <div className="p-5 border-b border-ink-7">
-            <h3 className="font-medium">Historial de peso</h3>
-          </div>
-          {weightLogs.length > 0 ? (
-            <div className="divide-y divide-ink-7">
-              {weightLogs.map(log => (
-                <div key={log.id} className="p-4 flex items-center justify-between">
-                  <div>
-                    <div className="font-serif text-xl">{log.weight_kg} kg</div>
-                    <div className="text-sm text-ink-4">
-                      {new Date(log.date).toLocaleDateString('es-MX', {
-                        weekday: 'long', day: 'numeric', month: 'long'
-                      })}
-                    </div>
-                  </div>
-                  {log.notes && (
-                    <span className="text-sm text-ink-4 max-w-xs truncate">{log.notes}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-8 text-center text-ink-4">
-              Sin registros de peso
+        <div className="space-y-4">
+          {/* Charts Section */}
+          {weightLogs.length > 0 && (
+            <div className="bg-white rounded-2xl border border-ink-7 p-5">
+              <h3 className="font-medium mb-6">Tendencias</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <MetricCard
+                  label="Peso"
+                  value={weightLogs[0]?.weight_kg}
+                  unit="kg"
+                  history={weightLogs.map(w => ({ value: w.weight_kg, date: w.date }))}
+                  color="#2563eb"
+                  large
+                />
+                <MetricCard
+                  label="Grasa corporal"
+                  value={weightLogs[0]?.body_fat_percentage}
+                  unit="%"
+                  history={weightLogs.map(w => ({ value: w.body_fat_percentage, date: w.date })).filter(w => w.value != null)}
+                  color="#ef4444"
+                  large
+                />
+                <MetricCard
+                  label="Masa muscular"
+                  value={weightLogs[0]?.muscle_mass_kg}
+                  unit="kg"
+                  history={weightLogs.map(w => ({ value: w.muscle_mass_kg, date: w.date })).filter(w => w.value != null)}
+                  color="#22c55e"
+                  large
+                />
+                <MetricCard
+                  label="Grasa (kg)"
+                  value={weightLogs[0]?.body_fat_mass_kg}
+                  unit="kg"
+                  history={weightLogs.map(w => ({ value: w.body_fat_mass_kg, date: w.date })).filter(w => w.value != null)}
+                  color="#f97316"
+                  large
+                />
+              </div>
             </div>
           )}
+
+          {/* History List */}
+          <div className="bg-white rounded-2xl border border-ink-7 overflow-hidden">
+            <div className="p-5 border-b border-ink-7">
+              <h3 className="font-medium">Historial de mediciones</h3>
+            </div>
+            {weightLogs.length > 0 ? (
+              <div className="divide-y divide-ink-7">
+                {weightLogs.map(log => (
+                  <div key={log.id} className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-medium">
+                        {new Date(log.date).toLocaleDateString('es-MX', {
+                          weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <div className="text-xs text-ink-4">Peso</div>
+                        <div className="font-serif text-xl">{log.weight_kg} <span className="text-sm text-ink-4">kg</span></div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-ink-4">Grasa %</div>
+                        <div className="font-serif text-xl">
+                          {log.body_fat_percentage != null ? log.body_fat_percentage : '--'}
+                          <span className="text-sm text-ink-4">%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-ink-4">Músculo</div>
+                        <div className="font-serif text-xl">
+                          {log.muscle_mass_kg != null ? log.muscle_mass_kg : '--'}
+                          <span className="text-sm text-ink-4">kg</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-ink-4">Grasa kg</div>
+                        <div className="font-serif text-xl">
+                          {log.body_fat_mass_kg != null ? log.body_fat_mass_kg : '--'}
+                          <span className="text-sm text-ink-4">kg</span>
+                        </div>
+                      </div>
+                    </div>
+                    {log.notes && (
+                      <p className="text-sm text-ink-4 mt-2 pt-2 border-t border-ink-7">{log.notes}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center text-ink-4">
+                Sin registros de peso
+              </div>
+            )}
+          </div>
         </div>
       )}
 

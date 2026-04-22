@@ -12,6 +12,8 @@ import {
   BookOpen,
   Flame,
   X,
+  UserPlus,
+  Check,
 } from 'lucide-react'
 import { PulseLine } from '@/components/ui/PulseLine'
 import type { FoodGroup, FoodLog, WeightLog, Habit, HabitLog, GymSession, ScheduleOverride, DailyBudget } from '@/types'
@@ -34,6 +36,8 @@ export default function DashboardPage() {
   const [scheduleOverrides, setScheduleOverrides] = useState<ScheduleOverride[]>([])
   const [userBudget, setUserBudget] = useState<DailyBudget>(DEFAULT_DAILY_BUDGET)
   const [error, setError] = useState<string | null>(null)
+  const [pendingInvitations, setPendingInvitations] = useState<{ id: string; practitioner_name: string }[]>([])
+  const [acceptingInvite, setAcceptingInvite] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) loadData()
@@ -75,10 +79,50 @@ export default function DashboardPage() {
           grasa: config.grasa,
         })
       }
+
+      // Load pending practitioner invitations
+      const { data: invitations } = await (supabase as any)
+        .from('practitioner_patients')
+        .select('id, practitioner_id')
+        .eq('patient_id', user?.id)
+        .eq('status', 'pending')
+
+      if (invitations && invitations.length > 0) {
+        // Get practitioner names
+        const practitionerIds = invitations.map((i: any) => i.practitioner_id)
+        const { data: practitioners } = await (supabase as any)
+          .from('practitioners')
+          .select('id, display_name')
+          .in('id', practitionerIds)
+
+        const invitesWithNames = invitations.map((inv: any) => {
+          const pract = practitioners?.find((p: any) => p.id === inv.practitioner_id)
+          return {
+            id: inv.id,
+            practitioner_name: pract?.display_name || 'Nutricionista'
+          }
+        })
+        setPendingInvitations(invitesWithNames)
+      }
     } catch (err) {
       setError('Error al cargar datos')
     }
     setLoading(false)
+  }
+
+  const acceptInvitation = async (invitationId: string) => {
+    setAcceptingInvite(invitationId)
+    try {
+      await (supabase as any)
+        .from('practitioner_patients')
+        .update({ status: 'active', accepted_at: new Date().toISOString() })
+        .eq('id', invitationId)
+
+      setPendingInvitations(prev => prev.filter(i => i.id !== invitationId))
+    } catch (err) {
+      console.error('Error accepting invitation:', err)
+    }
+    setAcceptingInvite(null)
   }
 
   // Calculate consumed per group
@@ -161,6 +205,40 @@ export default function DashboardPage() {
               <X className="w-4 h-4" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Pending Invitations */}
+      {pendingInvitations.length > 0 && (
+        <div className="mx-5 mb-4 space-y-2">
+          {pendingInvitations.map(inv => (
+            <div
+              key={inv.id}
+              className="p-4 bg-sky-soft border border-sky/20 rounded-xl flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-sky/20 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5 text-sky" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{inv.practitioner_name}</p>
+                  <p className="text-xs text-ink-4">Te ha invitado como paciente</p>
+                </div>
+              </div>
+              <button
+                onClick={() => acceptInvitation(inv.id)}
+                disabled={acceptingInvite === inv.id}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-sky text-white text-sm font-medium hover:bg-sky/90 disabled:opacity-50"
+              >
+                {acceptingInvite === inv.id ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                Aceptar
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
