@@ -96,6 +96,7 @@ export interface FoodLog {
   group_type: FoodGroup
   quantity: number
   food_name?: string
+  favorite_name?: string  // Groups items that came from same favorite
   created_at: string
 }
 

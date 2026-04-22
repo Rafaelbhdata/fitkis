@@ -188,6 +188,7 @@ export default function FoodPage() {
           group_type: item.group_type,
           quantity: item.quantity,
           food_name: item.food_name,
+          favorite_name: fav.name,
         })
       }
       await loadFoodLogs()
@@ -528,35 +529,92 @@ export default function FoodPage() {
 
                     {hasLogs ? (
                       <div className="space-y-2 ml-11">
-                        {logs.map(log => (
-                          <div
-                            key={log.id}
-                            className="flex items-center justify-between py-2 px-3 rounded-lg bg-paper-2 group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <span
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
-                                style={{ backgroundColor: `${FOOD_COLORS[log.group_type].fill}20` }}
-                              >
-                                {FOOD_COLORS[log.group_type].emoji}
-                              </span>
-                              <div>
-                                <div className="text-sm font-medium">
-                                  {log.food_name || FOOD_GROUP_LABELS[log.group_type]}
+                        {(() => {
+                          // Group logs by favorite_name
+                          const grouped: { favorite: string | null; items: typeof logs }[] = []
+                          let currentFav: string | null = null
+                          let currentItems: typeof logs = []
+
+                          logs.forEach((log, idx) => {
+                            if (log.favorite_name !== currentFav) {
+                              if (currentItems.length > 0) {
+                                grouped.push({ favorite: currentFav, items: currentItems })
+                              }
+                              currentFav = log.favorite_name || null
+                              currentItems = [log]
+                            } else {
+                              currentItems.push(log)
+                            }
+                            if (idx === logs.length - 1 && currentItems.length > 0) {
+                              grouped.push({ favorite: currentFav, items: currentItems })
+                            }
+                          })
+
+                          return grouped.map((group, groupIdx) => (
+                            group.favorite ? (
+                              // Favorite group
+                              <div key={`fav-${groupIdx}`} className="rounded-xl bg-honey-soft/30 border border-honey/20 overflow-hidden">
+                                <div className="flex items-center justify-between px-3 py-2 bg-honey-soft/50">
+                                  <div className="flex items-center gap-2">
+                                    <Star className="w-4 h-4 text-honey fill-honey" />
+                                    <span className="text-sm font-medium">{group.favorite}</span>
+                                  </div>
+                                  <button
+                                    onClick={async () => {
+                                      for (const item of group.items) {
+                                        await (supabase.from('food_logs') as any).delete().eq('id', item.id)
+                                      }
+                                      setFoodLogs(foodLogs.filter(f => !group.items.some(g => g.id === f.id)))
+                                    }}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft transition-all"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
-                                <div className="text-xs text-ink-4">
-                                  {log.quantity} {log.quantity === 1 ? 'equivalente' : 'equivalentes'}
+                                <div className="px-3 py-2 space-y-1">
+                                  {group.items.map(log => (
+                                    <div key={log.id} className="flex items-center gap-2 text-sm text-ink-3">
+                                      <span>{FOOD_COLORS[log.group_type].emoji}</span>
+                                      <span>{log.food_name || FOOD_GROUP_LABELS[log.group_type]}</span>
+                                      <span className="text-ink-5">×{log.quantity}</span>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
-                            </div>
-                            <button
-                              onClick={() => deleteFood(log.id)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft opacity-0 group-hover:opacity-100 transition-all"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
+                            ) : (
+                              // Individual items (no favorite)
+                              group.items.map(log => (
+                                <div
+                                  key={log.id}
+                                  className="flex items-center justify-between py-2 px-3 rounded-lg bg-paper-2 group"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span
+                                      className="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
+                                      style={{ backgroundColor: `${FOOD_COLORS[log.group_type].fill}20` }}
+                                    >
+                                      {FOOD_COLORS[log.group_type].emoji}
+                                    </span>
+                                    <div>
+                                      <div className="text-sm font-medium">
+                                        {log.food_name || FOOD_GROUP_LABELS[log.group_type]}
+                                      </div>
+                                      <div className="text-xs text-ink-4">
+                                        {log.quantity} {log.quantity === 1 ? 'equivalente' : 'equivalentes'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => deleteFood(log.id)}
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft opacity-0 group-hover:opacity-100 transition-all"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ))
+                            )
+                          ))
+                        })()}
                       </div>
                     ) : (
                       <p className="text-sm text-ink-4 ml-11">Sin registros</p>
