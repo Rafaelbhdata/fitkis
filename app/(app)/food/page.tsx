@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Plus, Search, X, Minus, Mic, Droplet, Star } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Search, X, Minus, Mic, Droplet, Star, Camera, Barcode } from 'lucide-react'
 import { getToday } from '@/lib/utils'
 import { FOOD_GROUP_LABELS, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 import type { DailyBudget, FoodEquivalent } from '@/types'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
 import { PulseLine } from '@/components/ui/PulseLine'
+import { PlatePhotoModal } from '@/components/food/PlatePhotoModal'
+import { BarcodeScannerModal } from '@/components/food/BarcodeScannerModal'
 import type { MealType, FoodGroup, FoodLog, FavoriteMeal, CustomFood, ActiveMeals } from '@/types'
 
 const DEFAULT_ACTIVE_MEALS: ActiveMeals = {
@@ -66,6 +68,8 @@ export default function FoodPage() {
   const [searchingFoods, setSearchingFoods] = useState(false)
   const [showFavoritesCategory, setShowFavoritesCategory] = useState(false)
   const [activeMeals, setActiveMeals] = useState<ActiveMeals>(DEFAULT_ACTIVE_MEALS)
+  const [showPhotoModal, setShowPhotoModal] = useState(false)
+  const [showBarcodeModal, setShowBarcodeModal] = useState(false)
 
   // Filter meals based on what's active for this user
   const meals = ALL_MEALS.filter(m => activeMeals[m.key])
@@ -223,6 +227,22 @@ export default function FoodPage() {
       await (supabase.from('food_logs') as any).delete().eq('id', id)
       setFoodLogs(foodLogs.filter(f => f.id !== id))
     } catch (err) { setError('Error al eliminar alimento') }
+  }
+
+  const addItemsFromPhoto = async (items: { group_type: FoodGroup; quantity: number; food_name: string }[]) => {
+    if (!user) return
+    for (const item of items) {
+      await (supabase.from('food_logs') as any).insert({
+        user_id: user.id,
+        date: todayStr,
+        meal: selectedMeal,
+        group_type: item.group_type,
+        quantity: item.quantity,
+        food_name: item.food_name,
+      })
+    }
+    await loadFoodLogs()
+    showToast(`${items.length} alimentos agregados`)
   }
 
   // Calculate consumed per group
@@ -459,13 +479,29 @@ export default function FoodPage() {
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
-          <button
-            onClick={() => { setSelectedMeal(currentMeal); setShowAddModal(true) }}
-            className="px-5 py-2.5 rounded-full bg-signal text-white text-sm font-medium flex items-center gap-2 hover:bg-signal/90 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Registrar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setSelectedMeal(currentMeal); setShowBarcodeModal(true) }}
+              className="w-11 h-11 rounded-full border border-ink-7 flex items-center justify-center hover:bg-paper-2 transition-colors"
+              title="Escanear código"
+            >
+              <Barcode className="w-5 h-5 text-sky" />
+            </button>
+            <button
+              onClick={() => { setSelectedMeal(currentMeal); setShowPhotoModal(true) }}
+              className="w-11 h-11 rounded-full border border-ink-7 flex items-center justify-center hover:bg-paper-2 transition-colors"
+              title="Analizar foto"
+            >
+              <Camera className="w-5 h-5 text-signal" />
+            </button>
+            <button
+              onClick={() => { setSelectedMeal(currentMeal); setShowAddModal(true) }}
+              className="px-5 py-2.5 rounded-full bg-signal text-white text-sm font-medium flex items-center gap-2 hover:bg-signal/90 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Registrar
+            </button>
+          </div>
         </div>
 
         <h1 className="font-serif text-3xl md:text-4xl font-light tracking-tight">
@@ -977,6 +1013,24 @@ export default function FoodPage() {
           </div>
         </>
       )}
+
+      {/* Plate Photo Modal */}
+      <PlatePhotoModal
+        isOpen={showPhotoModal}
+        onClose={() => setShowPhotoModal(false)}
+        selectedMeal={selectedMeal}
+        mealLabel={meals.find(m => m.key === selectedMeal)?.label || selectedMeal}
+        onAddItems={addItemsFromPhoto}
+      />
+
+      {/* Barcode Scanner Modal */}
+      <BarcodeScannerModal
+        isOpen={showBarcodeModal}
+        onClose={() => setShowBarcodeModal(false)}
+        selectedMeal={selectedMeal}
+        mealLabel={meals.find(m => m.key === selectedMeal)?.label || selectedMeal}
+        onAddItems={addItemsFromPhoto}
+      />
     </div>
   )
 }

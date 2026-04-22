@@ -8,6 +8,64 @@
 ---
 
 ## Ultimo agente
+Agente: Sprint 2 - Smart Food Logging & Coach AI
+Fecha: 22 de abril 2026
+Que hizo:
+
+### Sprint 2 - Smart Food Logging & Coach AI (22 abril) ✅
+
+**Feature 1: Análisis de Fotos de Platos con Claude Vision**
+- **`app/api/plate-analysis/route.ts`**: API endpoint que usa Claude Vision para analizar fotos de platos
+  - Detecta alimentos en la foto y estima equivalentes SMAE
+  - Niveles de confianza: alta/media/baja
+  - Logs de análisis para revisión del practitioner
+- **`supabase/migrations/010_plate_analysis.sql`**: Tabla `plate_analysis_logs`
+- **`components/food/PlatePhotoModal.tsx`**: Modal multi-paso
+  - Captura foto desde cámara (capture="environment")
+  - Muestra análisis con equivalentes editables
+  - Badges de confianza para cada alimento
+
+**Feature 2: Escáner de Códigos de Barras + Open Food Facts**
+- **`app/api/barcode-lookup/route.ts`**: API para búsqueda de productos
+  - Integración con Open Food Facts API
+  - Conversión automática de nutrientes a equivalentes SMAE
+  - Cache en Supabase para lookups repetidos
+- **`supabase/migrations/011_barcode_cache.sql`**: Tabla `barcode_cache`
+- **`components/food/BarcodeScannerModal.tsx`**: Escáner con fallback
+  - BarcodeDetector API nativo (Chrome/Edge)
+  - Input manual para navegadores sin soporte
+  - Muestra producto con equivalentes estimados editables
+
+**Feature 3: Alertas de Practicantes**
+- **`app/(clinic)/clinic/page.tsx`**: Sección de alertas en dashboard
+  - Pacientes inactivos (configurable días)
+  - Pacientes con ganancia de peso en 30 días
+  - Ordenados por prioridad (cambio de peso mayor primero)
+
+**Feature 4: Coach AI con Contexto de Paciente**
+- **`app/api/chat/route.ts`**: System prompt dinámico
+  - Detecta si usuario tiene practitioner asignado
+  - Incluye nombre del nutricionista y notas del plan
+  - Muestra presupuesto personalizado del paciente
+  - Progreso del día actualizado en cada llamada
+  - Peso actual, meta, y cambio de 30 días
+- **`app/api/suggested-prompts/route.ts`**: Prompts dinámicos contextuales
+  - Basados en hora del día (sugerir registrar comida actual)
+  - Basados en presupuesto restante (faltan verduras, etc.)
+  - Alertas de over-budget (pasaste de grasa, etc.)
+  - Rutina de gym del día
+- **`components/coach/CoachBubble.tsx`**: Quick actions dinámicos
+  - Fetch de prompts sugeridos al abrir chat
+  - Fallback a prompts estáticos si falla
+
+**Archivos modificados en food/page.tsx:**
+- Botones de cámara y código de barras en header
+- Integración de PlatePhotoModal y BarcodeScannerModal
+- Función `addItemsFromPhoto` para agregar múltiples items
+
+---
+
+## Agente Anterior
 Agente: B2B Practitioner Platform
 Fecha: 22 de abril 2026
 Que hizo:
@@ -1040,6 +1098,8 @@ npx tsc --noEmit   # Verificar TypeScript
 - `007_food_equivalents.sql` - food_equivalents (BD SMAE con 2,537 alimentos)
 - `008_food_logs_favorite_name.sql` - Columna favorite_name para agrupar items de favoritos
 - `009_practitioner_model.sql` - ✅ B2B: practitioners, practitioner_patients, RLS, 6 meals
+- `010_plate_analysis.sql` - ✅ plate_analysis_logs para análisis de fotos
+- `011_barcode_cache.sql` - ✅ barcode_cache para Open Food Facts
 
 ---
 

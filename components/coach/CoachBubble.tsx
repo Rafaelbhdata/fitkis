@@ -9,15 +9,20 @@ interface Message {
   content: string;
 }
 
+interface SuggestedPrompt {
+  label: string;
+  message: string;
+}
+
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
   content: 'Hola, soy Coach. Puedo registrar tu comida, consultar tu progreso, o resolver dudas de nutricion. En que te ayudo?',
 };
 
-const QUICK_ACTIONS = [
-  { label: 'Que me queda?', message: 'Cuantos equivalentes me quedan hoy?' },
-  { label: 'Ideas cena', message: 'Dame ideas para la cena' },
-  { label: 'Que rutina?', message: 'Que rutina me toca hoy?' },
+const DEFAULT_QUICK_ACTIONS: SuggestedPrompt[] = [
+  { label: '📋 ¿Qué me queda?', message: '¿Cuántos equivalentes me quedan hoy?' },
+  { label: '💡 Ideas cena', message: 'Dame ideas para la cena' },
+  { label: '💪 ¿Qué rutina?', message: '¿Qué rutina me toca hoy?' },
 ];
 
 export default function CoachBubble() {
@@ -25,6 +30,8 @@ export default function CoachBubble() {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [suggestedPrompts, setSuggestedPrompts] = useState<SuggestedPrompt[]>(DEFAULT_QUICK_ACTIONS);
+  const [loadingPrompts, setLoadingPrompts] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -41,6 +48,29 @@ export default function CoachBubble() {
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  // Fetch dynamic suggested prompts when chat opens
+  useEffect(() => {
+    if (isOpen && messages.length === 1) {
+      const fetchPrompts = async () => {
+        setLoadingPrompts(true);
+        try {
+          const response = await fetch('/api/suggested-prompts');
+          if (response.ok) {
+            const data = await response.json();
+            if (data.prompts && data.prompts.length > 0) {
+              setSuggestedPrompts(data.prompts);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching suggested prompts:', error);
+        } finally {
+          setLoadingPrompts(false);
+        }
+      };
+      fetchPrompts();
+    }
+  }, [isOpen, messages.length]);
 
   const sendMessage = async (content: string) => {
     if (!content.trim() || isLoading) return;
@@ -158,15 +188,22 @@ export default function CoachBubble() {
             {/* Quick Actions */}
             {messages.length === 1 && (
               <div className="flex gap-2 px-4 pb-2 overflow-x-auto bg-paper-2">
-                {QUICK_ACTIONS.map((action, index) => (
-                  <button
-                    key={index}
-                    onClick={() => sendMessage(action.message)}
-                    className="px-3 py-1.5 text-xs bg-white border border-ink-7 rounded-full hover:border-signal hover:text-signal transition-colors whitespace-nowrap flex-shrink-0"
-                  >
-                    {action.label}
-                  </button>
-                ))}
+                {loadingPrompts ? (
+                  <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-ink-4">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Cargando...</span>
+                  </div>
+                ) : (
+                  suggestedPrompts.map((action, index) => (
+                    <button
+                      key={index}
+                      onClick={() => sendMessage(action.message)}
+                      className="px-3 py-1.5 text-xs bg-white border border-ink-7 rounded-full hover:border-signal hover:text-signal transition-colors whitespace-nowrap flex-shrink-0"
+                    >
+                      {action.label}
+                    </button>
+                  ))
+                )}
               </div>
             )}
 

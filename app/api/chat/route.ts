@@ -461,14 +461,24 @@ async function executeTool(
     }
 
     case 'get_daily_budget': {
-      // Check if user has custom budget in settings
-      const { data: settings } = await supabase
-        .from('user_settings')
-        .select('daily_budget')
+      // Check if user has active diet config
+      const { data: dietConfig } = await supabase
+        .from('diet_configs')
+        .select('*')
         .eq('user_id', userId)
+        .eq('active', true)
+        .order('effective_date', { ascending: false })
+        .limit(1)
         .single()
 
-      const budget = settings?.daily_budget || DAILY_BUDGET
+      const budget = dietConfig ? {
+        verdura: dietConfig.verdura,
+        fruta: dietConfig.fruta,
+        carb: dietConfig.carb,
+        leguminosa: dietConfig.leguminosa,
+        proteina: dietConfig.proteina,
+        grasa: dietConfig.grasa,
+      } : DAILY_BUDGET
       return JSON.stringify(budget)
     }
 
@@ -494,22 +504,225 @@ async function executeTool(
   }
 }
 
-const SYSTEM_PROMPT = `Eres el Coach AI personal de FitKis, una app de fitness y nutrición. Tu nombre es Coach Fit.
+// Patient context for Coach AI
+interface PatientContext {
+  hasPractitioner: boolean
+  practitionerName?: string
+  clinicName?: string
+  dailyBudget: {
+    verdura: number
+    fruta: number
+    carb: number
+    leguminosa: number
+    proteina: number
+    grasa: number
+  }
+  activeMeals: Record<string, boolean>
+  todayProgress: {
+    verdura: number
+    fruta: number
+    carb: number
+    leguminosa: number
+    proteina: number
+    grasa: number
+  }
+  currentWeight?: number
+  goalWeight?: number
+  weightChange30d?: number
+  prescriptionNotes?: string
+}
 
-SOBRE EL USUARIO:
-- Hombre de 163 cm que está bajando de peso
-- Entrena 4 días a la semana con pesas (rutina Upper/Lower)
-- Sigue un plan de alimentación por equivalentes (sistema mexicano)
-- Meta: bajar de peso de forma sostenible
+async function getPatientContext(
+  supabase: ReturnType<typeof createRouteHandlerClient>,
+  userId: string
+): Promise<PatientContext> {
+  const today = new Date().toISOString().split('T')[0]
 
+  // Check if user has an active practitioner relationship
+  const { data: relationship } = await supabase
+    .from('practitioner_patients')
+    .select(`
+      status,
+      practitioners (
+        display_name,
+        clinic_name
+      )
+    `)
+    .eq('patient_id', userId)
+    .eq('status', 'active')
+    .single()
+
+  // Get active diet config
+  const { data: dietConfig } = await supabase
+    .from('diet_configs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('active', true)
+    .order('effective_date', { ascending: false })
+    .limit(1)
+    .single()
+
+  // Get today's food logs for progress
+  const { data: todayLogs } = await supabase
+    .from('food_logs')
+    .select('group_type, quantity')
+    .eq('user_id', userId)
+    .eq('date', today)
+
+  // Calculate today's progress
+  const progress = {
+    verdura: 0,
+    fruta: 0,
+    carb: 0,
+    leguminosa: 0,
+    proteina: 0,
+    grasa: 0,
+  }
+  if (todayLogs) {
+    todayLogs.forEach((log: { group_type: FoodGroup; quantity: number }) => {
+      if (log.group_type in progress) {
+        progress[log.group_type as keyof typeof progress] += log.quantity
+      }
+    })
+  }
+
+  // Get current weight and 30-day change
+  const { data: weightLogs } = await supabase
+    .from('weight_logs')
+    .select('weight_kg, date')
+    .eq('user_id', userId)
+    .order('date', { ascending: false })
+    .limit(30)
+
+  let currentWeight: number | undefined
+  let weightChange30d: number | undefined
+  if (weightLogs && weightLogs.length > 0) {
+    currentWeight = weightLogs[0].weight_kg
+    if (weightLogs.length > 1) {
+      const oldestWeight = weightLogs[weightLogs.length - 1].weight_kg
+      weightChange30d = currentWeight - oldestWeight
+    }
+  }
+
+  // Get goal weight from user profile
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('goal_weight_kg')
+    .eq('user_id', userId)
+    .single()
+
+  // Build default budget
+  const defaultBudget = {
+    verdura: 4,
+    fruta: 2,
+    carb: 4,
+    leguminosa: 1,
+    proteina: 8,
+    grasa: 6,
+  }
+
+  // Build active meals (default all enabled)
+  const defaultActiveMeals = {
+    desayuno: true,
+    snack1: true,
+    comida: true,
+    snack2: true,
+    cena: true,
+    snack3: true,
+  }
+
+  return {
+    hasPractitioner: !!relationship && !!relationship.practitioners,
+    practitionerName: relationship?.practitioners?.display_name,
+    clinicName: relationship?.practitioners?.clinic_name,
+    dailyBudget: dietConfig ? {
+      verdura: dietConfig.verdura,
+      fruta: dietConfig.fruta,
+      carb: dietConfig.carb,
+      leguminosa: dietConfig.leguminosa,
+      proteina: dietConfig.proteina,
+      grasa: dietConfig.grasa,
+    } : defaultBudget,
+    activeMeals: dietConfig?.active_meals || defaultActiveMeals,
+    todayProgress: progress,
+    currentWeight,
+    goalWeight: profile?.goal_weight_kg,
+    weightChange30d,
+    prescriptionNotes: dietConfig?.notes,
+  }
+}
+
+function buildSystemPrompt(context: PatientContext): string {
+  // Build practitioner context section
+  const practitionerSection = context.hasPractitioner
+    ? `
+SOBRE TU NUTRICIONISTA:
+- Tu nutricionista es ${context.practitionerName}${context.clinicName ? ` de ${context.clinicName}` : ''}
+- El plan que sigues fue diseñado específicamente para ti
+${context.prescriptionNotes ? `- Notas del plan: ${context.prescriptionNotes}` : ''}
+- Si tienes dudas sobre cambios al plan, recuerda consultar con tu nutricionista
+`
+    : ''
+
+  // Build budget section
+  const budgetSection = `
 SISTEMA DE EQUIVALENTES:
-El usuario tiene un presupuesto diario de grupos alimenticios:
-- Verdura: 4 equivalentes
-- Fruta: 2 equivalentes
-- Carbohidratos: 4 equivalentes
-- Leguminosa: 1 equivalente
-- Proteína: 8 equivalentes
-- Grasa: 6 equivalentes
+Tu presupuesto diario de grupos alimenticios:
+- Verdura: ${context.dailyBudget.verdura} equivalentes
+- Fruta: ${context.dailyBudget.fruta} equivalentes
+- Carbohidratos: ${context.dailyBudget.carb} equivalentes
+- Leguminosa: ${context.dailyBudget.leguminosa} equivalente(s)
+- Proteína: ${context.dailyBudget.proteina} equivalentes
+- Grasa: ${context.dailyBudget.grasa} equivalentes`
+
+  // Build progress section
+  const remaining = {
+    verdura: context.dailyBudget.verdura - context.todayProgress.verdura,
+    fruta: context.dailyBudget.fruta - context.todayProgress.fruta,
+    carb: context.dailyBudget.carb - context.todayProgress.carb,
+    leguminosa: context.dailyBudget.leguminosa - context.todayProgress.leguminosa,
+    proteina: context.dailyBudget.proteina - context.todayProgress.proteina,
+    grasa: context.dailyBudget.grasa - context.todayProgress.grasa,
+  }
+
+  const progressSection = `
+PROGRESO DE HOY:
+- Verdura: ${context.todayProgress.verdura}/${context.dailyBudget.verdura} (faltan ${Math.max(0, remaining.verdura)})
+- Fruta: ${context.todayProgress.fruta}/${context.dailyBudget.fruta} (faltan ${Math.max(0, remaining.fruta)})
+- Carbohidratos: ${context.todayProgress.carb}/${context.dailyBudget.carb} (faltan ${Math.max(0, remaining.carb)})
+- Leguminosa: ${context.todayProgress.leguminosa}/${context.dailyBudget.leguminosa} (faltan ${Math.max(0, remaining.leguminosa)})
+- Proteína: ${context.todayProgress.proteina}/${context.dailyBudget.proteina} (faltan ${Math.max(0, remaining.proteina)})
+- Grasa: ${context.todayProgress.grasa}/${context.dailyBudget.grasa} (faltan ${Math.max(0, remaining.grasa)})`
+
+  // Build weight section
+  const weightSection = context.currentWeight
+    ? `
+PESO:
+- Peso actual: ${context.currentWeight} kg
+${context.goalWeight ? `- Meta: ${context.goalWeight} kg` : ''}
+${context.weightChange30d !== undefined ? `- Cambio últimos 30 días: ${context.weightChange30d > 0 ? '+' : ''}${context.weightChange30d.toFixed(1)} kg` : ''}`
+    : ''
+
+  // Build active meals section
+  const activeMealsList = Object.entries(context.activeMeals)
+    .filter(([_, enabled]) => enabled)
+    .map(([meal]) => meal)
+
+  const mealsSection = `
+COMIDAS HABILITADAS:
+${activeMealsList.includes('desayuno') ? '- desayuno (mañana)' : ''}
+${activeMealsList.includes('snack1') ? '- snack1 (media mañana)' : ''}
+${activeMealsList.includes('comida') ? '- comida (mediodía)' : ''}
+${activeMealsList.includes('snack2') ? '- snack2 (tarde)' : ''}
+${activeMealsList.includes('cena') ? '- cena (noche)' : ''}
+${activeMealsList.includes('snack3') ? '- snack3 (antes de dormir)' : ''}`
+
+  return `Eres el Coach AI personal de FitKis, una app de fitness y nutrición. Tu nombre es Coach Fit.
+${practitionerSection}
+${budgetSection}
+${progressSection}
+${weightSection}
+${mealsSection}
 
 Un equivalente es una porción estándar de un alimento. Por ejemplo:
 - 1 huevo = 1 proteína
@@ -524,10 +737,11 @@ REGLAS ESPECIALES:
 TU ROL:
 1. Ayudar a registrar alimentos cuando el usuario te dice qué comió
 2. Razonar sobre alimentos no estándar (ej: "hamburguesa de pollo sin pan" → preguntar ingredientes y convertir a equivalentes)
-3. Sugerir ideas de comidas y menús dentro del presupuesto
+3. Sugerir ideas de comidas y menús dentro del presupuesto restante
 4. Consultar y actualizar datos de gimnasio (pesos, reps)
 5. Dar consejos de entrenamiento y nutrición
 6. Ser motivador pero realista
+${context.hasPractitioner ? '7. Recordar que el plan fue diseñado por su nutricionista y respetar sus indicaciones' : ''}
 
 CUANDO EL USUARIO MENCIONE COMIDA:
 1. Primero pregunta detalles si es necesario (cantidad, ingredientes, cómo estaba preparado)
@@ -535,7 +749,7 @@ CUANDO EL USUARIO MENCIONE COMIDA:
 3. Convierte a equivalentes y registra usando add_food_log UNA VEZ por cada grupo alimenticio
 4. IMPORTANTE: Cada alimento se registra UNA SOLA VEZ. No dupliques llamadas a add_food_log.
 5. Puedes hacer múltiples llamadas a add_food_log en una sola respuesta (una por cada grupo diferente)
-6. Confirma lo registrado y muestra el presupuesto restante
+6. Confirma lo registrado y muestra el presupuesto restante actualizado
 
 ESTILO:
 - Habla en español casual (tuteo)
@@ -550,17 +764,8 @@ GRUPOS ALIMENTICIOS Y SUS CÓDIGOS:
 - carb = Carbohidratos
 - proteina = Proteínas (carnes, huevos, lácteos)
 - grasa = Grasas (aguacate, nueces, aceites)
-- leguminosa = Leguminosas (frijoles, lentejas, garbanzos)
-
-COMIDAS DEL DÍA:
-- desayuno (mañana)
-- snack1 (media mañana)
-- comida (mediodía)
-- snack2 (tarde)
-- cena (noche)
-- snack3 (antes de dormir)
-
-Nota: No todos los usuarios tienen todas las comidas habilitadas. Pregunta la hora aproximada si no queda claro.`
+- leguminosa = Leguminosas (frijoles, lentejas, garbanzos)`
+}
 
 export async function POST(request: Request) {
   try {
@@ -573,6 +778,10 @@ export async function POST(request: Request) {
 
     const { messages } = await request.json()
 
+    // Get patient context for personalized system prompt
+    const patientContext = await getPatientContext(supabase, user.id)
+    const systemPrompt = buildSystemPrompt(patientContext)
+
     // Maintain conversation history through tool-use loop
     let conversationMessages = [...messages]
 
@@ -580,7 +789,7 @@ export async function POST(request: Request) {
     let response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       tools,
       messages: conversationMessages,
     })
@@ -618,7 +827,7 @@ export async function POST(request: Request) {
       response = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         tools,
         messages: conversationMessages,
       })

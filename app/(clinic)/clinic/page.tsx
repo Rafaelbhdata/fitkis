@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Search, Users, Scale, Calendar, ChevronRight, Mail, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { Plus, Search, Users, Scale, Calendar, ChevronRight, Mail, Clock, CheckCircle, XCircle, AlertTriangle, TrendingUp, Bell } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
 import type { PatientStatus, UserProfile, WeightLog, DietConfig } from '@/types'
@@ -32,6 +32,9 @@ interface PatientData {
     effective_date: string
     version: number
   }
+  // Alert data
+  days_since_activity?: number
+  weight_change_30d?: number
 }
 
 // Mini sparkline component with hover
@@ -208,6 +211,22 @@ export default function ClinicDashboard() {
               .limit(1)
               .single()
 
+            // Calculate days since last activity
+            let daysSinceActivity: number | undefined
+            if (weightHistory && weightHistory.length > 0) {
+              const lastDate = new Date(weightHistory[0].date)
+              const now = new Date()
+              daysSinceActivity = Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+            }
+
+            // Calculate weight change over 30 days
+            let weightChange30d: number | undefined
+            if (weightHistory && weightHistory.length >= 2) {
+              const latest = weightHistory[0].weight_kg
+              const oldest = weightHistory[weightHistory.length - 1].weight_kg
+              weightChange30d = latest - oldest
+            }
+
             return {
               id: rel.relation_id,
               patient_id: rel.patient_id,
@@ -219,6 +238,8 @@ export default function ClinicDashboard() {
               patient_profile: profile || undefined,
               weight_history: weightHistory || [],
               latest_diet: diet || undefined,
+              days_since_activity: daysSinceActivity,
+              weight_change_30d: weightChange30d,
             }
           })
         )
@@ -307,6 +328,22 @@ export default function ClinicDashboard() {
 
   const activeCount = patients.filter(p => p.status === 'active').length
   const pendingCount = patients.filter(p => p.status === 'pending').length
+
+  // Patients needing attention (configurable thresholds)
+  const inactivityThreshold = 7 // days
+  const needsAttention = patients.filter(p =>
+    p.status === 'active' && (
+      (p.days_since_activity !== undefined && p.days_since_activity >= inactivityThreshold) ||
+      (p.weight_change_30d !== undefined && p.weight_change_30d > 0)
+    )
+  ).sort((a, b) => {
+    // Prioritize: no activity > weight gain
+    const aInactive = (a.days_since_activity ?? 0) >= inactivityThreshold
+    const bInactive = (b.days_since_activity ?? 0) >= inactivityThreshold
+    if (aInactive && !bInactive) return -1
+    if (!aInactive && bInactive) return 1
+    return (b.weight_change_30d || 0) - (a.weight_change_30d || 0)
+  })
 
   if (userLoading || loading) {
     return (
@@ -401,6 +438,67 @@ export default function ClinicDashboard() {
           <div className="text-xs text-ink-4">Citas hoy</div>
         </div>
       </div>
+
+      {/* Alerts Section */}
+      {needsAttention.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-full bg-honey flex items-center justify-center">
+              <Bell className="w-4 h-4 text-white" />
+            </div>
+            <h2 className="font-medium">Requieren atención</h2>
+            <span className="ml-auto px-2.5 py-0.5 rounded-full bg-honey-soft text-honey text-sm font-medium">
+              {needsAttention.length}
+            </span>
+          </div>
+          <div className="bg-honey-soft/30 border border-honey/20 rounded-2xl overflow-hidden">
+            <div className="divide-y divide-honey/10">
+              {needsAttention.slice(0, 4).map((patient) => {
+                const isInactive = (patient.days_since_activity ?? 0) >= inactivityThreshold
+                return (
+                  <Link
+                    key={patient.id}
+                    href={`/clinic/patient/${patient.patient_id}`}
+                    className="flex items-center justify-between p-4 hover:bg-honey-soft/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        isInactive ? 'bg-honey-soft' : 'bg-berry-soft'
+                      }`}>
+                        {isInactive ? (
+                          <Clock className="w-5 h-5 text-honey" />
+                        ) : (
+                          <TrendingUp className="w-5 h-5 text-berry" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm">
+                          {patient.patient_name || patient.patient_email?.split('@')[0]}
+                        </div>
+                        <div className="text-xs text-ink-4">
+                          {isInactive
+                            ? `Sin actividad hace ${patient.days_since_activity} días`
+                            : `Subió ${patient.weight_change_30d?.toFixed(1)} kg en 30 días`
+                          }
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-ink-4" />
+                  </Link>
+                )
+              })}
+            </div>
+            {needsAttention.length > 4 && (
+              <Link
+                href="/clinic/reports"
+                className="block text-center py-3 text-sm text-honey font-medium hover:bg-honey-soft/30 transition-colors border-t border-honey/10"
+              >
+                Ver todos ({needsAttention.length})
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative mb-6">
