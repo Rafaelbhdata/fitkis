@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { PulseLine } from './ui/PulseLine';
-import { Home, Apple, Plus, Dumbbell, Grid3X3 } from 'lucide-react';
+import { Home, Apple, Plus, Dumbbell, Grid3X3, LucideIcon } from 'lucide-react';
 
 type Item = {
   id: string;
   label: string;
   href: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: LucideIcon;
   primary?: boolean;
 };
 
