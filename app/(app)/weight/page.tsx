@@ -116,8 +116,8 @@ export default function WeightPage() {
   const loadPhotos = async () => {
     if (!user) return
     try {
-      const { data, error: fetchError } = await supabase
-        .from('progress_photos')
+      const { data, error: fetchError } = await (supabase
+        .from('progress_photos') as any)
         .select('*')
         .order('date', { ascending: false })
         .limit(50)
@@ -157,8 +157,8 @@ export default function WeightPage() {
       if (uploadError) throw uploadError
 
       // Save to database
-      const { error: dbError } = await supabase
-        .from('progress_photos')
+      const { error: dbError } = await (supabase
+        .from('progress_photos') as any)
         .upsert({
           user_id: user.id,
           date: today,
