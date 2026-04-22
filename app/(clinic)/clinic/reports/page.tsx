@@ -155,7 +155,7 @@ export default function ClinicReportsPage() {
 
         // Add food activity
         if (recentFood && recentFood.length > 0) {
-          const uniqueDates = [...new Set(recentFood.map((f: any) => f.date))].slice(0, 2)
+          const uniqueDates = Array.from(new Set(recentFood.map((f: any) => f.date))).slice(0, 2) as string[]
           uniqueDates.forEach((date: string) => {
             const mealsCount = recentFood.filter((f: any) => f.date === date).length
             activities.push({
