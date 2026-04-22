@@ -631,10 +631,13 @@ async function getPatientContext(
     snack3: true,
   }
 
+  // Cast practitioners to single object (Supabase returns it as array for joins)
+  const practitioner = relationship?.practitioners as { display_name: string; clinic_name: string } | null
+
   return {
-    hasPractitioner: !!relationship && !!relationship.practitioners,
-    practitionerName: relationship?.practitioners?.display_name,
-    clinicName: relationship?.practitioners?.clinic_name,
+    hasPractitioner: !!relationship && !!practitioner,
+    practitionerName: practitioner?.display_name,
+    clinicName: practitioner?.clinic_name,
     dailyBudget: dietConfig ? {
       verdura: dietConfig.verdura,
       fruta: dietConfig.fruta,
