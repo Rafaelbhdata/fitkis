@@ -7,6 +7,27 @@
 ---
 
 ## Ultimo agente
+Agente: Body Composition Tracking
+Fecha: 21 de abril 2026
+Que hizo:
+
+### Body Composition Tracking (21 abril) ✅
+- **TypeScript**: Actualizado `WeightLog` interface con campos opcionales:
+  - `muscle_mass_kg` (masa muscular)
+  - `body_fat_mass_kg` (masa grasa corporal)
+  - `body_fat_percentage` (porcentaje de grasa)
+  - IMC se calcula automáticamente con peso y altura del usuario
+- **UI Weight Page**: `app/(app)/weight/page.tsx`
+  - Grid de 4 cards: IMC (calculado), % Grasa, Masa Muscular, Masa Grasa
+  - Modal de registro expandido con todos los campos
+  - IMC calculado en tiempo real al ingresar peso
+  - Historial muestra datos de composición cuando están disponibles
+  - Header actualizado a "Composición Corporal"
+- **Migración pendiente**: Ejecutar en Supabase SQL Editor
+
+---
+
+## Agente Anterior
 Agente: v5 Page Redesigns
 Fecha: 21 de abril 2026
 Que hizo:

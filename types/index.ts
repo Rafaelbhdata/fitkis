@@ -81,6 +81,9 @@ export interface WeightLog {
   user_id: string
   date: string
   weight_kg: number
+  muscle_mass_kg?: number
+  body_fat_mass_kg?: number
+  body_fat_percentage?: number
   notes?: string
   created_at: string
 }

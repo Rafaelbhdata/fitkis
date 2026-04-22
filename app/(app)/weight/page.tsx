@@ -2,13 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, X, Scale, ChevronLeft, ChevronRight, Droplets } from 'lucide-react'
+import { Plus, X, Scale, ChevronLeft, ChevronRight, Droplets, Activity, Percent } from 'lucide-react'
 import { getToday } from '@/lib/utils'
 import { USER_PROFILE } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
 import { PulseLine } from '@/components/ui/PulseLine'
 import type { WeightLog } from '@/types'
+
+// Calculate BMI from weight (kg) and height (cm)
+const calculateBMI = (weightKg: number, heightCm: number = USER_PROFILE.height): number => {
+  const heightM = heightCm / 100
+  return weightKg / (heightM * heightM)
+}
 
 // Simple sparkline component
 const Sparkline = ({ values, width = 280, height = 100, color = 'var(--signal)' }: {
@@ -63,6 +69,9 @@ export default function WeightPage() {
   const { showToast } = useToast()
   const [showForm, setShowForm] = useState(false)
   const [weight, setWeight] = useState('')
+  const [muscleMass, setMuscleMass] = useState('')
+  const [bodyFatMass, setBodyFatMass] = useState('')
+  const [bodyFatPercentage, setBodyFatPercentage] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
@@ -95,23 +104,36 @@ export default function WeightPage() {
     setSaving(true)
     setError(null)
     try {
-      const { error: saveError } = await (supabase.from('weight_logs') as any).insert({
+      const logData: Record<string, any> = {
         user_id: user.id,
         date: getToday(),
         weight_kg: parseFloat(weight),
-      })
+      }
+      if (muscleMass) logData.muscle_mass_kg = parseFloat(muscleMass)
+      if (bodyFatMass) logData.body_fat_mass_kg = parseFloat(bodyFatMass)
+      if (bodyFatPercentage) logData.body_fat_percentage = parseFloat(bodyFatPercentage)
+
+      const { error: saveError } = await (supabase.from('weight_logs') as any).insert(logData)
       if (saveError) throw saveError
       await loadWeightLogs()
       setShowForm(false)
       setWeight('')
-      showToast(`Peso registrado: ${weight} kg`)
+      setMuscleMass('')
+      setBodyFatMass('')
+      setBodyFatPercentage('')
+      showToast(`Composición corporal registrada`)
     } catch (err) {
-      setError('Error al guardar peso')
+      setError('Error al guardar')
     }
     setSaving(false)
   }
 
-  const latestWeight = weightLogs[0]?.weight_kg || USER_PROFILE.initialWeight
+  const latestLog = weightLogs[0]
+  const latestWeight = latestLog?.weight_kg || USER_PROFILE.initialWeight
+  const latestMuscleMass = latestLog?.muscle_mass_kg
+  const latestBodyFatMass = latestLog?.body_fat_mass_kg
+  const latestBodyFatPercentage = latestLog?.body_fat_percentage
+  const latestBMI = calculateBMI(latestWeight)
   const goalWeight = USER_PROFILE.goalWeight
   const weightLost = USER_PROFILE.initialWeight - latestWeight
 
@@ -178,7 +200,7 @@ export default function WeightPage() {
         <Link href="/dashboard" className="w-[34px] h-[34px] rounded-full bg-white border border-ink-7 flex items-center justify-center">
           <ChevronLeft className="w-4 h-4 text-ink" />
         </Link>
-        <div className="fk-eyebrow">Peso · 2 semanas</div>
+        <div className="fk-eyebrow">Composición Corporal</div>
         <div className="w-[34px]" />
       </div>
 
@@ -197,6 +219,53 @@ export default function WeightPage() {
           {firstLogDate && (
             <span className="text-xs text-ink-4">desde el {firstLogDate}</span>
           )}
+        </div>
+      </div>
+
+      {/* Body Composition Cards */}
+      <div className="px-5 mt-5 grid grid-cols-2 gap-3">
+        {/* IMC Card */}
+        <div className="bg-white border border-ink-7 rounded-[14px] p-4">
+          <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest mb-1">IMC</div>
+          <div className="flex items-baseline gap-1">
+            <span className="font-serif text-[28px] font-light">{latestBMI.toFixed(1)}</span>
+          </div>
+          <div className="text-[11px] text-ink-4 mt-1">
+            {latestBMI < 18.5 ? 'Bajo peso' : latestBMI < 25 ? 'Normal' : latestBMI < 30 ? 'Sobrepeso' : 'Obesidad'}
+          </div>
+        </div>
+
+        {/* Body Fat % Card */}
+        <div className="bg-white border border-ink-7 rounded-[14px] p-4">
+          <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest mb-1">% Grasa</div>
+          <div className="flex items-baseline gap-1">
+            <span className="font-serif text-[28px] font-light">
+              {latestBodyFatPercentage ? latestBodyFatPercentage.toFixed(1) : '--'}
+            </span>
+            <span className="text-sm text-ink-4">%</span>
+          </div>
+        </div>
+
+        {/* Muscle Mass Card */}
+        <div className="bg-white border border-ink-7 rounded-[14px] p-4">
+          <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest mb-1">Masa Muscular</div>
+          <div className="flex items-baseline gap-1">
+            <span className="font-serif text-[28px] font-light">
+              {latestMuscleMass ? latestMuscleMass.toFixed(1) : '--'}
+            </span>
+            <span className="text-sm text-ink-4">kg</span>
+          </div>
+        </div>
+
+        {/* Body Fat Mass Card */}
+        <div className="bg-white border border-ink-7 rounded-[14px] p-4">
+          <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest mb-1">Masa Grasa</div>
+          <div className="flex items-baseline gap-1">
+            <span className="font-serif text-[28px] font-light">
+              {latestBodyFatMass ? latestBodyFatMass.toFixed(1) : '--'}
+            </span>
+            <span className="text-sm text-ink-4">kg</span>
+          </div>
         </div>
       </div>
 
@@ -251,11 +320,11 @@ export default function WeightPage() {
         className="mx-5 mt-4 bg-ink text-paper rounded-[14px] p-4 flex items-center gap-3 cursor-pointer hover:bg-ink-2 transition-colors"
       >
         <div className="w-9 h-9 bg-signal rounded-[10px] flex items-center justify-center">
-          <Droplets className="w-4 h-4 text-white" />
+          <Activity className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1">
           <div className="text-[13px] font-medium">Registra hoy</div>
-          <div className="text-[11px] text-ink-5 mt-0.5">En ayunas, después del baño</div>
+          <div className="text-[11px] text-ink-5 mt-0.5">Peso y composición corporal</div>
         </div>
         <ChevronRight className="w-4 h-4 text-paper" />
       </div>
@@ -278,27 +347,43 @@ export default function WeightPage() {
             {weightLogs.slice(0, 7).map((log, index) => {
               const prevLog = weightLogs[index + 1]
               const diff = prevLog ? log.weight_kg - prevLog.weight_kg : 0
+              const hasComposition = log.muscle_mass_kg || log.body_fat_percentage || log.body_fat_mass_kg
 
               return (
-                <div key={log.id} className="flex items-center justify-between p-3 border-b border-ink-7 last:border-0">
-                  <span className="text-sm text-ink-4">
-                    {new Date(log.date).toLocaleDateString('es-MX', {
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    {diff !== 0 && (
-                      <span className={`text-[10px] fk-mono font-medium px-2 py-0.5 rounded-full ${
-                        diff < 0
-                          ? 'bg-leaf-soft text-leaf'
-                          : 'bg-berry-soft text-berry'
-                      }`}>
-                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}
-                      </span>
-                    )}
-                    <span className="font-medium fk-mono text-sm">{log.weight_kg} kg</span>
+                <div key={log.id} className="p-3 border-b border-ink-7 last:border-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-ink-4">
+                      {new Date(log.date).toLocaleDateString('es-MX', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      {diff !== 0 && (
+                        <span className={`text-[10px] fk-mono font-medium px-2 py-0.5 rounded-full ${
+                          diff < 0
+                            ? 'bg-leaf-soft text-leaf'
+                            : 'bg-berry-soft text-berry'
+                        }`}>
+                          {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                        </span>
+                      )}
+                      <span className="font-medium fk-mono text-sm">{log.weight_kg} kg</span>
+                    </div>
                   </div>
+                  {hasComposition && (
+                    <div className="flex gap-3 mt-2 text-[10px] fk-mono text-ink-4">
+                      {log.muscle_mass_kg && (
+                        <span>Músculo: {log.muscle_mass_kg} kg</span>
+                      )}
+                      {log.body_fat_mass_kg && (
+                        <span>Grasa: {log.body_fat_mass_kg} kg</span>
+                      )}
+                      {log.body_fat_percentage && (
+                        <span>%Grasa: {log.body_fat_percentage}%</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -315,19 +400,20 @@ export default function WeightPage() {
       {showForm && (
         <>
           <div className="fixed inset-0 bg-ink/40 z-40" onClick={() => setShowForm(false)} />
-          <div className="fixed bottom-0 left-0 right-0 bg-paper rounded-t-[24px] p-5 z-50 animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 bg-paper rounded-t-[24px] p-5 z-50 animate-slide-up max-h-[90vh] overflow-y-auto">
             <div className="w-10 h-1 rounded-full bg-ink-6 mx-auto mb-5" />
 
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-serif text-xl font-light">Registrar peso</h2>
+              <h2 className="font-serif text-xl font-light">Composición corporal</h2>
               <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-full bg-paper-3 flex items-center justify-center">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-4">
+              {/* Weight - Main field */}
               <div>
-                <label className="fk-eyebrow mb-2 block">Peso (kg)</label>
+                <label className="fk-eyebrow mb-2 block">Peso (kg) *</label>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -340,11 +426,72 @@ export default function WeightPage() {
                 />
               </div>
 
-              <div className="flex gap-3">
+              <div className="pt-2 border-t border-ink-7">
+                <div className="fk-eyebrow text-ink-4 mb-3">Composición (opcional)</div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Muscle Mass */}
+                  <div>
+                    <label className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-1.5 block">Masa Muscular (kg)</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      className="w-full px-3 py-3 rounded-xl border border-ink-7 bg-white text-lg font-serif text-center"
+                      placeholder="35.0"
+                      value={muscleMass}
+                      onChange={(e) => setMuscleMass(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Body Fat Mass */}
+                  <div>
+                    <label className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-1.5 block">Masa Grasa (kg)</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      className="w-full px-3 py-3 rounded-xl border border-ink-7 bg-white text-lg font-serif text-center"
+                      placeholder="20.0"
+                      value={bodyFatMass}
+                      onChange={(e) => setBodyFatMass(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Body Fat Percentage */}
+                  <div className="col-span-2">
+                    <label className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-1.5 block">% Grasa Corporal</label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      className="w-full px-3 py-3 rounded-xl border border-ink-7 bg-white text-lg font-serif text-center"
+                      placeholder="25.0"
+                      value={bodyFatPercentage}
+                      onChange={(e) => setBodyFatPercentage(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Auto-calculated IMC */}
+                {weight && (
+                  <div className="mt-3 p-3 rounded-xl bg-paper-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide">IMC calculado</span>
+                      <span className="font-serif text-lg">{calculateBMI(parseFloat(weight)).toFixed(1)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => {
                     setShowForm(false)
                     setWeight('')
+                    setMuscleMass('')
+                    setBodyFatMass('')
+                    setBodyFatPercentage('')
                   }}
                   className="flex-1 py-3 rounded-xl border border-ink-7 text-sm font-medium"
                 >
