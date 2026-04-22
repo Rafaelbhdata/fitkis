@@ -1,24 +1,63 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, TrendingDown, TrendingUp, Target, X, Scale, Calendar, ChevronDown, Camera, Image, ArrowLeftRight, ChevronLeft, ChevronRight, Play, Pause } from 'lucide-react'
-import { formatDate, getToday } from '@/lib/utils'
+import Link from 'next/link'
+import { Plus, X, Scale, ChevronLeft, ChevronRight, Droplets } from 'lucide-react'
+import { getToday } from '@/lib/utils'
 import { USER_PROFILE } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  ReferenceLine,
-  Tooltip
-} from 'recharts'
-import type { WeightLog, ProgressPhoto } from '@/types'
+import { PulseLine } from '@/components/ui/PulseLine'
+import type { WeightLog } from '@/types'
+
+// Simple sparkline component
+const Sparkline = ({ values, width = 280, height = 100, color = 'var(--signal)' }: {
+  values: number[]
+  width?: number
+  height?: number
+  color?: string
+}) => {
+  if (values.length < 2) return null
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const padding = 10
+
+  const points = values.map((v, i) => {
+    const x = padding + (i / (values.length - 1)) * (width - padding * 2)
+    const y = height - padding - ((v - min) / range) * (height - padding * 2)
+    return `${x},${y}`
+  }).join(' ')
+
+  const areaPath = `
+    M ${padding},${height - padding}
+    L ${points.split(' ').map((p, i) => (i === 0 ? 'L ' : '') + p).join(' L ')}
+    L ${width - padding},${height - padding}
+    Z
+  `
+
+  return (
+    <svg width={width} height={height} className="overflow-visible">
+      <defs>
+        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill="url(#sparkFill)" />
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
 
 export default function WeightPage() {
-  const today = new Date()
   const { user } = useUser()
   const supabase = useSupabase()
   const { showToast } = useToast()
@@ -28,51 +67,11 @@ export default function WeightPage() {
   const [saving, setSaving] = useState(false)
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'all'>('month')
-
-  // Progress photos state
-  const [photos, setPhotos] = useState<ProgressPhoto[]>([])
-  const [showPhotoUpload, setShowPhotoUpload] = useState(false)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [showCompare, setShowCompare] = useState(false)
-  const [compareDate1, setCompareDate1] = useState<string>('')
-  const [compareDate2, setCompareDate2] = useState<string>('')
-
-  // Slideshow state
-  const [showSlideshow, setShowSlideshow] = useState(false)
-  const [slideshowType, setSlideshowType] = useState<'front' | 'side'>('front')
-  const [slideshowIndex, setSlideshowIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-
-  // User profile state
-  const [userHeight, setUserHeight] = useState<number | null>(null)
-  const [userGoalWeight, setUserGoalWeight] = useState<number | null>(null)
+  const [timeRange, setTimeRange] = useState<'7D' | '1M' | '6M' | '1A'>('7D')
 
   useEffect(() => {
-    if (user) {
-      loadWeightLogs()
-      loadPhotos()
-      loadUserProfile()
-    }
+    if (user) loadWeightLogs()
   }, [user])
-
-  const loadUserProfile = async () => {
-    if (!user) return
-    try {
-      const { data } = await (supabase as any)
-        .from('user_profiles')
-        .select('height_cm, goal_weight_kg')
-        .eq('user_id', user.id)
-        .single()
-
-      if (data) {
-        setUserHeight(data.height_cm)
-        setUserGoalWeight(data.goal_weight_kg)
-      }
-    } catch (err) {
-      // No profile found, use defaults
-    }
-  }
 
   const loadWeightLogs = async () => {
     setLoading(true)
@@ -86,117 +85,9 @@ export default function WeightPage() {
       if (fetchError) throw fetchError
       if (data) setWeightLogs(data as WeightLog[])
     } catch (err) {
-      setError('Error al cargar registros de peso')
+      setError('Error al cargar registros')
     }
     setLoading(false)
-  }
-
-  const loadPhotos = async () => {
-    if (!user) return
-    try {
-      const { data } = await (supabase as any)
-        .from('progress_photos')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('date', { ascending: false })
-
-      if (data && data.length > 0) {
-        // Generate signed URLs for each photo (valid for 1 hour)
-        const photosWithSignedUrls = await Promise.all(
-          data.map(async (photo: ProgressPhoto) => {
-            const { data: signedData } = await supabase.storage
-              .from('progress-photos')
-              .createSignedUrl(photo.photo_url, 3600) // 1 hour expiry
-
-            return {
-              ...photo,
-              photo_url: signedData?.signedUrl || photo.photo_url
-            }
-          })
-        )
-        setPhotos(photosWithSignedUrls as ProgressPhoto[])
-      }
-    } catch (err) {
-      console.error('Error loading photos:', err)
-    }
-  }
-
-  const uploadPhoto = async (file: File, photoType: 'front' | 'side') => {
-    if (!user) return
-    setUploadingPhoto(true)
-
-    try {
-      const today = new Date().toISOString().split('T')[0]
-      const fileExt = file.name.split('.').pop()
-      const filePath = `${user.id}/${today}_${photoType}.${fileExt}`
-
-      // Upload to storage (private bucket)
-      const { error: uploadError } = await supabase.storage
-        .from('progress-photos')
-        .upload(filePath, file, { upsert: true })
-
-      if (uploadError) throw uploadError
-
-      // Save file path to database (not the URL)
-      await (supabase as any)
-        .from('progress_photos')
-        .upsert({
-          user_id: user.id,
-          date: today,
-          photo_type: photoType,
-          photo_url: filePath  // Store path, not URL
-        }, { onConflict: 'user_id,date,photo_type' })
-
-      await loadPhotos()
-      showToast(`Foto ${photoType === 'front' ? 'frontal' : 'lateral'} guardada`)
-    } catch (err) {
-      console.error('Error uploading photo:', err)
-      alert('Error al subir la foto. Asegúrate de que el bucket "progress-photos" exista en Supabase Storage.')
-    } finally {
-      setUploadingPhoto(false)
-    }
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, photoType: 'front' | 'side') => {
-    const file = e.target.files?.[0]
-    if (file) {
-      uploadPhoto(file, photoType)
-    }
-  }
-
-  // Group photos by date
-  const photosByDate = photos.reduce((acc, photo) => {
-    if (!acc[photo.date]) acc[photo.date] = {}
-    acc[photo.date][photo.photo_type] = photo
-    return acc
-  }, {} as Record<string, Record<string, ProgressPhoto>>)
-
-  const photoDates = Object.keys(photosByDate).sort((a, b) => b.localeCompare(a))
-
-  // Get photos for slideshow (sorted oldest to newest to show progress)
-  const slideshowPhotos = photoDates
-    .slice()
-    .reverse()
-    .map(date => photosByDate[date]?.[slideshowType])
-    .filter(Boolean) as ProgressPhoto[]
-
-  // Slideshow auto-play
-  useEffect(() => {
-    if (isPlaying && slideshowPhotos.length > 1) {
-      const interval = setInterval(() => {
-        setSlideshowIndex(prev =>
-          prev >= slideshowPhotos.length - 1 ? 0 : prev + 1
-        )
-      }, 2000)
-      return () => clearInterval(interval)
-    }
-  }, [isPlaying, slideshowPhotos.length])
-
-  const openSlideshow = (type: 'front' | 'side') => {
-    setSlideshowType(type)
-    setSlideshowIndex(0)
-    setShowSlideshow(true)
-    setIsPlaying(false)
   }
 
   const saveWeight = async () => {
@@ -221,32 +112,23 @@ export default function WeightPage() {
   }
 
   const latestWeight = weightLogs[0]?.weight_kg || USER_PROFILE.initialWeight
-  const goalWeight = userGoalWeight || USER_PROFILE.goalWeight
+  const goalWeight = USER_PROFILE.goalWeight
   const weightLost = USER_PROFILE.initialWeight - latestWeight
-  const progress = ((USER_PROFILE.initialWeight - latestWeight) / (USER_PROFILE.initialWeight - goalWeight)) * 100
-  const remaining = Math.max(0, latestWeight - goalWeight)
 
-  // BMI calculation
-  const bmi = userHeight ? (latestWeight / Math.pow(userHeight / 100, 2)).toFixed(1) : null
-  const getBmiCategory = (bmi: number) => {
-    if (bmi < 18.5) return { label: 'Bajo peso', color: 'text-blue-400' }
-    if (bmi < 25) return { label: 'Normal', color: 'text-green-400' }
-    if (bmi < 30) return { label: 'Sobrepeso', color: 'text-yellow-400' }
-    return { label: 'Obesidad', color: 'text-red-400' }
-  }
-  const bmiCategory = bmi ? getBmiCategory(parseFloat(bmi)) : null
-
-  // Filter logs based on time range
+  // Get filtered logs based on time range
   const getFilteredLogs = () => {
     const now = new Date()
     let cutoffDate: Date
 
     switch (timeRange) {
-      case 'week':
+      case '7D':
         cutoffDate = new Date(now.setDate(now.getDate() - 7))
         break
-      case 'month':
+      case '1M':
         cutoffDate = new Date(now.setMonth(now.getMonth() - 1))
+        break
+      case '6M':
+        cutoffDate = new Date(now.setMonth(now.getMonth() - 6))
         break
       default:
         return weightLogs
@@ -256,349 +138,150 @@ export default function WeightPage() {
   }
 
   const filteredLogs = getFilteredLogs()
+  const chartData = [...filteredLogs].reverse().map(log => log.weight_kg)
 
-  // Chart data
-  const chartData = [...filteredLogs].reverse().map(log => ({
-    date: new Date(log.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }),
-    weight: log.weight_kg,
-    fullDate: log.date
-  }))
-
-  // Stats
-  const weekChange = weightLogs.length >= 2 ? (() => {
-    const weekAgo = new Date()
-    weekAgo.setDate(weekAgo.getDate() - 7)
-    const oldLog = weightLogs.find(log => new Date(log.date) <= weekAgo)
-    return oldLog ? (weightLogs[0].weight_kg - oldLog.weight_kg).toFixed(1) : null
-  })() : null
-
-  // Additional metrics
-  const monthChange = weightLogs.length >= 2 ? (() => {
-    const monthAgo = new Date()
-    monthAgo.setDate(monthAgo.getDate() - 30)
-    const oldLog = weightLogs.find(log => new Date(log.date) <= monthAgo)
-    return oldLog ? (weightLogs[0].weight_kg - oldLog.weight_kg).toFixed(1) : null
-  })() : null
-
-  // Average weight last 7 days
+  // 7-day average
   const recentLogs = weightLogs.slice(0, 7)
   const avgWeight = recentLogs.length > 0
     ? (recentLogs.reduce((sum, log) => sum + log.weight_kg, 0) / recentLogs.length).toFixed(1)
     : null
 
-  // Lowest and highest weight
-  const lowestWeight = weightLogs.length > 0 ? Math.min(...weightLogs.map(l => l.weight_kg)) : null
-  const highestWeight = weightLogs.length > 0 ? Math.max(...weightLogs.map(l => l.weight_kg)) : null
-
-  // Chart domain
-  const weights = chartData.map(d => d.weight)
-  const minWeight = Math.min(...weights, goalWeight) - 1
-  const maxWeight = Math.max(...weights, USER_PROFILE.initialWeight) + 1
+  // Find first log date for "desde" text
+  const firstLogDate = weightLogs.length > 0
+    ? new Date(weightLogs[weightLogs.length - 1].date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+    : null
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-          <p className="text-sm text-muted">Cargando...</p>
+          <PulseLine w={80} h={24} color="var(--signal)" strokeWidth={2} active />
+          <p className="fk-mono text-sm text-ink-4">Cargando...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="pb-4">
       {error && (
-        <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl text-danger text-sm flex items-center justify-between animate-scale-in">
+        <div className="mx-5 mb-4 p-3 bg-berry-soft border border-berry/20 rounded-xl text-berry text-sm flex items-center justify-between">
           <span>{error}</span>
-          <div className="flex items-center gap-2">
-            <button onClick={loadWeightLogs} className="text-xs font-medium underline hover:no-underline">
-              Reintentar
-            </button>
-            <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+          <button onClick={() => setError(null)} className="text-berry hover:text-berry/80">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
-      {/* Hero Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* Current Weight */}
-        <div className="card !p-5 col-span-2 bg-gradient-to-br from-cyan-500/10 via-transparent to-transparent border-cyan-500/20">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider font-mono mb-2">Peso actual</p>
-              <div className="flex items-baseline gap-2">
-                <span className="font-display text-display-xl text-cyan-400">{latestWeight}</span>
-                <span className="text-xl text-muted-foreground">kg</span>
-              </div>
-              {weightLost > 0 && (
-                <div className="flex items-center gap-2 mt-3">
-                  <TrendingDown className="w-4 h-4 text-success" />
-                  <span className="text-sm text-success font-medium">-{weightLost.toFixed(1)} kg desde inicio</span>
-                </div>
-              )}
-            </div>
-            <div className="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center shadow-glow-cyan">
-              <Scale className="w-7 h-7 text-cyan-400" />
-            </div>
-          </div>
+      {/* Header */}
+      <div className="px-5 pt-3 flex items-center justify-between">
+        <Link href="/dashboard" className="w-[34px] h-[34px] rounded-full bg-white border border-ink-7 flex items-center justify-center">
+          <ChevronLeft className="w-4 h-4 text-ink" />
+        </Link>
+        <div className="fk-eyebrow">Peso · 2 semanas</div>
+        <div className="w-[34px]" />
+      </div>
+
+      {/* Hero Stat */}
+      <div className="px-5 mt-6">
+        <div className="flex items-baseline gap-3">
+          <span className="font-serif text-[88px] font-extralight tracking-tight leading-none">{latestWeight.toFixed(1)}</span>
+          <span className="fk-mono text-sm text-ink-4">kg</span>
         </div>
-
-        {/* Goal Card */}
-        <div className="card !p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Target className="w-4 h-4 text-accent" />
-            <span className="text-xs text-muted-foreground">Meta</span>
-          </div>
-          <p className="font-display text-display-sm">{goalWeight} kg</p>
-          <p className="text-xs text-muted-foreground mt-1">Faltan {remaining.toFixed(1)} kg</p>
-        </div>
-
-        {/* BMI Card */}
-        {bmi ? (
-          <div className="card !p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Scale className="w-4 h-4 text-accent" />
-              <span className="text-xs text-muted-foreground">IMC</span>
-            </div>
-            <p className={`font-display text-display-sm ${bmiCategory?.color}`}>{bmi}</p>
-            <p className="text-xs text-muted-foreground mt-1">{bmiCategory?.label}</p>
-          </div>
-        ) : (
-          <div className="card !p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Scale className="w-4 h-4 text-accent" />
-              <span className="text-xs text-muted-foreground">IMC</span>
-            </div>
-            <p className="text-sm text-muted-foreground">Configura tu altura en ajustes</p>
-          </div>
-        )}
-
-        {/* Week Change */}
-        <div className="card !p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Calendar className="w-4 h-4 text-accent" />
-            <span className="text-xs text-muted-foreground">7 días</span>
-          </div>
-          {weekChange ? (
-            <>
-              <p className={`font-display text-display-sm ${parseFloat(weekChange) <= 0 ? 'text-success' : 'text-danger'}`}>
-                {parseFloat(weekChange) > 0 ? '+' : ''}{weekChange} kg
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-muted">--</p>
+        <div className="flex items-center gap-2 mt-2">
+          {weightLost > 0 && (
+            <span className="px-2 py-1 rounded-full text-xs fk-mono font-medium bg-leaf-soft text-leaf">
+              ↓ {weightLost.toFixed(1)} kg
+            </span>
           )}
-        </div>
-
-        {/* Month Change */}
-        <div className="card !p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Calendar className="w-4 h-4 text-blue-400" />
-            <span className="text-xs text-muted-foreground">30 días</span>
-          </div>
-          {monthChange ? (
-            <>
-              <p className={`font-display text-display-sm ${parseFloat(monthChange) <= 0 ? 'text-success' : 'text-danger'}`}>
-                {parseFloat(monthChange) > 0 ? '+' : ''}{monthChange} kg
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-muted">--</p>
+          {firstLogDate && (
+            <span className="text-xs text-ink-4">desde el {firstLogDate}</span>
           )}
         </div>
       </div>
 
-      {/* Additional Stats */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="card !p-3 text-center">
-          <p className="text-[10px] text-muted-foreground uppercase mb-1">Promedio 7d</p>
-          <p className="font-display text-lg">{avgWeight || '--'} kg</p>
+      {/* Chart Card */}
+      <div className="mx-5 mt-6 bg-white border border-ink-7 rounded-[18px] overflow-hidden">
+        <div className="p-5 flex justify-between items-start">
+          <div>
+            <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest">Promedio 7 días</div>
+            <div className="font-serif text-[22px] font-light mt-1">
+              {avgWeight || '--'} <span className="text-sm text-ink-4">kg</span>
+            </div>
+          </div>
+          <div className="flex gap-1">
+            {(['7D', '1M', '6M', '1A'] as const).map(range => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-3 py-1.5 rounded-md text-[10px] fk-mono font-medium tracking-wide transition-colors ${
+                  timeRange === range
+                    ? 'bg-ink text-paper'
+                    : 'text-ink-4 hover:text-ink'
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="card !p-3 text-center">
-          <p className="text-[10px] text-muted-foreground uppercase mb-1">Mínimo</p>
-          <p className="font-display text-lg text-green-400">{lowestWeight || '--'} kg</p>
+
+        {/* Sparkline */}
+        <div className="px-2 pb-3">
+          {chartData.length >= 2 ? (
+            <Sparkline values={chartData} width={320} height={120} color="var(--signal)" />
+          ) : (
+            <div className="h-[120px] flex items-center justify-center text-xs text-ink-4">
+              Registra más días para ver la tendencia
+            </div>
+          )}
         </div>
-        <div className="card !p-3 text-center">
-          <p className="text-[10px] text-muted-foreground uppercase mb-1">Máximo</p>
-          <p className="font-display text-lg text-red-400">{highestWeight || '--'} kg</p>
+
+        {/* Date labels */}
+        <div className="flex justify-between px-5 pb-4">
+          {['1', '5', '10', '15'].map(d => (
+            <span key={d} className="fk-mono text-[9px] text-ink-5">{d} abr</span>
+          ))}
         </div>
       </div>
 
-      {/* Progress to Goal */}
-      <div className="card !p-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium">Progreso hacia la meta</span>
-          <span className="font-display text-sm font-semibold text-accent">
-            {Math.max(0, progress).toFixed(0)}%
-          </span>
+      {/* Quick Log Row */}
+      <div
+        onClick={() => setShowForm(true)}
+        className="mx-5 mt-4 bg-ink text-paper rounded-[14px] p-4 flex items-center gap-3 cursor-pointer hover:bg-ink-2 transition-colors"
+      >
+        <div className="w-9 h-9 bg-signal rounded-[10px] flex items-center justify-center">
+          <Droplets className="w-4 h-4 text-white" />
         </div>
-        <div className="relative h-3 bg-surface-elevated rounded-full overflow-hidden">
-          <div
-            className="absolute inset-y-0 left-0 bg-gradient-to-r from-accent to-accent/60 rounded-full transition-all duration-500"
-            style={{ width: `${Math.min(Math.max(0, progress), 100)}%` }}
-          />
+        <div className="flex-1">
+          <div className="text-[13px] font-medium">Registra hoy</div>
+          <div className="text-[11px] text-ink-5 mt-0.5">En ayunas, después del baño</div>
         </div>
-        <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-          <span>{USER_PROFILE.initialWeight} kg</span>
-          <span>{goalWeight} kg</span>
-        </div>
+        <ChevronRight className="w-4 h-4 text-paper" />
       </div>
 
-      {/* Chart */}
-      {chartData.length > 0 && (
-        <div className="card !p-4">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium">Tendencia</span>
-            {chartData.length === 1 ? (
-              <span className="text-xs text-muted-foreground">Registra más días para ver la tendencia</span>
-            ) : (
-              <div className="flex bg-surface-elevated rounded-lg p-0.5">
-                {(['week', 'month', 'all'] as const).map((range) => (
-                  <button
-                    key={range}
-                    onClick={() => setTimeRange(range)}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      timeRange === range
-                        ? 'bg-accent text-background'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {range === 'week' ? '7D' : range === 'month' ? '30D' : 'Todo'}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22e4d9" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#22e4d9" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis
-                  dataKey="date"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#71717a', fontSize: 10 }}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  domain={[minWeight, maxWeight]}
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: '#71717a', fontSize: 10 }}
-                  tickFormatter={(v) => `${v}`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#111111',
-                    border: '1px solid #27272a',
-                    borderRadius: '8px',
-                    fontSize: '12px'
-                  }}
-                  labelStyle={{ color: '#a1a1aa' }}
-                  formatter={(value: number) => [`${value} kg`, 'Peso']}
-                />
-                <ReferenceLine
-                  y={USER_PROFILE.goalWeight}
-                  stroke="#10b981"
-                  strokeDasharray="3 3"
-                  strokeOpacity={0.5}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="weight"
-                  stroke="#22e4d9"
-                  strokeWidth={2}
-                  fill="url(#weightGradient)"
-                  dot={{ fill: '#22e4d9', strokeWidth: 0, r: 3 }}
-                  activeDot={{ fill: '#22e4d9', strokeWidth: 2, stroke: '#fff', r: 5 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-cyan-500 rounded" />
-              <span>Peso</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-accent rounded" style={{ borderStyle: 'dashed' }} />
-              <span>Meta ({USER_PROFILE.goalWeight} kg)</span>
-            </div>
+      {/* Insight Card */}
+      {weightLost > 0 && (
+        <div className="mx-5 mt-4 bg-leaf-soft rounded-[14px] p-4">
+          <div className="fk-eyebrow text-leaf mb-1.5">✧ Patrón</div>
+          <div className="font-serif text-[15px] font-light leading-relaxed tracking-tight">
+            Bajas consistentemente los <span className="italic">lunes</span>. Tu domingo hidrata bien.
           </div>
         </div>
-      )}
-
-      {/* Add Weight Form/Button */}
-      {showForm ? (
-        <div className="card !p-5 animate-scale-in">
-          <h2 className="font-display text-display-sm mb-5">Registrar peso</h2>
-          <div className="space-y-5">
-            <div>
-              <label className="label">Peso (kg)</label>
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.1"
-                className="input"
-                placeholder="Ej: 85.5"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <div className="flex gap-3">
-              <button
-                className="flex-1 btn-secondary"
-                onClick={() => {
-                  setShowForm(false)
-                  setWeight('')
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                className="flex-1 btn-primary"
-                onClick={saveWeight}
-                disabled={saving || !weight}
-              >
-                {saving ? (
-                  <div className="w-5 h-5 rounded-full border-2 border-background border-t-transparent animate-spin" />
-                ) : 'Guardar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <button
-          className="w-full btn-primary"
-          onClick={() => setShowForm(true)}
-        >
-          <Plus className="w-5 h-5" />
-          Registrar peso de hoy
-        </button>
       )}
 
       {/* History */}
-      <div className="card !p-4">
-        <p className="text-sm font-medium mb-4">Historial reciente</p>
+      <div className="px-5 mt-6">
+        <div className="fk-eyebrow mb-3">Historial reciente</div>
         {weightLogs.length > 0 ? (
-          <div className="space-y-0">
-            {weightLogs.slice(0, 10).map((log, index) => {
+          <div className="bg-white border border-ink-7 rounded-xl overflow-hidden">
+            {weightLogs.slice(0, 7).map((log, index) => {
               const prevLog = weightLogs[index + 1]
               const diff = prevLog ? log.weight_kg - prevLog.weight_kg : 0
 
               return (
-                <div key={log.id} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                  <span className="text-sm text-muted-foreground">
+                <div key={log.id} className="flex items-center justify-between p-3 border-b border-ink-7 last:border-0">
+                  <span className="text-sm text-ink-4">
                     {new Date(log.date).toLocaleDateString('es-MX', {
                       day: 'numeric',
                       month: 'short',
@@ -606,408 +289,76 @@ export default function WeightPage() {
                   </span>
                   <div className="flex items-center gap-3">
                     {diff !== 0 && (
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      <span className={`text-[10px] fk-mono font-medium px-2 py-0.5 rounded-full ${
                         diff < 0
-                          ? 'bg-success/10 text-success'
-                          : 'bg-danger/10 text-danger'
+                          ? 'bg-leaf-soft text-leaf'
+                          : 'bg-berry-soft text-berry'
                       }`}>
                         {diff > 0 ? '+' : ''}{diff.toFixed(1)}
                       </span>
                     )}
-                    <span className="font-medium tabular-nums">{log.weight_kg} kg</span>
+                    <span className="font-medium fk-mono text-sm">{log.weight_kg} kg</span>
                   </div>
                 </div>
               )
             })}
           </div>
         ) : (
-          <p className="text-center text-muted py-8">Sin registros aún</p>
-        )}
-      </div>
-
-      {/* Progress Photos Section */}
-      <div className="card !p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Camera className="w-4 h-4 text-accent" />
-            <p className="text-sm font-medium">Fotos de progreso</p>
-          </div>
-          <div className="flex gap-2">
-            {photoDates.length >= 2 && (
-              <>
-                <button
-                  onClick={() => openSlideshow('front')}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
-                >
-                  <Play className="w-3 h-3 inline mr-1" />
-                  Frontal
-                </button>
-                <button
-                  onClick={() => openSlideshow('side')}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors"
-                >
-                  <Play className="w-3 h-3 inline mr-1" />
-                  Lateral
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-2 mb-4">
-          {photoDates.length >= 2 && (
-            <button
-              onClick={() => setShowCompare(!showCompare)}
-              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
-                showCompare
-                  ? 'bg-accent text-background'
-                  : 'bg-surface-elevated hover:bg-surface-hover'
-              }`}
-            >
-              <ArrowLeftRight className="w-3 h-3 inline mr-1" />
-              Comparar fechas
-            </button>
-          )}
-          <button
-            onClick={() => setShowPhotoUpload(!showPhotoUpload)}
-            className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-surface-elevated hover:bg-surface-hover transition-colors"
-          >
-            <Plus className="w-3 h-3 inline mr-1" />
-            Subir fotos
-          </button>
-        </div>
-
-        {/* Upload Section */}
-        {showPhotoUpload && (
-          <div className="mb-4 p-4 bg-surface-elevated rounded-lg space-y-3">
-            <p className="text-xs text-muted-foreground">Sube tus fotos de hoy</p>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="cursor-pointer">
-                <div className="aspect-[3/4] rounded-lg border-2 border-dashed border-border hover:border-accent/50 flex flex-col items-center justify-center gap-2 transition-colors">
-                  <Camera className="w-6 h-6 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Frontal</span>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(e) => handleFileSelect(e, 'front')}
-                  disabled={uploadingPhoto}
-                />
-              </label>
-              <label className="cursor-pointer">
-                <div className="aspect-[3/4] rounded-lg border-2 border-dashed border-border hover:border-accent/50 flex flex-col items-center justify-center gap-2 transition-colors">
-                  <Camera className="w-6 h-6 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Lateral</span>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(e) => handleFileSelect(e, 'side')}
-                  disabled={uploadingPhoto}
-                />
-              </label>
-            </div>
-            {uploadingPhoto && (
-              <div className="flex items-center justify-center gap-2 py-2">
-                <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs text-muted-foreground">Subiendo...</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Compare Mode */}
-        {showCompare && photoDates.length >= 2 && (
-          <div className="mb-4 p-4 bg-surface-elevated rounded-lg space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Fecha 1</label>
-                <select
-                  value={compareDate1}
-                  onChange={(e) => setCompareDate1(e.target.value)}
-                  className="w-full bg-surface rounded-lg px-3 py-2 text-sm border border-border"
-                >
-                  <option value="">Seleccionar</option>
-                  {photoDates.map(date => (
-                    <option key={date} value={date}>
-                      {new Date(date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Fecha 2</label>
-                <select
-                  value={compareDate2}
-                  onChange={(e) => setCompareDate2(e.target.value)}
-                  className="w-full bg-surface rounded-lg px-3 py-2 text-sm border border-border"
-                >
-                  <option value="">Seleccionar</option>
-                  {photoDates.map(date => (
-                    <option key={date} value={date}>
-                      {new Date(date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {compareDate1 && compareDate2 && (
-              <div className="space-y-4">
-                {/* Front comparison */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Frontal</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface">
-                      {photosByDate[compareDate1]?.front ? (
-                        <img
-                          src={photosByDate[compareDate1].front.photo_url}
-                          alt="Frontal"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Image className="w-8 h-8 text-muted-foreground/30" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface">
-                      {photosByDate[compareDate2]?.front ? (
-                        <img
-                          src={photosByDate[compareDate2].front.photo_url}
-                          alt="Frontal"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Image className="w-8 h-8 text-muted-foreground/30" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Side comparison */}
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">Lateral</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface">
-                      {photosByDate[compareDate1]?.side ? (
-                        <img
-                          src={photosByDate[compareDate1].side.photo_url}
-                          alt="Lateral"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Image className="w-8 h-8 text-muted-foreground/30" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface">
-                      {photosByDate[compareDate2]?.side ? (
-                        <img
-                          src={photosByDate[compareDate2].side.photo_url}
-                          alt="Lateral"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Image className="w-8 h-8 text-muted-foreground/30" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Photo Gallery */}
-        {photoDates.length > 0 ? (
-          <div className="space-y-4">
-            {photoDates.slice(0, 6).map(date => (
-              <div key={date} className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  {new Date(date).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface-elevated">
-                    {photosByDate[date]?.front ? (
-                      <img
-                        src={photosByDate[date].front.photo_url}
-                        alt="Frontal"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">Sin foto frontal</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface-elevated">
-                    {photosByDate[date]?.side ? (
-                      <img
-                        src={photosByDate[date].side.photo_url}
-                        alt="Lateral"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">Sin foto lateral</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <Image className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Sin fotos de progreso</p>
-            <p className="text-xs text-muted-foreground mt-1">Sube tu primera foto para comenzar a trackear tu progreso visual</p>
+          <div className="bg-white border border-ink-7 rounded-xl p-8 text-center">
+            <Scale className="w-10 h-10 text-ink-5 mx-auto mb-3" />
+            <p className="text-sm text-ink-4">Sin registros aún</p>
           </div>
         )}
       </div>
 
-      {/* Slideshow Modal */}
-      {showSlideshow && slideshowPhotos.length > 0 && (
+      {/* Weight Form Modal */}
+      {showForm && (
         <>
-          <div className="fixed inset-0 bg-black/95 z-50 animate-fade-in" onClick={() => setShowSlideshow(false)} />
-          <div className="fixed inset-4 z-50 flex flex-col items-center justify-center">
-            {/* Header */}
-            <div className="w-full max-w-lg flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-medium text-white">
-                  Progreso {slideshowType === 'front' ? 'Frontal' : 'Lateral'}
-                </h3>
-                <p className="text-sm text-white/60">
-                  {slideshowPhotos.length} fotos
-                </p>
-              </div>
-              <button
-                onClick={() => setShowSlideshow(false)}
-                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-              >
-                <X className="w-5 h-5 text-white" />
+          <div className="fixed inset-0 bg-ink/40 z-40" onClick={() => setShowForm(false)} />
+          <div className="fixed bottom-0 left-0 right-0 bg-paper rounded-t-[24px] p-5 z-50 animate-slide-up">
+            <div className="w-10 h-1 rounded-full bg-ink-6 mx-auto mb-5" />
+
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-serif text-xl font-light">Registrar peso</h2>
+              <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-full bg-paper-3 flex items-center justify-center">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Photo */}
-            <div className="relative w-full max-w-lg aspect-[3/4] rounded-xl overflow-hidden bg-white/5">
-              <img
-                src={slideshowPhotos[slideshowIndex].photo_url}
-                alt={`Progreso ${slideshowType}`}
-                className="w-full h-full object-cover"
-              />
-
-              {/* Date overlay */}
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
-                <div className="px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur-sm">
-                  <p className="text-sm font-medium text-white">
-                    {new Date(slideshowPhotos[slideshowIndex].date).toLocaleDateString('es-MX', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric'
-                    })}
-                  </p>
-                </div>
-                <div className="px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur-sm">
-                  <p className="text-sm text-white/80">
-                    {slideshowIndex + 1} / {slideshowPhotos.length}
-                  </p>
-                </div>
+            <div className="space-y-5">
+              <div>
+                <label className="fk-eyebrow mb-2 block">Peso (kg)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  className="w-full px-4 py-4 rounded-xl border border-ink-7 bg-white text-2xl font-serif text-center"
+                  placeholder="80.0"
+                  value={weight}
+                  onChange={(e) => setWeight(e.target.value)}
+                  autoFocus
+                />
               </div>
 
-              {/* Navigation arrows */}
-              {slideshowPhotos.length > 1 && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSlideshowIndex(prev => prev > 0 ? prev - 1 : slideshowPhotos.length - 1)
-                    }}
-                    className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors"
-                  >
-                    <ChevronLeft className="w-6 h-6 text-white" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSlideshowIndex(prev => prev < slideshowPhotos.length - 1 ? prev + 1 : 0)
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors"
-                  >
-                    <ChevronRight className="w-6 h-6 text-white" />
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Controls */}
-            <div className="w-full max-w-lg mt-4 flex items-center justify-center gap-4">
-              {/* Type toggle */}
-              <div className="flex bg-white/10 rounded-lg p-1">
+              <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    setSlideshowType('front')
-                    setSlideshowIndex(0)
+                    setShowForm(false)
+                    setWeight('')
                   }}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    slideshowType === 'front' ? 'bg-white text-black' : 'text-white/70 hover:text-white'
-                  }`}
+                  className="flex-1 py-3 rounded-xl border border-ink-7 text-sm font-medium"
                 >
-                  Frontal
+                  Cancelar
                 </button>
                 <button
-                  onClick={() => {
-                    setSlideshowType('side')
-                    setSlideshowIndex(0)
-                  }}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    slideshowType === 'side' ? 'bg-white text-black' : 'text-white/70 hover:text-white'
-                  }`}
+                  onClick={saveWeight}
+                  disabled={saving || !weight}
+                  className="flex-1 py-3 rounded-full bg-ink text-paper font-medium text-sm disabled:opacity-50"
                 >
-                  Lateral
+                  {saving ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
-
-              {/* Play/Pause */}
-              {slideshowPhotos.length > 1 && (
-                <button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="w-12 h-12 rounded-full bg-accent flex items-center justify-center hover:bg-accent/90 transition-colors"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-5 h-5 text-background" />
-                  ) : (
-                    <Play className="w-5 h-5 text-background ml-0.5" />
-                  )}
-                </button>
-              )}
             </div>
-
-            {/* Progress dots */}
-            {slideshowPhotos.length > 1 && (
-              <div className="flex gap-1.5 mt-4">
-                {slideshowPhotos.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setSlideshowIndex(i)}
-                    className={`w-2 h-2 rounded-full transition-colors ${
-                      i === slideshowIndex ? 'bg-accent' : 'bg-white/30'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
           </div>
         </>
       )}
