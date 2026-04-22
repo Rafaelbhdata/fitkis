@@ -2,36 +2,151 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ================================================================
+   Fitkis v5 · "Paper & Pulse" · Global Styles
+   ================================================================ */
+
+:root {
+  /* Ink scale */
+  --ink: #0a0a0a;
+  --ink-2: #1a1a1a;
+  --ink-3: #404040;
+  --ink-4: #737373;
+  --ink-5: #a3a3a3;
+  --ink-6: #d4d4d4;
+  --ink-7: #e5e5e5;
+
+  /* Paper */
+  --paper: #fafaf7;
+  --paper-2: #f5f4ef;
+  --paper-3: #eceae2;
+  --cream: #f8f3e8;
+
+  /* Accent + semantics */
+  --signal: #ff5a1f;
+  --signal-2: #ff7a44;
+  --signal-soft: #ffe8dd;
+  --leaf: #4a7c3a;
+  --leaf-soft: #e4ecd6;
+  --berry: #c13b5a;
+  --berry-soft: #f6dde2;
+  --honey: #d4a017;
+  --honey-soft: #f5ead0;
+  --sky: #3a6b8c;
+  --sky-soft: #dbe6ef;
+
+  /* Fonts */
+  --f-serif: 'Fraunces', 'Times New Roman', serif;
+  --f-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+}
+
 @layer base {
-  * { @apply box-border; }
+  * {
+    @apply box-border;
+  }
 
   html {
     @apply antialiased scroll-smooth;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
   }
 
   body {
-    @apply bg-background text-foreground font-body;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-sans);
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    margin: 0;
   }
 
-  ::selection { @apply bg-cyan/30 text-foreground; }
+  ::selection {
+    background: var(--signal-soft);
+    color: var(--ink);
+  }
 
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { @apply bg-transparent; }
-  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-border-strong; }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--ink-6);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--ink-5);
+  }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-cyan ring-offset-2 ring-offset-background;
+    @apply outline-none ring-2 ring-signal ring-offset-2 ring-offset-paper;
   }
-  :focus:not(:focus-visible) { @apply outline-none ring-0; }
+  :focus:not(:focus-visible) {
+    @apply outline-none ring-0;
+  }
+}
+
+/* ================================================================
+   Typography utility classes
+   ================================================================ */
+
+.fk-serif {
+  font-family: var(--f-serif);
+  font-optical-sizing: auto;
+}
+.fk-sans {
+  font-family: var(--f-sans);
+}
+.fk-mono {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.fk-num {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  font-feature-settings: 'ss01';
+}
+.fk-eyebrow {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-weight: 500;
+}
+
+/* ================================================================
+   Animations
+   ================================================================ */
+
+@keyframes fk-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+.fk-pulse-dot {
+  animation: fk-pulse 2s ease-in-out infinite;
+}
+
+/* Scrollbar hide utility */
+.fk-scroll::-webkit-scrollbar {
+  display: none;
+}
+.fk-scroll {
+  scrollbar-width: none;
 }
 
 @layer components {
-  /* ===== BUTTONS ===== */
+  /* ===== BUTTONS v5 ===== */
   .btn {
     @apply inline-flex items-center justify-center gap-2
            font-medium text-sm
@@ -40,242 +155,252 @@
   }
 
   .btn-primary {
-    @apply btn px-5 py-2.5 rounded-lg
-           bg-cyan text-background font-semibold
-           hover:brightness-110 shadow-glow-cyan;
+    @apply btn px-5 py-2.5 rounded-full
+           bg-ink text-paper font-semibold
+           hover:bg-ink-2;
   }
 
-  .btn-secondary {
-    @apply btn px-5 py-2.5 rounded-lg
-           bg-surface-elevated text-foreground
-           border border-border
-           hover:bg-surface-2 hover:border-border-strong;
-  }
-
-  .btn-pink {
-    @apply btn px-5 py-2.5 rounded-lg
-           bg-pink text-background font-semibold
+  .btn-signal {
+    @apply btn px-5 py-2.5 rounded-full
+           bg-signal text-white font-semibold
            hover:brightness-110;
   }
 
-  .btn-outline {
-    @apply btn px-5 py-2.5 rounded-lg
-           bg-transparent text-cyan
-           border border-cyan/40
-           hover:bg-cyan/10 hover:border-cyan;
+  .btn-secondary {
+    @apply btn px-5 py-2.5 rounded-full
+           bg-white text-ink
+           border border-ink-7
+           hover:bg-paper-2 hover:border-ink-6;
   }
 
   .btn-ghost {
     @apply btn px-3 py-2 rounded-lg
-           text-muted-foreground
-           hover:text-foreground hover:bg-surface-elevated;
+           text-ink-4
+           hover:text-ink hover:bg-paper-2;
   }
 
   .btn-icon {
     @apply btn p-2 rounded-lg
-           text-muted-foreground
-           hover:text-foreground hover:bg-surface-elevated;
+           text-ink-4
+           hover:text-ink hover:bg-paper-2;
   }
 
-  /* ===== CARDS ===== */
+  /* ===== CARDS v5 ===== */
   .card {
-    @apply block relative bg-surface rounded-xl p-4
-           border border-border overflow-hidden
+    @apply block relative bg-white rounded-xl p-4
+           border border-ink-7 overflow-hidden
            transition-colors duration-150;
   }
 
   .card-interactive {
     @apply card cursor-pointer
-           hover:bg-surface-elevated hover:border-border-strong
+           hover:bg-paper-2 hover:border-ink-6
            active:scale-[0.995];
   }
 
-  .card-hero {
-    @apply card rounded-2xl p-5
-           border-cyan/20
-           bg-gradient-vital;
+  .card-cream {
+    @apply card bg-cream border-0;
   }
 
-  .card-highlight {
-    @apply card border-cyan/30 bg-gradient-to-b from-cyan/5 to-transparent;
+  .card-ink {
+    @apply card bg-ink text-paper border-0;
   }
 
-  /* ===== STAT CARDS ===== */
+  /* ===== STAT DISPLAY ===== */
   .stat-card {
-    @apply bg-surface rounded-xl p-4 border border-border;
-  }
-
-  .stat-card-lg {
-    @apply bg-surface rounded-2xl p-5 border border-border;
+    @apply bg-white rounded-xl p-4 border border-ink-7;
   }
 
   .stat-value {
-    @apply font-display text-display-lg text-foreground tabular-nums tracking-tight;
+    @apply font-serif text-display-lg text-ink tabular-nums tracking-tight;
   }
 
   .stat-value-xl {
-    @apply font-display text-display-xl text-foreground tabular-nums tracking-tight;
+    @apply font-serif text-display-xl text-ink tabular-nums tracking-tight;
   }
 
   .stat-label {
-    @apply font-mono text-[11px] text-muted uppercase tracking-[0.14em] font-medium;
+    @apply font-mono text-[11px] text-ink-4 uppercase tracking-[0.14em] font-medium;
   }
 
   .stat-unit {
-    @apply text-lg font-normal text-muted-foreground ml-0.5;
+    @apply text-lg font-normal text-ink-4 ml-0.5;
   }
 
-  /* ===== INPUTS ===== */
+  /* ===== INPUTS v5 ===== */
   .input {
-    @apply w-full bg-surface-elevated rounded-lg px-3 py-2.5
-           text-foreground text-sm placeholder:text-muted
-           border border-border
+    @apply w-full bg-white rounded-lg px-3 py-2.5
+           text-ink text-sm placeholder:text-ink-5
+           border border-ink-7
            transition-colors duration-150
-           focus:border-cyan focus:ring-1 focus:ring-cyan/30;
+           focus:border-ink focus:ring-1 focus:ring-ink/20;
   }
 
   .label {
-    @apply font-mono text-[11px] font-medium text-muted uppercase tracking-[0.14em] mb-1.5 block;
+    @apply font-mono text-[11px] font-medium text-ink-4 uppercase tracking-[0.14em] mb-1.5 block;
   }
 
-  /* ===== PROGRESS BARS ===== */
+  /* ===== PROGRESS BARS v5 ===== */
   .progress-track {
-    @apply h-2 bg-surface-elevated rounded-full overflow-hidden;
+    @apply h-2 bg-paper-3 rounded-full overflow-hidden;
   }
   .progress-track-sm {
-    @apply h-1 bg-surface-elevated rounded-full overflow-hidden;
+    @apply h-1 bg-paper-3 rounded-full overflow-hidden;
   }
   .progress-fill {
     @apply h-full rounded-full transition-all duration-300 ease-out;
   }
-  .progress-fill-cyan { @apply progress-fill bg-cyan; }
-  .progress-fill-pink { @apply progress-fill bg-pink; }
 
-  /* ===== BADGES / CHIPS ===== */
-  .badge {
+  /* ===== CHIPS v5 ===== */
+  .chip {
     @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-           text-xs font-medium
-           bg-surface-elevated border border-border;
+           text-xs font-mono font-medium uppercase tracking-wider;
   }
-  .badge-cyan { @apply badge bg-cyan/10 border-cyan/25 text-cyan; }
-  .badge-pink { @apply badge bg-pink/10 border-pink/25 text-pink; }
-  .badge-lime { @apply badge bg-lime/10 border-lime/25 text-lime; }
-  .badge-amber { @apply badge bg-amber/10 border-amber/25 text-amber; }
-  .badge-violet { @apply badge bg-violet/10 border-violet/25 text-violet; }
-  .badge-success { @apply badge-lime; }
-  .badge-warning { @apply badge-amber; }
-  .badge-danger { @apply badge-pink; }
-  .badge-accent { @apply badge-cyan; }
+  .chip-ink {
+    @apply chip bg-paper-3 text-ink-2;
+  }
+  .chip-signal {
+    @apply chip bg-signal-soft text-signal;
+  }
+  .chip-leaf {
+    @apply chip bg-leaf-soft text-leaf;
+  }
+  .chip-berry {
+    @apply chip bg-berry-soft text-berry;
+  }
+  .chip-honey {
+    @apply chip bg-honey-soft text-honey;
+  }
+  .chip-sky {
+    @apply chip bg-sky-soft text-sky;
+  }
+  .chip-solid {
+    @apply chip bg-ink text-paper;
+  }
 
   /* ===== DIVIDERS ===== */
-  .divider { @apply h-px bg-border; }
-  .divider-subtle { @apply h-px bg-border-subtle; }
+  .divider {
+    @apply h-px bg-ink-7;
+  }
+  .divider-subtle {
+    @apply h-px bg-paper-3;
+  }
 
   /* ===== SECTION HEADERS ===== */
   .section-label {
-    @apply font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted mb-3;
+    @apply font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4 mb-3;
   }
 
   /* ===== LIST ITEMS ===== */
   .list-item {
     @apply flex items-center justify-between py-3
-           border-b border-border-subtle last:border-0;
+           border-b border-paper-3 last:border-0;
   }
 
-  /* ===== OVERLAYS ===== */
+  /* ===== OVERLAYS / SHEETS ===== */
   .overlay {
-    @apply fixed inset-0 bg-black/70 backdrop-blur-sm z-50;
+    @apply fixed inset-0 bg-ink/40 backdrop-blur-sm z-50;
   }
 
   .sheet {
     @apply fixed inset-x-0 bottom-0 z-50
-           bg-surface rounded-t-2xl
-           border-t border-border
-           shadow-2xl shadow-black/50
+           bg-white rounded-t-2xl
+           border-t border-ink-7
+           shadow-2xl shadow-ink/20
            max-h-[85vh] overflow-hidden
            md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:bottom-auto md:top-1/2 md:-translate-y-1/2
            md:w-full md:max-w-md md:rounded-2xl md:border;
   }
 
   /* ===== GRID LAYOUTS ===== */
-  .desktop-grid-2 { @apply grid gap-4 md:grid-cols-2; }
-  .desktop-grid-3 { @apply grid gap-4 md:grid-cols-3; }
-  .desktop-grid-sidebar { @apply grid gap-6 lg:grid-cols-[1fr_300px]; }
+  .desktop-grid-2 {
+    @apply grid gap-4 md:grid-cols-2;
+  }
+  .desktop-grid-3 {
+    @apply grid gap-4 md:grid-cols-3;
+  }
+  .desktop-grid-sidebar {
+    @apply grid gap-6 lg:grid-cols-[1fr_300px];
+  }
 
-  .data-grid { @apply grid gap-3; }
-  .data-grid-2 { @apply grid grid-cols-2 gap-3; }
-  .data-grid-3 { @apply grid grid-cols-3 gap-3; }
+  .data-grid {
+    @apply grid gap-3;
+  }
+  .data-grid-2 {
+    @apply grid grid-cols-2 gap-3;
+  }
+  .data-grid-3 {
+    @apply grid grid-cols-3 gap-3;
+  }
 
   /* ===== SKELETON ===== */
-  .skeleton { @apply bg-surface-elevated rounded-lg animate-pulse; }
+  .skeleton {
+    @apply bg-paper-2 rounded-lg animate-pulse;
+  }
 
   /* ===== SIDEBAR (desktop) ===== */
   .sidebar {
     @apply fixed top-0 left-0 bottom-0 w-sidebar
-           bg-surface border-r border-border
+           bg-paper-2 border-r border-ink-7
            flex flex-col z-40
            hidden md:flex;
   }
   .sidebar-nav-item {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-lg
-           text-muted-foreground text-sm font-medium
+           text-ink-4 text-sm font-medium
            transition-colors duration-150
-           hover:text-foreground hover:bg-surface-elevated;
+           hover:text-ink hover:bg-paper-3;
   }
   .sidebar-nav-item-active {
-    @apply sidebar-nav-item text-cyan bg-cyan/10;
+    @apply sidebar-nav-item text-ink bg-white border border-ink-7;
   }
 
   /* ===== MOBILE HEADER ===== */
   .mobile-header {
     @apply fixed top-0 left-0 right-0 z-40
-           bg-background/90 backdrop-blur-xl border-b border-border
+           bg-paper/90 backdrop-blur-xl border-b border-ink-7
            md:hidden;
   }
-
-  /* ===== HEATMAP CELLS (habits) ===== */
-  .heatmap-cell {
-    @apply w-full aspect-square rounded-sm transition-all duration-150;
-  }
-  .heatmap-cell-empty { @apply heatmap-cell bg-surface-elevated; }
-  .heatmap-cell-low   { @apply heatmap-cell bg-cyan/25; }
-  .heatmap-cell-med   { @apply heatmap-cell bg-cyan/55; }
-  .heatmap-cell-high  { @apply heatmap-cell bg-cyan shadow-glow-cyan; }
 }
 
 @layer utilities {
   /* Safe areas */
-  .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem); }
-  .safe-top { padding-top: env(safe-area-inset-top, 0px); }
-
-  /* Typography helpers */
-  .text-gradient {
-    @apply bg-gradient-to-r from-cyan to-lime bg-clip-text text-transparent;
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
   }
-  .text-gradient-coach {
-    @apply bg-gradient-to-r from-violet to-pink bg-clip-text text-transparent;
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
   }
-
-  .font-editorial-italic {
-    font-family: var(--font-instrument), Georgia, serif;
-    font-style: italic;
-  }
-
-  /* Glows */
-  .glow-cyan { box-shadow: 0 0 32px -8px rgba(34,228,217,0.6); }
-  .glow-pink { box-shadow: 0 0 32px -8px rgba(255,82,119,0.6); }
-  .glow-violet { box-shadow: 0 0 32px -8px rgba(159,123,255,0.6); }
-  .glow-amber { filter: drop-shadow(0 0 10px rgba(255,181,71,0.7)); }
 
   /* Scrollbar hide */
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 
   /* Delays */
-  .delay-75 { animation-delay: 75ms; }
-  .delay-150 { animation-delay: 150ms; }
-  .delay-225 { animation-delay: 225ms; }
-  .delay-300 { animation-delay: 300ms; }
+  .delay-75 {
+    animation-delay: 75ms;
+  }
+  .delay-150 {
+    animation-delay: 150ms;
+  }
+  .delay-225 {
+    animation-delay: 225ms;
+  }
+  .delay-300 {
+    animation-delay: 300ms;
+  }
 
-  .md\:pl-sidebar { @apply md:pl-[220px]; }
+  .md\:pl-sidebar {
+    @apply md:pl-[220px];
+  }
+
+  /* Mobile dock padding */
+  .pb-dock {
+    padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  }
 }

@@ -1,31 +1,33 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, JetBrains_Mono, Instrument_Serif } from 'next/font/google'
+import { Fraunces, Inter, JetBrains_Mono } from 'next/font/google'
 import { Providers } from '@/components/Providers'
 import './globals.css'
 
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--f-serif',
+  weight: ['300', '400', '500', '600'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+})
+
+// Inter as Geist alternative (very similar modern sans-serif)
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-geist',
+  variable: '--f-sans',
   display: 'swap',
 })
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
-  variable: '--font-geist-mono',
-  display: 'swap',
-})
-
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  weight: '400',
-  style: ['normal', 'italic'],
-  variable: '--font-instrument',
+  variable: '--f-mono',
+  weight: ['400', '500', '600'],
   display: 'swap',
 })
 
 export const metadata: Metadata = {
   title: 'Fitkis',
-  description: 'Tu app personal de fitness y salud',
+  description: 'Un pulso para tu vida diaria.',
   manifest: '/manifest.json',
   icons: {
     icon: '/favicon.svg',
@@ -33,7 +35,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'Fitkis',
   },
 }
@@ -43,7 +45,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0a0e1a',
+  themeColor: '#fafaf7',
 }
 
 export default function RootLayout({
@@ -54,9 +56,9 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable}`}
+      className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="min-h-screen antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -2,7 +2,63 @@
 
 ## Estado general
 - Setup del proyecto ✅ COMPLETADO
-- Sistema de diseño UI ✅ COMPLETADO (Rediseño v3.0 - "Whoop-Inspired")
+- Sistema de diseño UI ✅ COMPLETADO (Rediseño v5.0 - "Paper & Pulse")
+
+---
+
+## Ultimo agente
+Agente: Design Migration v5.0 "Paper & Pulse"
+Fecha: 21 de abril 2026
+Que hizo:
+
+### Migracion a Fitkis v5 "Paper & Pulse" (21 abril) ✅
+
+**Cambio de direccion visual completo:**
+- De tema oscuro "Atletico Vital" (cyan/pink) a tema claro "Paper & Pulse" (paper/mandarina)
+- De Whoop-inspired a editorial/magazine aesthetic
+
+**Tokens actualizados:**
+- `tailwind.config.ts`: Nueva paleta ink/paper/signal/leaf/berry/honey/sky
+- `app/globals.css`: Tokens CSS v5, clases utilitarias .fk-*, componentes v5
+- `app/layout.tsx`: Fuentes Fraunces (serif), Geist (sans), JetBrains_Mono (mono)
+
+**Primitivos v5 creados:**
+- `components/ui/PulseLine.tsx`: Linea EKG - firma visual de la app
+- `components/ui/Fk.tsx`: FkMark (logo) y FkWord (wordmark) con PulseLine
+- `components/ui/Chip.tsx`: Actualizado con tonos v5 (ink, signal, leaf, berry, honey, sky)
+- `components/ui/Btn.tsx`: Botones v5 con variantes (primary, signal, ghost, secondary)
+- `components/ui/BigNum.tsx`: Numeros grandes con fuente serif
+- `components/ui/Segments.tsx`: Barra de progreso segmentada para macros
+- `components/ui/Card.tsx`: Cards con variantes (default, cream, ink)
+- `components/ui/Sparkline.tsx`: Actualizado para v5
+
+**Navegacion v5:**
+- `components/MobileDock.tsx`: Dock flotante negro con FAB mandarina
+- `components/ui/Header.tsx`: Header mobile con estilo v5
+- `components/ui/Sidebar.tsx`: Sidebar desktop con PulseLine en items activos
+- `components/ui/LogoMark.tsx`: Logo actualizado con PulseLine
+
+**Layout actualizado:**
+- `app/(app)/layout.tsx`: Incluye MobileDock, padding para dock
+- `components/coach/CoachBubble.tsx`: Posicionado sobre el dock, estilos v5
+
+**Colores clave v5:**
+- ink: #0a0a0a (texto principal)
+- paper: #fafaf7 (fondo principal)
+- signal: #ff5a1f (acento mandarina)
+- leaf: #4a7c3a (verdura/exito)
+- berry: #c13b5a (proteina/alerta)
+- honey: #d4a017 (carb)
+- sky: #3a6b8c (recovery)
+
+**Fuentes v5:**
+- Fraunces: Titulos hero, numeros grandes (serif display)
+- Geist: Texto de cuerpo (sans-serif moderno)
+- JetBrains Mono: Labels, stats, UI tecnica
+
+---
+
+## Agente Anterior
 - Base de datos Supabase ✅ CONFIGURADA (tablas + RLS)
 - Auth ✅ COMPLETADO (login real con Supabase Auth)
 - Módulo Weight ✅ CONECTADO a Supabase + Progress Photos + IMC
@@ -491,35 +547,33 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 - Logout con `supabase.auth.signOut()`
 - Middleware protege rutas /dashboard, /gym, /food, /habits, /weight
 
-### UI: ✅ Completado (Rediseño v3.0 - "Whoop-Inspired")
-**Sistema de Diseño:**
-- Fondo: #080808 (deeper black)
-- Acento: #10b981 (emerald)
-- Foreground: #f5f5f5
-- Surfaces: #0f0f0f / #141414 / #1a1a1a (jerarquía de elevación)
-- Border: #242424 (standard) / #1a1a1a (subtle)
-- Tipografía: Outfit (display) + DM Sans (body) via next/font/google
-- Animaciones: fadeIn, slideUp, scaleIn
+### UI: ✅ Completado (Rediseno v5.0 - "Paper & Pulse")
+**Sistema de Diseno:**
+- Fondo: #fafaf7 (paper - warm white)
+- Texto: #0a0a0a (ink - almost black)
+- Acento: #ff5a1f (signal - mandarina)
+- Semanticos: leaf (#4a7c3a), berry (#c13b5a), honey (#d4a017), sky (#3a6b8c)
+- Tipografia: Fraunces (serif) + Geist (sans) + JetBrains Mono (mono)
+- Estetica: Editorial/magazine, light theme, warm tones
 
-**Componentes:**
-- btn-primary, btn-secondary, btn-ghost, btn-icon
-- card, card-interactive
-- input, label, badge-accent
-- sheet (modal), overlay
-- progress-track-lg, progress-fill
-- stat-card, stat-value, stat-label
-- heatmap-cell-* (for habit tracking)
+**Primitivos v5:**
+- PulseLine: Firma visual EKG (en logos, nav activa, hero cards)
+- FkMark/FkWord: Logo con PulseLine integrado
+- Chip: Etiquetas con tonos semanticos
+- Btn: Botones rounded-full con variantes
+- BigNum: Numeros hero con serif
+- Segments: Barra segmentada para macros
+- Card: Cards con variantes (default, cream, ink)
 
-**Navigation (NEW):**
-- Sidebar (desktop ≥768px): 220px fixed left, full navigation
-- Header (mobile <768px): compact with hamburger menu
-- SideMenu (drawer): slide-in-right for mobile navigation
-- BottomNav REMOVED
+**Navegacion v5:**
+- MobileDock: Pill flotante negra con FAB mandarina central
+- Sidebar (desktop): Paper background con PulseLine en items activos
+- Header (mobile): Paper/blur con logo serif
 
-**Gráficas (recharts):**
-- AreaChart en Weight con gradiente y línea de referencia (meta)
-- Mini AreaChart en Dashboard para peso
-- 30-day heatmap en Habits (GitHub-style)
+**Graficas (recharts):**
+- AreaChart en Weight
+- Sparkline actualizado para v5
+- 30-day heatmap en Habits
 
 ### Gym: ✅ Conectado a Supabase + Nuevas Features
 - Weekly calendar view with day selection
@@ -763,15 +817,15 @@ npx tsc --noEmit   # Verificar TypeScript
 
 ## Notas
 - **Nombre**: Fitkis (antes FitLife)
-- **Favicon**: Dumbbell icon en SVG con gradiente emerald
+- **Favicon**: f con PulseLine
 - Proyecto Supabase: Fitkis (us-west-2)
 - Repo GitHub: https://github.com/Rafaelbhdata/fitkis
-- Diseño: mobile-first responsive, tema oscuro profesional
-- Concepto: "Whoop-Inspired" - dense, data-heavy, professional gym app
-- Acento: emerald (#10b981)
-- Tipografía: Outfit (display) + DM Sans (body)
-- Navegación: Sidebar (desktop ≥768px) + Drawer (mobile) - ahora incluye Journal
-- Estado: MVP funcional con diseño premium v3.0, Journal y Progress Photos implementados
+- Diseno: mobile-first responsive, tema claro "Paper & Pulse"
+- Concepto: Editorial/magazine - warm, editorial, personality
+- Colores: ink (#0a0a0a) + paper (#fafaf7) + signal/mandarina (#ff5a1f)
+- Tipografia: Fraunces (serif) + Geist (sans) + JetBrains Mono (mono)
+- Navegacion: Sidebar (desktop) + MobileDock flotante (mobile)
+- Estado: MVP funcional con diseno v5.0 "Paper & Pulse"
 
 ## Bugs Corregidos (6 abril 2026)
 1. **Duplicate habits**: Set-based deduplication en habits/page.tsx y dashboard/page.tsx

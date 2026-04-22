@@ -1,45 +1,48 @@
-'use client'
+'use client';
 
 type SparklineProps = {
-  values: number[]
-  width?: number
-  height?: number
-  color?: string
-  fill?: boolean
-  glow?: boolean
-  strokeWidth?: number
-  className?: string
-}
+  values: number[];
+  width?: number;
+  height?: number;
+  color?: string;
+  fill?: boolean;
+  dotted?: boolean;
+  showEndDot?: boolean;
+  strokeWidth?: number;
+  className?: string;
+};
 
 /**
- * Minimal glowing sparkline. Pass raw numbers; normalization is automatic.
+ * Sparkline v5 — Grafica de linea minimalista
+ * Normaliza automaticamente los valores.
  */
 export default function Sparkline({
   values,
-  width = 140,
-  height = 40,
-  color = '#22e4d9',
-  fill = true,
-  glow = true,
-  strokeWidth = 1.75,
+  width = 120,
+  height = 32,
+  color = 'var(--ink)',
+  fill = false,
+  dotted = false,
+  showEndDot = true,
+  strokeWidth = 1.5,
   className = '',
 }: SparklineProps) {
-  if (!values.length) return null
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min || 1
-  const step = width / (values.length - 1 || 1)
+  if (!values.length) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const step = width / (values.length - 1 || 1);
 
   const points = values.map((v, i) => {
-    const x = i * step
-    const y = height - ((v - min) / span) * (height - 4) - 2
-    return [x, y] as const
-  })
+    const x = i * step;
+    const y = height - ((v - min) / span) * (height - 4) - 2;
+    return [x, y] as const;
+  });
 
-  const line = points.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
-  const area = `${line} L${width},${height} L0,${height} Z`
+  const line = points.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = `${line} L${width},${height} L0,${height} Z`;
 
-  const id = `spark-${Math.random().toString(36).slice(2, 8)}`
+  const lastPoint = points[points.length - 1];
 
   return (
     <svg
@@ -47,15 +50,9 @@ export default function Sparkline({
       height={height}
       viewBox={`0 0 ${width} ${height}`}
       className={className}
-      style={glow ? { filter: `drop-shadow(0 0 6px ${color}80)` } : undefined}
+      style={{ display: 'block' }}
     >
-      <defs>
-        <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {fill && <path d={area} fill={`url(#${id})`} />}
+      {fill && <path d={area} fill={color} opacity="0.1" />}
       <path
         d={line}
         fill="none"
@@ -63,7 +60,14 @@ export default function Sparkline({
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeDasharray={dotted ? '3 3' : '0'}
       />
+      {showEndDot && lastPoint && (
+        <circle cx={lastPoint[0]} cy={lastPoint[1]} r="2.5" fill={color} />
+      )}
     </svg>
-  )
+  );
 }
+
+// Named export
+export { Sparkline };

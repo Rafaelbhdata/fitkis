@@ -1,44 +1,55 @@
-'use client'
+'use client';
 
-import { ReactNode } from 'react'
+import { ReactNode } from 'react';
 
-type Tone = 'default' | 'cyan' | 'pink' | 'lime' | 'amber' | 'violet'
+type Tone = 'ink' | 'signal' | 'leaf' | 'berry' | 'honey' | 'sky' | 'inkSolid';
 
 type ChipProps = {
-  tone?: Tone
-  icon?: ReactNode
-  children: ReactNode
-  className?: string
-  onClick?: () => void
-}
+  tone?: Tone;
+  icon?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  onClick?: () => void;
+};
 
-const TONE: Record<Tone, string> = {
-  default: 'bg-surface-elevated border-border text-muted-foreground',
-  cyan: 'bg-cyan/10 border-cyan/25 text-cyan',
-  pink: 'bg-pink/10 border-pink/25 text-pink',
-  lime: 'bg-lime/10 border-lime/25 text-lime',
-  amber: 'bg-amber/10 border-amber/25 text-amber',
-  violet: 'bg-violet/10 border-violet/25 text-violet',
-}
+const toneStyles: Record<Tone, { bg: string; fg: string }> = {
+  ink: { bg: 'var(--paper-3)', fg: 'var(--ink-2)' },
+  signal: { bg: 'var(--signal-soft)', fg: '#a33a0f' },
+  leaf: { bg: 'var(--leaf-soft)', fg: 'var(--leaf)' },
+  berry: { bg: 'var(--berry-soft)', fg: 'var(--berry)' },
+  honey: { bg: 'var(--honey-soft)', fg: '#8a6411' },
+  sky: { bg: 'var(--sky-soft)', fg: 'var(--sky)' },
+  inkSolid: { bg: 'var(--ink)', fg: 'var(--paper)' },
+};
 
 /**
- * Tonal chip — used for status, filters, micro-labels.
+ * Chip v5 — Etiqueta pequena con color semantico
+ * Usalo para: estados, filtros, etiquetas de grupos alimenticios
  */
 export default function Chip({
-  tone = 'default',
+  tone = 'ink',
   icon,
   children,
   className = '',
   onClick,
 }: ChipProps) {
-  const Tag = onClick ? 'button' : 'span'
+  const t = toneStyles[tone];
+  const Tag = onClick ? 'button' : 'span';
   return (
     <Tag
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${TONE[tone]} ${onClick ? 'hover:brightness-125' : ''} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full font-mono text-[10px] font-medium uppercase tracking-[0.06em] transition-colors ${onClick ? 'hover:brightness-95 cursor-pointer' : ''} ${className}`}
+      style={{
+        background: t.bg,
+        color: t.fg,
+        padding: '3px 8px',
+      }}
     >
       {icon}
       {children}
     </Tag>
-  )
+  );
 }
+
+// Named export for compatibility
+export { Chip };
