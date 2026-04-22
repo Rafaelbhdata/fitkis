@@ -140,21 +140,23 @@ export default function ClinicDashboard() {
       // In production, you might want to send an actual invite email
 
       // Check if user exists with this email
-      const { data: existingUser, error: userError } = await (supabase as any)
+      const { data: existingUsers, error: userError } = await (supabase as any)
         .rpc('get_user_by_email', { email_input: inviteEmail.toLowerCase() })
 
-      if (userError || !existingUser) {
+      if (userError || !existingUsers || existingUsers.length === 0) {
         setInviteError('No se encontró un usuario con ese email. El paciente debe crear una cuenta primero.')
         setInviteLoading(false)
         return
       }
+
+      const patientId = existingUsers[0].id
 
       // Check if relationship already exists
       const { data: existing } = await (supabase as any)
         .from('practitioner_patients')
         .select('id, status')
         .eq('practitioner_id', practitionerId)
-        .eq('patient_id', existingUser.id)
+        .eq('patient_id', patientId)
         .single()
 
       if (existing) {
@@ -168,7 +170,7 @@ export default function ClinicDashboard() {
         .from('practitioner_patients')
         .insert({
           practitioner_id: practitionerId,
-          patient_id: existingUser.id,
+          patient_id: patientId,
           status: 'pending',
         })
 
