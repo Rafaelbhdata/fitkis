@@ -271,8 +271,7 @@ export async function GET(request: Request) {
         product_data: productData,
         source: 'openfoodfacts',
       })
-      .then(() => {})
-      .catch(() => {})
+      .then(() => {}, () => {})
 
     const result: BarcodeLookupResult = {
       success: true,
