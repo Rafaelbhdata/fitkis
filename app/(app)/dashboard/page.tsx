@@ -3,45 +3,18 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getDayOfWeek, getRoutineForDay, getRoutineName, getToday, calculateGymStreak, calculateDietStreak } from '@/lib/utils'
-import { DAILY_BUDGET, FOOD_GROUP_LABELS, ROUTINES, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
+import { DAILY_BUDGET, ROUTINES, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import {
   Dumbbell,
   ChevronRight,
-  Droplets,
-  Scale,
+  Apple,
+  BookOpen,
   Flame,
-  Target,
-  TrendingDown,
-  TrendingUp,
-  Calendar,
-  Zap,
-  ArrowRight,
   X,
-  Utensils
 } from 'lucide-react'
-import {
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-} from 'recharts'
+import { PulseLine } from '@/components/ui/PulseLine'
 import type { FoodGroup, FoodLog, WeightLog, Habit, HabitLog, GymSession, ScheduleOverride, DailyBudget } from '@/types'
-
-// New Atlético Vital food colors
-const FOOD_COLORS: Record<FoodGroup, string> = {
-  verdura: '#7ed957',
-  fruta: '#ff8a5c',
-  carb: '#ffce4a',
-  leguminosa: '#22e4d9',
-  proteina: '#ff5277',
-  grasa: '#9f7bff',
-}
-
-// Week starts on Monday (index 0 = Monday, index 6 = Sunday)
-const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-
-// Convert JS day (0=Sun) to UI index (0=Mon): (jsDay + 6) % 7
-const jsDayToUiIndex = (jsDay: number) => (jsDay + 6) % 7
 
 export default function DashboardPage() {
   const today = new Date()
@@ -53,7 +26,7 @@ export default function DashboardPage() {
 
   const [loading, setLoading] = useState(true)
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
-  const [allFoodLogs, setAllFoodLogs] = useState<FoodLog[]>([]) // For streak calculation
+  const [allFoodLogs, setAllFoodLogs] = useState<FoodLog[]>([])
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [habits, setHabits] = useState<Habit[]>([])
   const [habitLogs, setHabitLogs] = useState<HabitLog[]>([])
@@ -70,7 +43,6 @@ export default function DashboardPage() {
     setLoading(true)
     setError(null)
     try {
-      // Calculate date 90 days ago for streak calculations
       const ninetyDaysAgo = new Date()
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
       const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split('T')[0]
@@ -109,7 +81,7 @@ export default function DashboardPage() {
     setLoading(false)
   }
 
-  // Calcular consumido por grupo
+  // Calculate consumed per group
   const consumed: Record<FoodGroup, number> = { verdura: 0, fruta: 0, carb: 0, leguminosa: 0, proteina: 0, grasa: 0 }
   foodLogs.forEach(log => { consumed[log.group_type] += log.quantity })
 
@@ -117,12 +89,11 @@ export default function DashboardPage() {
   const gymStreak = calculateGymStreak(gymSessions, scheduleOverrides)
   const dietStreak = calculateDietStreak(allFoodLogs, userBudget)
 
-  // Calcular totales
+  // Calculate totals
   const totalConsumed = Object.values(consumed).reduce((a, b) => a + b, 0)
   const totalBudget = Object.values(DAILY_BUDGET).reduce((a, b) => a + b, 0)
-  const nutritionPercentage = Math.round((totalConsumed / totalBudget) * 100)
 
-  // Deduplicate habits by name and merge with state
+  // Deduplicate habits
   const seenNames = new Set<string>()
   const uniqueHabits = habits.filter(h => {
     if (seenNames.has(h.name)) return false
@@ -139,353 +110,187 @@ export default function DashboardPage() {
     h.type === 'quantity' ? h.value >= (h.target_value || 0) : h.completed
   ).length
 
-  // Weight data
-  const latestWeight = weightLogs[0]?.weight_kg
-  const previousWeight = weightLogs[1]?.weight_kg
-  const weightDiff = latestWeight && previousWeight ? (latestWeight - previousWeight) : null
+  // Pulse score (simplified - combine metrics)
+  const pulseScore = Math.round(
+    ((totalConsumed / totalBudget) * 25) + // Food: 25%
+    (gymStreak > 0 ? 25 : 0) + // Movement: 25%
+    25 + // Sleep placeholder: 25%
+    ((completedHabits / Math.max(uniqueHabits.length, 1)) * 25) // Mood/habits: 25%
+  )
 
-  const weightChartData = [...weightLogs].reverse().slice(-7).map(w => ({
-    date: new Date(w.date).getDate(),
-    weight: w.weight_kg
-  }))
+  // Get greeting and user name
+  const userName = user?.email?.split('@')[0] || 'Usuario'
+  const capitalizedName = userName.charAt(0).toUpperCase() + userName.slice(1)
 
-  // Week calendar data (Monday-first)
-  const getWeekDays = () => {
-    const days = []
-    const jsDay = today.getDay() // 0=Sun, 1=Mon, ...
-    const todayUiIndex = jsDayToUiIndex(jsDay) // 0=Mon, 1=Tue, ..., 6=Sun
-
-    // Calculate Monday of current week
-    const daysFromMonday = (jsDay + 6) % 7
-    const monday = new Date(today)
-    monday.setDate(today.getDate() - daysFromMonday)
-
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(monday)
-      date.setDate(monday.getDate() + i)
-      const dateStr = date.toISOString().split('T')[0]
-      const hasGym = gymSessions.some(s => s.date === dateStr)
-
-      days.push({
-        day: WEEKDAYS[i],
-        date: date.getDate(),
-        isToday: i === todayUiIndex,
-        hasActivity: hasGym,
-        isPast: i < todayUiIndex
-      })
-    }
-    return days
+  // Motivational quote based on streak
+  const getMotivationalQuote = () => {
+    if (gymStreak >= 7) return `Llevas ${gymStreak} días moviéndote. Tu cuerpo ya lo nota.`
+    if (gymStreak >= 3) return `${gymStreak} días en racha. Sigue así.`
+    if (gymStreak >= 1) return 'Un buen inicio. Cada día cuenta.'
+    return 'Hoy es un buen día para empezar.'
   }
 
-  const weekDays = getWeekDays()
-  const weekWorkouts = gymSessions.filter(s => {
-    const weekStart = new Date(today)
-    const daysFromMonday = (today.getDay() + 6) % 7
-    weekStart.setDate(today.getDate() - daysFromMonday)
-    const weekStartStr = weekStart.toISOString().split('T')[0]
-    return s.date >= weekStartStr
-  }).length
+  // Calculate missing vegetables
+  const missingVerduras = Math.max(0, DAILY_BUDGET.verdura - consumed.verdura)
 
-  // Greeting
-  const getGreeting = () => {
-    const hour = today.getHours()
-    if (hour < 12) return 'Buenos días'
-    if (hour < 19) return 'Buenas tardes'
-    return 'Buenas noches'
-  }
+  // Date formatting
+  const dateStr = today.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' })
+  const capitalizedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1)
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-          <p className="text-sm text-muted-foreground">Cargando...</p>
+        <div className="flex flex-col items-center gap-4">
+          <PulseLine w={80} h={24} color="var(--signal)" strokeWidth={2} active />
+          <p className="fk-mono text-sm text-ink-4">Cargando...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="pb-4">
       {error && (
-        <div className="p-3 bg-danger/10 border border-danger/20 rounded-lg text-danger text-sm flex items-center justify-between">
+        <div className="mx-5 mb-4 p-3 bg-berry-soft border border-berry/20 rounded-lg text-berry text-sm flex items-center justify-between">
           <span>{error}</span>
           <div className="flex items-center gap-2">
             <button onClick={loadData} className="text-xs font-medium underline hover:no-underline">
               Reintentar
             </button>
-            <button onClick={() => setError(null)} className="text-danger hover:text-danger/80">
+            <button onClick={() => setError(null)} className="text-berry hover:text-berry/80">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-muted-foreground text-sm">{getGreeting()}</p>
-          <h1 className="font-display text-display-md">
-            {today.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' })}
-          </h1>
+      {/* Greeting Block */}
+      <div className="px-5 pt-5 pb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="fk-eyebrow mb-1">{capitalizedDate}</div>
+            <h1 className="font-serif text-4xl font-light tracking-tight leading-none">
+              Hola, <span className="italic">{capitalizedName}</span>.
+            </h1>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-paper-3 flex items-center justify-center font-serif text-base font-medium">
+            {capitalizedName.charAt(0)}
+          </div>
         </div>
-        {routineType && (
-          <Link href="/gym" className="flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent/80 transition-colors">
-            Ir al gym
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        )}
+        <p className="font-serif text-[17px] leading-relaxed text-ink-2 italic font-light max-w-[260px]">
+          "{getMotivationalQuote().split(String(gymStreak))[0]}
+          {gymStreak > 0 && <span className="not-italic text-signal font-medium">{gymStreak} días</span>}
+          {getMotivationalQuote().split(String(gymStreak))[1]}"
+        </p>
       </div>
 
-      {/* Week Calendar */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Semana</span>
+      {/* Hero Pulse Card */}
+      <div className="mx-5 bg-ink text-paper rounded-[20px] p-[22px] relative overflow-hidden">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <div className="fk-eyebrow text-ink-5">Tu pulso · hoy</div>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="font-serif text-[64px] font-light tracking-tighter leading-[0.9]">{pulseScore}</span>
+              <span className="fk-mono text-[11px] text-ink-5 uppercase tracking-wider">/ 100</span>
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground">{weekWorkouts} entrenamientos</span>
-        </div>
-        <div className="grid grid-cols-7 gap-1.5">
-          {weekDays.map((day, i) => (
-            <div
-              key={i}
-              className={`flex flex-col items-center py-2.5 rounded-lg transition-colors min-h-[48px] ${
-                day.isToday
-                  ? 'bg-accent text-background'
-                  : day.isPast && day.hasActivity
-                    ? 'bg-accent/10'
-                    : 'bg-surface-elevated'
-              }`}
-            >
-              <span className={`text-[10px] font-medium ${day.isToday ? 'text-background/70' : 'text-muted-foreground'}`}>
-                {day.day}
+          <div className="text-right">
+            {gymStreak > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs fk-mono font-medium uppercase tracking-wider bg-signal/15 text-signal-2">
+                <Flame className="w-2.5 h-2.5" /> Racha {gymStreak}
               </span>
-              <span className="text-sm font-semibold">{day.date}</span>
-              {day.hasActivity && !day.isToday && (
-                <div className="w-1.5 h-1.5 rounded-full bg-accent mt-0.5" />
-              )}
+            )}
+          </div>
+        </div>
+
+        <div className="my-3">
+          <PulseLine w={280} h={36} color="var(--signal)" strokeWidth={1.8} active />
+        </div>
+
+        <div className="grid grid-cols-4 gap-2.5 mt-4 pt-4 border-t border-white/10">
+          {[
+            { l: 'Comida', v: `${totalConsumed}/${totalBudget}`, c: 'var(--leaf)' },
+            { l: 'Mov.', v: routineType ? 'Gym' : 'Rest', c: 'var(--signal)' },
+            { l: 'Sueño', v: '7:20', c: 'var(--sky)' },
+            { l: 'Ánimo', v: completedHabits.toString(), c: 'var(--honey)' },
+          ].map(m => (
+            <div key={m.l}>
+              <div className="w-1.5 h-1.5 rounded-full mb-1.5" style={{ background: m.c }} />
+              <div className="fk-mono text-[10px] text-ink-5 uppercase tracking-wider">{m.l}</div>
+              <div className="font-serif text-lg font-normal mt-0.5">{m.v}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Stats Grid - 2x2 on mobile, 4 cols on desktop */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Today's Workout */}
-        <Link href="/gym" className="card-interactive col-span-2 md:col-span-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="stat-label flex items-center gap-2">
-                <Dumbbell className={`w-4 h-4 ${routineType ? 'text-blue-400' : 'text-muted'}`} />
-                Hoy toca
-              </p>
-              <p className="font-display text-display-xs">
-                {routineType ? getRoutineName(routineType) : 'Descanso'}
-              </p>
-              {routineType && ROUTINES[routineType] && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {ROUTINES[routineType].exercises.slice(0, 3).map(e => e.name).join(', ')}
-                </p>
-              )}
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </div>
-        </Link>
+      {/* Next Up Section */}
+      <div className="px-5 pt-6">
+        <div className="flex items-baseline justify-between mb-3">
+          <div className="fk-eyebrow">Lo que sigue</div>
+          <span className="fk-mono text-[10px] text-ink-4">
+            {(routineType ? 1 : 0) + (missingVerduras > 0 ? 1 : 0) + 1} pendientes
+          </span>
+        </div>
 
-        {/* Weight */}
-        <Link href="/weight" className="card-interactive">
-          <div className="flex items-center justify-between mb-2">
-            <Scale className="w-4 h-4 text-purple-400" />
-            {weightDiff !== null && (
-              <div className={`flex items-center gap-0.5 text-[10px] font-medium ${
-                weightDiff <= 0 ? 'text-success' : 'text-danger'
-              }`}>
-                {weightDiff <= 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-                {weightDiff > 0 ? '+' : ''}{weightDiff?.toFixed(1)}
+        <div className="flex flex-col gap-2">
+          {/* Workout Card */}
+          {routineType && (
+            <Link
+              href="/gym"
+              className="flex items-center gap-3 p-3 bg-white border border-ink-7 rounded-xl hover:bg-paper-2 transition-colors"
+            >
+              <div className="w-[34px] h-[34px] rounded-[10px] bg-signal-soft text-signal flex items-center justify-center">
+                <Dumbbell className="w-4 h-4" />
               </div>
-            )}
-          </div>
-          <p className="stat-label">Peso</p>
-          <p className="font-display text-display-sm">{latestWeight ? `${latestWeight} kg` : '--'}</p>
-          {weightChartData.length > 1 && (
-            <div className="h-8 mt-2 -mx-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={weightChartData}>
-                  <defs>
-                    <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#a855f7" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#a855f7" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area type="monotone" dataKey="weight" stroke="#a855f7" strokeWidth={1.5} fill="url(#wGrad)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium">{getRoutineName(routineType)}</div>
+                <div className="fk-mono text-[10px] text-ink-4 mt-0.5 tracking-wider">
+                  {ROUTINES[routineType]?.exercises.length || 5} EJERCICIOS · HOY
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-ink-4" />
+            </Link>
           )}
-        </Link>
 
-        {/* Habits */}
-        <Link href="/habits" className="card-interactive">
-          <div className="flex items-center justify-between mb-2">
-            <Target className="w-4 h-4 text-orange-400" />
-            <span className="text-[10px] text-muted-foreground">{uniqueHabits.length} total</span>
-          </div>
-          <p className="stat-label">Hábitos</p>
-          <p className="font-display text-display-sm">{completedHabits}/{uniqueHabits.length}</p>
-          <div className="flex gap-1 mt-2">
-            {habitsWithState.slice(0, 5).map((h, i) => {
-              const isComplete = h.type === 'quantity' ? h.value >= (h.target_value || 0) : h.completed
-              return (
-                <div
-                  key={i}
-                  className={`flex-1 h-1.5 rounded-full ${isComplete ? 'bg-accent' : 'bg-surface-elevated'}`}
-                />
-              )
-            })}
-          </div>
-        </Link>
-      </div>
-
-      {/* Nutrition Card */}
-      <Link href="/food" className="card-interactive">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="stat-label flex items-center gap-2">
-              <Zap className="w-4 h-4 text-green-400" />
-              Nutrición hoy
-            </p>
-            <p className="font-display text-display-xs">{totalConsumed} / {totalBudget} equiv.</p>
-          </div>
-          <div className="text-right">
-            <p className="font-display text-display-sm text-accent">{nutritionPercentage}%</p>
-            <p className="text-[10px] text-muted-foreground">completado</p>
-          </div>
-        </div>
-
-        {/* Food group bars */}
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {(Object.keys(DAILY_BUDGET) as FoodGroup[]).map((group) => {
-            const percentage = Math.min((consumed[group] / DAILY_BUDGET[group]) * 100, 100)
-            return (
-              <div key={group}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-muted-foreground">{FOOD_GROUP_LABELS[group].slice(0, 4)}</span>
-                  <span className="text-[10px] font-medium">{consumed[group]}/{DAILY_BUDGET[group]}</span>
+          {/* Missing Vegetables Card */}
+          {missingVerduras > 0 && (
+            <Link
+              href="/food"
+              className="flex items-center gap-3 p-3 bg-white border border-ink-7 rounded-xl hover:bg-paper-2 transition-colors"
+            >
+              <div className="w-[34px] h-[34px] rounded-[10px] bg-leaf-soft text-leaf flex items-center justify-center">
+                <Apple className="w-4 h-4" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium">
+                  Te faltan <span className="font-serif italic">{missingVerduras} verduras</span>
                 </div>
-                <div className="progress-track-sm">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${percentage}%`, backgroundColor: FOOD_COLORS[group] }}
-                  />
+                <div className="fk-mono text-[10px] text-ink-4 mt-0.5 tracking-wider">
+                  SUGERENCIA SMAE · CENA
                 </div>
               </div>
-            )
-          })}
-        </div>
-      </Link>
+              <ChevronRight className="w-4 h-4 text-ink-4" />
+            </Link>
+          )}
 
-      {/* Streaks */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="card !p-4 bg-gradient-to-br from-blue-500/10 to-transparent border-blue-500/20">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <Dumbbell className="w-4 h-4 text-blue-400" />
+          {/* Journal Card */}
+          <Link
+            href="/habits"
+            className="flex items-center gap-3 p-3 bg-white border border-ink-7 rounded-xl hover:bg-paper-2 transition-colors"
+          >
+            <div className="w-[34px] h-[34px] rounded-[10px] bg-sky-soft text-sky flex items-center justify-center">
+              <BookOpen className="w-4 h-4" />
             </div>
-            <span className="text-xs text-muted-foreground">Racha Gym</span>
-          </div>
-          <p className="font-display text-display-md text-blue-400">{gymStreak}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            {gymStreak === 1 ? 'día' : 'días'} consecutivos
-          </p>
-        </div>
-
-        <div className="card !p-4 bg-gradient-to-br from-green-500/10 to-transparent border-green-500/20">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-              <Utensils className="w-4 h-4 text-green-400" />
+            <div className="flex-1">
+              <div className="text-sm font-medium">Hábitos de hoy</div>
+              <div className="fk-mono text-[10px] text-ink-4 mt-0.5 tracking-wider">
+                {completedHabits}/{uniqueHabits.length} COMPLETADOS
+              </div>
             </div>
-            <span className="text-xs text-muted-foreground">Racha Dieta</span>
-          </div>
-          <p className="font-display text-display-md text-green-400">{dietStreak}</p>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            {dietStreak === 1 ? 'día' : 'días'} en límites
-          </p>
+            <ChevronRight className="w-4 h-4 text-ink-4" />
+          </Link>
         </div>
       </div>
-
-      {/* Quick Habits */}
-      {uniqueHabits.length > 0 && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-medium">Hábitos de hoy</p>
-            <Link href="/habits" className="text-xs text-accent">Ver todos</Link>
-          </div>
-
-          <div className="space-y-2">
-            {habitsWithState.map((habit) => {
-              const isComplete = habit.type === 'quantity'
-                ? habit.value >= (habit.target_value || 0)
-                : habit.completed
-
-              return (
-                <div key={habit.id} className="flex items-center gap-3 py-2">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    isComplete ? 'bg-accent text-background' : 'bg-surface-elevated text-muted-foreground'
-                  }`}>
-                    {habit.name.toLowerCase().includes('agua') && <Droplets className="w-4 h-4" />}
-                    {habit.name.toLowerCase().includes('creatina') && <Flame className="w-4 h-4" />}
-                    {!habit.name.toLowerCase().includes('agua') &&
-                     !habit.name.toLowerCase().includes('creatina') && (
-                      <Target className="w-4 h-4" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{habit.name}</p>
-                    {habit.type === 'quantity' && (
-                      <p className="text-[10px] text-muted-foreground">
-                        {habit.value} / {habit.target_value} {habit.unit}
-                      </p>
-                    )}
-                  </div>
-                  {habit.type === 'daily_check' && (
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                      isComplete ? 'bg-accent border-accent' : 'border-border'
-                    }`}>
-                      {isComplete && (
-                        <svg className="w-3 h-3 text-background" viewBox="0 0 12 12" fill="none">
-                          <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
-                    </div>
-                  )}
-                  {habit.type === 'quantity' && (
-                    <div className="w-12">
-                      <div className="progress-track-sm">
-                        <div
-                          className="progress-fill bg-accent"
-                          style={{ width: `${Math.min((habit.value / (habit.target_value || 1)) * 100, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {habit.type === 'weekly_frequency' && (
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                      habit.completed ? 'bg-accent border-accent' : 'border-border'
-                    }`}>
-                      {habit.completed && (
-                        <svg className="w-3 h-3 text-background" viewBox="0 0 12 12" fill="none">
-                          <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

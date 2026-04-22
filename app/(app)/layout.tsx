@@ -1,4 +1,3 @@
-import Header from '@/components/ui/Header';
 import Sidebar from '@/components/ui/Sidebar';
 import { MobileDock } from '@/components/MobileDock';
 import CoachBubble from '@/components/coach/CoachBubble';
@@ -13,14 +12,13 @@ export default function AppLayout({
       {/* Desktop Sidebar - hidden on mobile, visible on md+ */}
       <Sidebar streak={5} />
 
-      {/* Mobile Header - visible on mobile, hidden on md+ */}
-      <Header streak={5} />
+      {/* Mobile Status Bar - mimics iOS status bar area */}
+      <div className="fixed top-0 left-0 right-0 h-11 bg-paper z-20 md:hidden safe-top" />
 
-      {/* Main Content - offset for sidebar on desktop, dock on mobile */}
+      {/* Main Content */}
       <main className="md:pl-sidebar">
-        {/* Mobile: top padding for header, bottom for dock */}
-        {/* Desktop: no top/bottom padding needed */}
-        <div className="pt-16 md:pt-0 px-4 md:px-6 pb-24 md:pb-6">
+        {/* Mobile: top padding for status bar, bottom for dock */}
+        <div className="pt-11 md:pt-0 pb-24 md:pb-6 md:px-6">
           <div className="max-w-5xl mx-auto md:py-6">
             {children}
           </div>
