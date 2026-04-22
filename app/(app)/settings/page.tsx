@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Settings, User, Target, Utensils, Save, Check, Plus, Trash2, Calendar } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Settings, User, Target, Utensils, Save, Check, Plus, Trash2, Calendar, AlertTriangle, Loader2 } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 
@@ -32,12 +33,19 @@ const formatDate = (dateStr: string) => {
 }
 
 export default function SettingsPage() {
+  const router = useRouter()
   const { user } = useUser()
   const supabase = useSupabase()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  // Delete account state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // Profile state
   const [displayName, setDisplayName] = useState<string>('')
@@ -188,6 +196,39 @@ export default function SettingsPage() {
     } catch (err) {
       console.error('Error deleting diet config:', err)
       alert('Error al eliminar')
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'ELIMINAR MI CUENTA') {
+      setDeleteError('Escribe exactamente: ELIMINAR MI CUENTA')
+      return
+    }
+
+    setDeleting(true)
+    setDeleteError(null)
+
+    try {
+      const response = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: deleteConfirmation })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setDeleteError(data.error || 'Error al eliminar la cuenta')
+        setDeleting(false)
+        return
+      }
+
+      // Success - redirect to login
+      await supabase.auth.signOut()
+      router.push('/login?deleted=true')
+    } catch (err) {
+      setDeleteError('Error de conexión. Intenta de nuevo.')
+      setDeleting(false)
     }
   }
 
@@ -447,6 +488,87 @@ export default function SettingsPage() {
             <div className="text-center">G: {DEFAULT_DAILY_BUDGET.grasa}</div>
           </div>
         </div>
+      </div>
+
+      {/* Danger Zone - Delete Account */}
+      <div className="card p-4 mt-6 border-red-500/30">
+        <div className="flex items-center gap-2 mb-4">
+          <AlertTriangle className="w-4 h-4 text-red-400" />
+          <h2 className="font-medium text-red-400">Zona de peligro</h2>
+        </div>
+
+        {!showDeleteConfirm ? (
+          <div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Eliminar tu cuenta borrará permanentemente todos tus datos: registros de comida,
+              peso, gym, hábitos, fotos y configuraciones. Esta acción no se puede deshacer.
+            </p>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full py-3 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium"
+            >
+              Eliminar mi cuenta
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+              <p className="text-sm text-red-300 mb-2 font-medium">
+                ¿Estás seguro? Esta acción es permanente.
+              </p>
+              <p className="text-xs text-red-400/80">
+                Para confirmar, escribe exactamente: <strong>ELIMINAR MI CUENTA</strong>
+              </p>
+            </div>
+
+            <input
+              type="text"
+              value={deleteConfirmation}
+              onChange={(e) => {
+                setDeleteConfirmation(e.target.value)
+                setDeleteError(null)
+              }}
+              placeholder="ELIMINAR MI CUENTA"
+              className="w-full bg-surface-elevated rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50 border border-red-500/30"
+              disabled={deleting}
+            />
+
+            {deleteError && (
+              <p className="text-xs text-red-400">{deleteError}</p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false)
+                  setDeleteConfirmation('')
+                  setDeleteError(null)
+                }}
+                disabled={deleting}
+                className="btn-ghost flex-1"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting || deleteConfirmation !== 'ELIMINAR MI CUENTA'}
+                className="flex-1 py-2 rounded-lg bg-red-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Confirmar eliminación
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

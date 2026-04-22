@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Barcode, Check, AlertCircle, Plus, Minus, Loader2, Camera, RefreshCw } from 'lucide-react'
 import { PulseLine } from '@/components/ui/PulseLine'
 import type { FoodGroup, MealType } from '@/types'
+import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library'
 
 interface ProductEquivalent {
   group_type: FoodGroup
@@ -57,6 +58,8 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null)
+  const [useZxingFallback, setUseZxingFallback] = useState(false)
 
   const resetState = () => {
     setStep('scan')
@@ -67,6 +70,7 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
     setSaving(false)
     setManualBarcode('')
     setCameraError(false)
+    setUseZxingFallback(false)
   }
 
   const handleClose = () => {
@@ -79,6 +83,10 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
     if (scanIntervalRef.current) {
       clearInterval(scanIntervalRef.current)
       scanIntervalRef.current = null
+    }
+    if (zxingReaderRef.current) {
+      zxingReaderRef.current.reset()
+      zxingReaderRef.current = null
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
@@ -102,8 +110,12 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
         videoRef.current.srcObject = stream
         await videoRef.current.play()
 
-        // Start scanning with BarcodeDetector if available
-        if ('BarcodeDetector' in window) {
+        // Check if native BarcodeDetector is available (Chrome/Edge)
+        const hasBarcodeDetector = 'BarcodeDetector' in window
+
+        if (hasBarcodeDetector) {
+          // Use native BarcodeDetector for best performance
+          setUseZxingFallback(false)
           const detector = new (window as any).BarcodeDetector({
             formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128']
           })
@@ -124,6 +136,46 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
               }
             }
           }, 200)
+        } else {
+          // Fallback to ZXing for Safari/Firefox
+          setUseZxingFallback(true)
+
+          const hints = new Map()
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+            BarcodeFormat.EAN_13,
+            BarcodeFormat.EAN_8,
+            BarcodeFormat.UPC_A,
+            BarcodeFormat.UPC_E,
+            BarcodeFormat.CODE_128
+          ])
+          hints.set(DecodeHintType.TRY_HARDER, true)
+
+          const reader = new BrowserMultiFormatReader(hints)
+          zxingReaderRef.current = reader
+
+          // Start continuous scanning
+          const scanWithZxing = async () => {
+            if (!videoRef.current || videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) {
+              return
+            }
+
+            try {
+              const result = await reader.decodeOnceFromVideoElement(videoRef.current)
+              if (result) {
+                const code = result.getText()
+                if (code) {
+                  stopCamera()
+                  await lookupBarcode(code)
+                  return
+                }
+              }
+            } catch (err) {
+              // ZXing throws when no barcode found - this is expected
+            }
+          }
+
+          // Poll for barcodes
+          scanIntervalRef.current = setInterval(scanWithZxing, 300)
         }
       }
     } catch (err) {
@@ -264,9 +316,9 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
                         <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-20 h-1 bg-signal animate-pulse" />
                       </div>
                     </div>
-                    {!('BarcodeDetector' in window) && (
+                    {useZxingFallback && (
                       <div className="absolute bottom-4 left-4 right-4 bg-ink/80 text-white text-xs p-3 rounded-lg">
-                        Tu navegador no soporta detección automática. Ingresa el código manualmente abajo.
+                        Usando modo de compatibilidad. Mantén el código de barras centrado.
                       </div>
                     )}
                   </>
