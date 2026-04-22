@@ -7,6 +7,36 @@
 ---
 
 ## Ultimo agente
+Agente: Food Page Simplification
+Fecha: 21 de abril 2026
+Que hizo:
+
+### Food Page - Simplificación del Diseño (21 abril) ✅
+- **Problema**: El diseño anterior con DonutChart tenía labels sobrepuestos, todo amontonado, lógica rota
+- **Solución**: Simplificar completamente el diseño
+
+**Cambios realizados:**
+- **Eliminado** DonutChart complejo con labels en posiciones absolutas que colisionaban
+- **Nuevo grid de 6 cards** para grupos alimenticios:
+  - Cada card tiene: emoji, label, progreso (X/Y), mini barra de progreso
+  - Colores por grupo (leaf, signal, honey, sky, berry, paper-3)
+  - Ring rojo cuando se excede el presupuesto
+- **Header simplificado**: Solo botones prev/next/hoy + botón "Registrar"
+- **Sección de comidas** con:
+  - Emoji por comida (🌅 desayuno, 🍌 snack, 🍽️ comida, 🌙 cena)
+  - Badge "AHORA" naranja para comida actual
+  - Badge "✓" verde para comidas registradas
+  - Lista de alimentos con botón eliminar al hover
+- **Sidebar**:
+  - Coach card (fondo ink) con sugerencia dinámica
+  - Favoritos quick-add (si existen)
+  - Link a página de Equivalentes
+- **Espaciado apropiado** en toda la página
+- Commits: `f305b8d` (intento inicial), `ca1b4b0` (simplificación)
+
+---
+
+## Agente Anterior
 Agente: Body Composition Tracking
 Fecha: 21 de abril 2026
 Que hizo:
