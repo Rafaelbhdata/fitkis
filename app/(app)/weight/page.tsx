@@ -293,7 +293,7 @@ export default function WeightPage() {
       {/* Hero Stat */}
       <div className="px-5 mt-6">
         <div className="flex items-baseline gap-3">
-          <span className="font-serif text-[88px] font-extralight tracking-tight leading-none">{latestWeight.toFixed(1)}</span>
+          <span className="font-serif text-[88px] font-extralight tracking-tight leading-none text-signal">{latestWeight.toFixed(1)}</span>
           <span className="fk-mono text-sm text-ink-4">kg</span>
         </div>
         <div className="flex items-center gap-2 mt-2">
@@ -314,7 +314,7 @@ export default function WeightPage() {
         <div className="bg-white border border-ink-7 rounded-[14px] p-4">
           <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest mb-1">IMC</div>
           <div className="flex items-baseline gap-1">
-            <span className="font-serif text-[28px] font-light">{latestBMI.toFixed(1)}</span>
+            <span className="font-serif text-[28px] font-light text-signal">{latestBMI.toFixed(1)}</span>
           </div>
           <div className="text-[11px] text-ink-4 mt-1">
             {latestBMI < 18.5 ? 'Bajo peso' : latestBMI < 25 ? 'Normal' : latestBMI < 30 ? 'Sobrepeso' : 'Obesidad'}
@@ -325,7 +325,7 @@ export default function WeightPage() {
         <div className="bg-white border border-ink-7 rounded-[14px] p-4">
           <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest mb-1">% Grasa</div>
           <div className="flex items-baseline gap-1">
-            <span className="font-serif text-[28px] font-light">
+            <span className="font-serif text-[28px] font-light text-signal">
               {latestBodyFatPercentage ? latestBodyFatPercentage.toFixed(1) : '--'}
             </span>
             <span className="text-sm text-ink-4">%</span>
@@ -336,7 +336,7 @@ export default function WeightPage() {
         <div className="bg-white border border-ink-7 rounded-[14px] p-4">
           <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest mb-1">Masa Muscular</div>
           <div className="flex items-baseline gap-1">
-            <span className="font-serif text-[28px] font-light">
+            <span className="font-serif text-[28px] font-light text-signal">
               {latestMuscleMass ? latestMuscleMass.toFixed(1) : '--'}
             </span>
             <span className="text-sm text-ink-4">kg</span>
@@ -347,7 +347,7 @@ export default function WeightPage() {
         <div className="bg-white border border-ink-7 rounded-[14px] p-4">
           <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest mb-1">Masa Grasa</div>
           <div className="flex items-baseline gap-1">
-            <span className="font-serif text-[28px] font-light">
+            <span className="font-serif text-[28px] font-light text-signal">
               {latestBodyFatMass ? latestBodyFatMass.toFixed(1) : '--'}
             </span>
             <span className="text-sm text-ink-4">kg</span>
@@ -360,7 +360,7 @@ export default function WeightPage() {
         <div className="p-5 flex justify-between items-start">
           <div>
             <div className="fk-mono text-[10px] text-ink-4 uppercase tracking-widest">Promedio 7 días</div>
-            <div className="font-serif text-[22px] font-light mt-1">
+            <div className="font-serif text-[22px] font-light mt-1 text-signal">
               {avgWeight || '--'} <span className="text-sm text-ink-4">kg</span>
             </div>
           </div>
