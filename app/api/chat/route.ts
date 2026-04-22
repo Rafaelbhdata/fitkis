@@ -598,7 +598,7 @@ async function getPatientContext(
   let weightChange30d: number | undefined
   if (weightLogs && weightLogs.length > 0) {
     currentWeight = weightLogs[0].weight_kg
-    if (weightLogs.length > 1) {
+    if (weightLogs.length > 1 && currentWeight !== undefined) {
       const oldestWeight = weightLogs[weightLogs.length - 1].weight_kg
       weightChange30d = currentWeight - oldestWeight
     }
