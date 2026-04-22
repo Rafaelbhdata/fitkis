@@ -212,9 +212,11 @@ export default function FoodPage() {
   }
   const currentMeal = getCurrentMeal()
 
-  // Generate dynamic coach suggestion based on what's missing
+  // Generate dynamic coach suggestion based on budget status
+  // Key insight: Being UNDER budget is OK (still in deficit), going OVER is bad
   const getCoachSuggestion = () => {
-    const missing: { group: FoodGroup; amount: number; label: string }[] = []
+    const over: { group: FoodGroup; amount: number; label: string }[] = []
+    const available: { group: FoodGroup; amount: number; label: string }[] = []
 
     const groups: { key: FoodGroup; label: string }[] = [
       { key: 'verdura', label: 'verduras' },
@@ -226,89 +228,111 @@ export default function FoodPage() {
     ]
 
     groups.forEach(g => {
-      const diff = userBudget[g.key] - consumed[g.key]
+      const diff = consumed[g.key] - userBudget[g.key]
       if (diff > 0) {
-        missing.push({ group: g.key, amount: diff, label: g.label })
+        over.push({ group: g.key, amount: diff, label: g.label })
+      } else if (diff < 0) {
+        available.push({ group: g.key, amount: Math.abs(diff), label: g.label })
       }
     })
 
-    if (missing.length === 0) {
+    // Priority 1: Alert if OVER budget (this breaks the deficit)
+    if (over.length > 0) {
+      const worst = over.sort((a, b) => b.amount - a.amount)[0]
       return {
-        highlight: '¡Completaste tu plato!',
-        message: 'Excelente trabajo hoy. Mantén este ritmo.',
+        type: 'warning' as const,
+        highlight: `+${worst.amount} ${worst.label}`,
+        message: `Te pasaste del presupuesto. Considera compensar en la próxima comida o hacer un poco más de cardio.`,
+        tip: over.length > 1 ? `También excediste: ${over.slice(1).map(o => o.label).join(', ')}.` : null,
+      }
+    }
+
+    // Priority 2: Everything complete - celebrate!
+    if (available.length === 0) {
+      return {
+        type: 'success' as const,
+        highlight: '¡Día completo!',
+        message: 'Usaste todos tus equivalentes sin pasarte. Perfecto para mantener el déficit.',
         tip: null,
       }
     }
 
-    // Sort by amount missing (most first)
-    missing.sort((a, b) => b.amount - a.amount)
-    const top = missing[0]
+    // Priority 3: Under budget - this is FINE, give optional suggestions
+    // Sort by what might be most important (protein first for muscle retention)
+    const priorityOrder: FoodGroup[] = ['proteina', 'verdura', 'fruta', 'leguminosa', 'carb', 'grasa']
+    available.sort((a, b) => priorityOrder.indexOf(a.group) - priorityOrder.indexOf(b.group))
 
-    // Generate contextual suggestions based on current meal time and what's missing
-    const suggestions: Record<FoodGroup, { meals: Record<MealType, string>; general: string }> = {
+    const suggestions: Record<FoodGroup, { meals: Record<MealType, string> }> = {
       verdura: {
         meals: {
-          desayuno: 'Agrega espinacas a tu omelette o come pepino en rodajas.',
-          snack: 'Zanahorias o jícama con limón son un snack perfecto.',
-          comida: 'Una ensalada grande como entrada te da 2 verduras fácil.',
-          cena: 'Acompaña tu cena con brócoli al vapor o una ensalada.',
+          desayuno: 'Si quieres, agrega espinacas a tu omelette.',
+          snack: 'Zanahorias o jícama son un snack ligero si tienes hambre.',
+          comida: 'Una ensalada te ayuda a sentirte lleno sin muchas calorías.',
+          cena: 'Puedes acompañar con brócoli o ensalada si quieres.',
         },
-        general: 'Las verduras te ayudan a sentirte lleno con pocas calorías.',
       },
       fruta: {
         meals: {
-          desayuno: 'Agrega fresas o plátano a tu desayuno.',
-          snack: 'Una manzana o mandarina es el snack perfecto.',
-          comida: 'Termina la comida con una porción de papaya o melón.',
-          cena: 'No olvides tu fruta del día antes de dormir.',
+          desayuno: 'Fresas o plátano si quieres algo dulce.',
+          snack: 'Una manzana es buena opción si tienes antojo.',
+          comida: 'Papaya o melón de postre si tienes espacio.',
+          cena: 'Fruta antes de dormir si te quedaste con hambre.',
         },
-        general: 'La fruta te da energía natural y vitaminas.',
       },
       proteina: {
         meals: {
-          desayuno: 'Huevos, yogurt griego o jamón son buenas opciones.',
-          snack: 'Un yogurt griego cuenta como proteína + grasa.',
-          comida: 'Asegura una porción de pollo, pescado o carne.',
-          cena: 'Atún, huevo o queso panela para la cena.',
+          desayuno: 'La proteína es importante para mantener músculo.',
+          snack: 'Yogurt griego si necesitas un boost de proteína.',
+          comida: 'Asegura tu porción de proteína para no perder músculo.',
+          cena: 'Un huevo o atún extra ayuda a la recuperación.',
         },
-        general: 'La proteína es clave para mantener músculo mientras bajas de peso.',
       },
       carb: {
         meals: {
-          desayuno: 'Avena o pan integral son buenos carbohidratos.',
-          snack: 'Unas galletas integrales o fruta con carbohidrato.',
-          comida: 'Arroz integral, tortilla o papa en tu plato principal.',
-          cena: 'Tortillas o pasta integral para acompañar la cena.',
+          desayuno: 'Avena o pan si necesitas energía para el día.',
+          snack: 'Los carbohidratos son opcionales si no tienes mucha hambre.',
+          comida: 'Arroz o tortilla si necesitas más energía.',
+          cena: 'Puedes saltarte los carbohidratos en la cena sin problema.',
         },
-        general: 'Los carbohidratos te dan energía para entrenar.',
       },
       leguminosa: {
         meals: {
-          desayuno: 'Hummus con verduras es una opción creativa.',
-          snack: 'Edamames son un snack con leguminosa incluida.',
-          comida: 'Frijoles, lentejas o garbanzos con tu comida.',
-          cena: 'Una sopa de lenteja o frijoles de la olla.',
+          desayuno: 'Las leguminosas son opcionales hoy.',
+          snack: 'Edamames si quieres un snack con fibra.',
+          comida: 'Frijoles o lentejas si te gustan.',
+          cena: 'Puedes incluirlas o no, tú decides.',
         },
-        general: 'Las leguminosas son fibra y proteína vegetal.',
       },
       grasa: {
         meals: {
-          desayuno: 'Aguacate o crema de cacahuate en tu desayuno.',
-          snack: 'Un puñado de nueces o almendras (10-12 piezas).',
-          comida: 'Aceite de oliva en la ensalada o aguacate.',
-          cena: 'Aceitunas, aguacate o queso de cabra.',
+          desayuno: 'Un poco de aguacate si quieres.',
+          snack: 'Nueces si tienes hambre entre comidas.',
+          comida: 'Aceite de oliva en la ensalada es buena opción.',
+          cena: 'Las grasas son opcionales si ya estás satisfecho.',
         },
-        general: 'Las grasas saludables te ayudan a absorber vitaminas.',
       },
     }
 
-    const groupSuggestion = suggestions[top.group]
-    const mealTip = groupSuggestion.meals[currentMeal]
+    const top = available[0]
+    const mealTip = suggestions[top.group].meals[currentMeal]
+
+    // Check if it's protein - that's more important to complete
+    const proteinAvailable = available.find(a => a.group === 'proteina')
+
+    if (proteinAvailable && proteinAvailable.amount >= 2) {
+      return {
+        type: 'info' as const,
+        highlight: `${proteinAvailable.amount} proteína disponible`,
+        message: 'La proteína ayuda a mantener músculo mientras bajas de peso. Intenta completarla.',
+        tip: 'El resto de los grupos son opcionales si no tienes hambre.',
+      }
+    }
 
     return {
-      highlight: `${top.amount} ${top.label}`,
+      type: 'neutral' as const,
+      highlight: `${totalBudget - totalConsumed} equiv. disponibles`,
       message: mealTip,
-      tip: missing.length > 1 ? `También te faltan ${missing.slice(1, 3).map(m => `${m.amount} ${m.label}`).join(' y ')}.` : null,
+      tip: 'No necesitas usar todos. Estar bajo el presupuesto también está bien.',
     }
   }
 
@@ -525,31 +549,55 @@ export default function FoodPage() {
         <div className="space-y-6">
 
           {/* Coach Card */}
-          <div className="bg-ink rounded-2xl p-5 text-paper">
+          <div className={`rounded-2xl p-5 ${
+            coachSuggestion.type === 'warning' ? 'bg-berry text-white' :
+            coachSuggestion.type === 'success' ? 'bg-leaf text-white' :
+            'bg-ink text-paper'
+          }`}>
             <div className="flex items-center gap-2 mb-3">
-              <PulseLine w={20} h={10} color="var(--signal)" strokeWidth={1.5} />
-              <span className="fk-mono text-[10px] text-ink-4 uppercase tracking-wider">Coach · {meals.find(m => m.key === currentMeal)?.label}</span>
+              <PulseLine w={20} h={10} color={coachSuggestion.type === 'warning' ? '#fff' : 'var(--signal)'} strokeWidth={1.5} />
+              <span className={`fk-mono text-[10px] uppercase tracking-wider ${
+                coachSuggestion.type === 'warning' ? 'text-white/70' :
+                coachSuggestion.type === 'success' ? 'text-white/70' :
+                'text-ink-4'
+              }`}>
+                Coach · {meals.find(m => m.key === currentMeal)?.label}
+              </span>
             </div>
             <p className="font-serif text-lg leading-relaxed mb-2">
-              {coachSuggestion.highlight !== '¡Completaste tu plato!' ? (
-                <>Te faltan <span className="text-signal italic">{coachSuggestion.highlight}</span>.</>
+              {coachSuggestion.type === 'warning' ? (
+                <>⚠️ Te pasaste: <span className="font-semibold">{coachSuggestion.highlight}</span></>
+              ) : coachSuggestion.type === 'success' ? (
+                <>✓ <span className="italic">{coachSuggestion.highlight}</span></>
               ) : (
-                <span className="text-signal italic">{coachSuggestion.highlight}</span>
+                <><span className={coachSuggestion.type === 'info' ? 'text-signal' : 'text-signal/80'}>{coachSuggestion.highlight}</span></>
               )}
             </p>
-            <p className="text-sm text-paper/80 mb-3">
+            <p className={`text-sm mb-3 ${
+              coachSuggestion.type === 'warning' ? 'text-white/90' :
+              coachSuggestion.type === 'success' ? 'text-white/90' :
+              'text-paper/80'
+            }`}>
               {coachSuggestion.message}
             </p>
             {coachSuggestion.tip && (
-              <p className="text-xs text-paper/60 mb-4">
+              <p className={`text-xs mb-4 ${
+                coachSuggestion.type === 'warning' ? 'text-white/70' :
+                coachSuggestion.type === 'success' ? 'text-white/70' :
+                'text-paper/60'
+              }`}>
                 {coachSuggestion.tip}
               </p>
             )}
             <Link
               href="/coach"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-signal text-white text-sm font-medium hover:bg-signal/90 transition-colors"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                coachSuggestion.type === 'warning' ? 'bg-white text-berry hover:bg-white/90' :
+                coachSuggestion.type === 'success' ? 'bg-white text-leaf hover:bg-white/90' :
+                'bg-signal text-white hover:bg-signal/90'
+              }`}
             >
-              Más ideas
+              {coachSuggestion.type === 'warning' ? 'Ver opciones' : 'Más ideas'}
             </Link>
           </div>
 
