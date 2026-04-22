@@ -1,7 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="16" fill="#0a0e1a"></rect>
-  <rect x="16" y="14" width="6" height="36" rx="3" fill="#22e4d9"></rect>
-  <path d="M22 19 H30 L33 14 L37 26 L41 19 H48" stroke="#22e4d9" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
-  <path d="M22 34 H30 L33 30 L37 38 L41 34 H44" stroke="#ff5277" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
-  <circle cx="46.5" cy="34" r="2.5" fill="#ff5277"></circle>
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#0a0a0a"/>
+
+  <!-- "f" in italic serif -->
+  <text x="32" y="42"
+    font-family="Georgia, serif"
+    font-size="38"
+    font-style="italic"
+    fill="#fafaf7"
+    text-anchor="middle">f</text>
+
+  <!-- PulseLine (signal/mandarina) -->
+  <g transform="translate(9.5, 48)">
+    <path
+      d="M0 6 L11.25 6 L14.4 2.4 L17.1 10.2 L19.8 1.2 L22.5 6 L32.4 6 L35.1 4.2 L36.9 6 L45 6"
+      stroke="#ff5a1f"
+      stroke-width="2"
+      fill="none"
+      stroke-linecap="round"
+      stroke-linejoin="round"/>
+  </g>
 </svg>
