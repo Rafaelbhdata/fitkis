@@ -109,7 +109,7 @@ export interface FavoriteMeal {
   id: string
   user_id: string
   name: string
-  meal: MealType
+  meal?: MealType | null  // Optional - favorites can be used for any meal
   items: FavoriteMealItem[]
   created_at: string
 }

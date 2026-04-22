@@ -7,7 +7,7 @@ import { FOOD_GROUP_LABELS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
 import { PulseLine } from '@/components/ui/PulseLine'
-import type { MealType, FoodGroup, FavoriteMeal, FavoriteMealItem, FoodEquivalent } from '@/types'
+import type { FoodGroup, FavoriteMeal, FavoriteMealItem, FoodEquivalent } from '@/types'
 
 const FOOD_EMOJIS: Record<FoodGroup, string> = {
   verdura: '🥬',
@@ -17,13 +17,6 @@ const FOOD_EMOJIS: Record<FoodGroup, string> = {
   proteina: '🥩',
   grasa: '🥑',
 }
-
-const MEAL_OPTIONS: { key: MealType; label: string; emoji: string }[] = [
-  { key: 'desayuno', label: 'Desayuno', emoji: '🌅' },
-  { key: 'snack', label: 'Snack', emoji: '🍌' },
-  { key: 'comida', label: 'Comida', emoji: '🍽️' },
-  { key: 'cena', label: 'Cena', emoji: '🌙' },
-]
 
 export default function FavoritesPage() {
   const { user } = useUser()
@@ -37,7 +30,6 @@ export default function FavoritesPage() {
   // Create modal state
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newFavName, setNewFavName] = useState('')
-  const [newFavMeal, setNewFavMeal] = useState<MealType>('desayuno')
   const [newFavItems, setNewFavItems] = useState<FavoriteMealItem[]>([])
   const [saving, setSaving] = useState(false)
 
@@ -165,7 +157,6 @@ export default function FavoritesPage() {
       const { error: saveError } = await (supabase.from('favorite_meals') as any).insert({
         user_id: user.id,
         name: newFavName,
-        meal: newFavMeal,
         items: newFavItems,
       })
       if (saveError) throw saveError
@@ -228,15 +219,9 @@ export default function FavoritesPage() {
           {favorites.map((fav) => (
             <div key={fav.id} className="bg-white rounded-2xl border border-ink-7 p-4">
               <div className="flex items-start justify-between mb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-honey fill-honey" />
-                    <p className="font-medium">{fav.name}</p>
-                  </div>
-                  <p className="text-xs text-ink-4 mt-1 flex items-center gap-1">
-                    {MEAL_OPTIONS.find(m => m.key === fav.meal)?.emoji}
-                    {MEAL_OPTIONS.find(m => m.key === fav.meal)?.label}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-honey fill-honey" />
+                  <p className="font-medium">{fav.name}</p>
                 </div>
                 <button
                   onClick={() => deleteFavorite(fav.id)}
@@ -304,27 +289,6 @@ export default function FavoritesPage() {
                     onChange={(e) => setNewFavName(e.target.value)}
                     autoFocus
                   />
-                </div>
-
-                {/* Meal Type */}
-                <div>
-                  <label className="fk-mono text-[10px] text-ink-4 uppercase tracking-wider mb-2 block">¿Para cuál comida?</label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {MEAL_OPTIONS.map((meal) => (
-                      <button
-                        key={meal.key}
-                        onClick={() => setNewFavMeal(meal.key)}
-                        className={`p-3 rounded-xl text-center transition-all ${
-                          newFavMeal === meal.key
-                            ? 'bg-ink text-paper'
-                            : 'bg-white border border-ink-7 hover:bg-paper-2'
-                        }`}
-                      >
-                        <span className="text-lg block mb-1">{meal.emoji}</span>
-                        <span className="text-xs font-medium">{meal.label}</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 {/* Items */}

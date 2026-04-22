@@ -53,6 +53,7 @@ export default function FoodPage() {
   const [customFoods, setCustomFoods] = useState<CustomFood[]>([])
   const [dbFoods, setDbFoods] = useState<FoodEquivalent[]>([])
   const [searchingFoods, setSearchingFoods] = useState(false)
+  const [showFavoritesCategory, setShowFavoritesCategory] = useState(false)
 
   // Date navigation
   const goToPrevDay = () => {
@@ -173,6 +174,28 @@ export default function FoodPage() {
     setSearchQuery('')
     setQuantity(1)
     setDbFoods([])
+    setShowFavoritesCategory(false)
+  }
+
+  const addFavoriteToMeal = async (fav: FavoriteMeal) => {
+    if (!user) return
+    try {
+      for (const item of fav.items) {
+        await (supabase.from('food_logs') as any).insert({
+          user_id: user.id,
+          date: todayStr,
+          meal: selectedMeal,
+          group_type: item.group_type,
+          quantity: item.quantity,
+          food_name: item.food_name,
+        })
+      }
+      await loadFoodLogs()
+      closeModal()
+      showToast(`${fav.name} agregado a ${selectedMeal}`)
+    } catch (err) {
+      setError('Error al agregar favorito')
+    }
   }
 
   const deleteFood = async (id: string) => {
@@ -395,74 +418,6 @@ export default function FoodPage() {
         <h1 className="font-serif text-3xl md:text-4xl font-light tracking-tight">
           {capitalizedDate}
         </h1>
-      </div>
-
-      {/* Mobile Quick Favorites - horizontal scroll */}
-      <div className="px-4 mb-6 lg:hidden">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium flex items-center gap-2">
-            <Star className="w-4 h-4 text-honey fill-honey" />
-            Favoritos
-          </h3>
-          {favorites.length > 0 && (
-            <Link href="/food/favorites" className="text-xs text-signal hover:underline">
-              Ver todos
-            </Link>
-          )}
-        </div>
-        {favorites.length > 0 ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
-            {favorites.map(fav => (
-              <button
-                key={fav.id}
-                onClick={async () => {
-                  for (const item of fav.items) {
-                    await (supabase.from('food_logs') as any).insert({
-                      user_id: user?.id, date: todayStr, meal: fav.meal,
-                      group_type: item.group_type, quantity: item.quantity, food_name: item.food_name,
-                    })
-                  }
-                  await loadFoodLogs()
-                  showToast(`${fav.name} agregado`)
-                }}
-                className="flex-shrink-0 px-4 py-3 rounded-2xl bg-white border border-ink-7 hover:bg-paper-2 active:scale-95 transition-all min-w-[140px]"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Star className="w-3 h-3 text-honey fill-honey" />
-                  <span className="font-medium text-sm truncate">{fav.name}</span>
-                </div>
-                <div className="text-xs text-ink-4 capitalize truncate">
-                  {fav.items.map(i => FOOD_COLORS[i.group_type].emoji).join(' ')} · {fav.meal}
-                </div>
-              </button>
-            ))}
-            <Link
-              href="/food/favorites"
-              className="flex-shrink-0 px-4 py-3 rounded-2xl border-2 border-dashed border-ink-6 hover:border-signal hover:bg-signal-soft/20 transition-all min-w-[120px] flex items-center justify-center"
-            >
-              <div className="flex items-center gap-2 text-ink-4">
-                <Plus className="w-4 h-4" />
-                <span className="text-xs font-medium">Nuevo</span>
-              </div>
-            </Link>
-          </div>
-        ) : (
-          <Link
-            href="/food/favorites"
-            className="block p-4 rounded-2xl bg-honey-soft/50 border border-honey/20 hover:bg-honey-soft transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-honey-soft flex items-center justify-center">
-                <Star className="w-5 h-5 text-honey" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-sm">Crea tu primer favorito</p>
-                <p className="text-xs text-ink-4">Agrega comidas habituales con un tap</p>
-              </div>
-              <Plus className="w-5 h-5 text-honey" />
-            </div>
-          </Link>
-        )}
       </div>
 
       {/* Main Grid */}
@@ -741,8 +696,55 @@ export default function FoodPage() {
                 </button>
               </div>
 
-              {!selectedGroup ? (
-                /* Step 1: Select Food Group */
+              {showFavoritesCategory ? (
+                /* Favorites List */
+                <div className="flex flex-col" style={{ maxHeight: 'calc(70vh - 200px)' }}>
+                  <button
+                    onClick={() => setShowFavoritesCategory(false)}
+                    className="text-sm text-signal mb-4 text-left hover:underline flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    Volver a grupos
+                  </button>
+
+                  {favorites.length > 0 ? (
+                    <div className="flex-1 overflow-y-auto space-y-2">
+                      {favorites.map(fav => (
+                        <button
+                          key={fav.id}
+                          onClick={() => addFavoriteToMeal(fav)}
+                          className="w-full text-left p-4 rounded-xl bg-white border border-ink-7 hover:bg-paper-2 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <Star className="w-4 h-4 text-honey fill-honey" />
+                            <span className="font-medium">{fav.name}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {fav.items.map((item, idx) => (
+                              <span key={idx} className="text-xs px-2 py-1 rounded-full bg-paper-2 text-ink-3">
+                                {FOOD_COLORS[item.group_type].emoji} {item.food_name} ×{item.quantity}
+                              </span>
+                            ))}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10">
+                      <Star className="w-12 h-12 text-honey/30 mx-auto mb-3" />
+                      <p className="text-ink-4 mb-4">No tienes favoritos guardados</p>
+                      <Link
+                        href="/food/favorites"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-signal text-white text-sm font-medium"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Crear favorito
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              ) : !selectedGroup ? (
+                /* Step 1: Select Food Group or Favorites */
                 <div className="grid grid-cols-2 gap-3">
                   {(Object.keys(userBudget) as FoodGroup[]).map((group) => {
                     const current = consumed[group]
@@ -761,6 +763,21 @@ export default function FoodPage() {
                       </button>
                     )
                   })}
+                  {/* Favorites Category */}
+                  <button
+                    onClick={() => setShowFavoritesCategory(true)}
+                    className="bg-honey-soft border border-honey/30 rounded-2xl p-4 text-left hover:bg-honey-soft/80 transition-colors col-span-2"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Star className="w-6 h-6 text-honey fill-honey" />
+                      <div>
+                        <div className="font-medium">Favoritos</div>
+                        <div className="text-sm text-ink-4">
+                          {favorites.length} {favorites.length === 1 ? 'guardado' : 'guardados'}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
                 </div>
               ) : selectedFood ? (
                 /* Step 3: Quantity */
