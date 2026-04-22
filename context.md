@@ -23,7 +23,19 @@ Que hizo:
   - IMC calculado en tiempo real al ingresar peso
   - Historial muestra datos de composición cuando están disponibles
   - Header actualizado a "Composición Corporal"
-- **Migración pendiente**: Ejecutar en Supabase SQL Editor
+- **Migración ejecutada**: Columnas body composition en weight_logs
+
+### Progress Photos v5 (21 abril) ✅
+- **Fotos de progreso** con diseño v5 Paper & Pulse:
+  - Grid de fotos 2x2 con aspect ratio 3:4
+  - Overlay con tipo de foto (Frontal/Lateral) y fecha
+  - Hover effect con botón de maximizar
+  - Viewer fullscreen con fondo negro
+  - Modo comparación lado a lado (primera vs última)
+  - Modal de upload con selección de tipo (frontal/lateral)
+  - Soporte para captura directa desde cámara
+  - Signed URLs para privacidad (1 hora de expiración)
+  - Empty state con CTA para primera foto
 
 ---
 

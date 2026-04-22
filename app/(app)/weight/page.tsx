@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { Plus, X, Scale, ChevronLeft, ChevronRight, Droplets, Activity, Percent } from 'lucide-react'
+import Image from 'next/image'
+import { Plus, X, Scale, ChevronLeft, ChevronRight, Activity, Camera, ImageIcon, Maximize2 } from 'lucide-react'
 import { getToday } from '@/lib/utils'
 import { USER_PROFILE } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
 import { PulseLine } from '@/components/ui/PulseLine'
-import type { WeightLog } from '@/types'
+import type { WeightLog, ProgressPhoto, PhotoType } from '@/types'
 
 // Calculate BMI from weight (kg) and height (cm)
 const calculateBMI = (weightKg: number, heightCm: number = USER_PROFILE.height): number => {
@@ -78,8 +79,21 @@ export default function WeightPage() {
   const [error, setError] = useState<string | null>(null)
   const [timeRange, setTimeRange] = useState<'7D' | '1M' | '6M' | '1A'>('7D')
 
+  // Photo state
+  const [photos, setPhotos] = useState<ProgressPhoto[]>([])
+  const [showPhotoModal, setShowPhotoModal] = useState(false)
+  const [selectedPhotoType, setSelectedPhotoType] = useState<PhotoType>('front')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [viewingPhoto, setViewingPhoto] = useState<ProgressPhoto | null>(null)
+  const [compareMode, setCompareMode] = useState(false)
+  const [comparePhotos, setComparePhotos] = useState<[ProgressPhoto | null, ProgressPhoto | null]>([null, null])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
-    if (user) loadWeightLogs()
+    if (user) {
+      loadWeightLogs()
+      loadPhotos()
+    }
   }, [user])
 
   const loadWeightLogs = async () => {
@@ -97,6 +111,78 @@ export default function WeightPage() {
       setError('Error al cargar registros')
     }
     setLoading(false)
+  }
+
+  const loadPhotos = async () => {
+    if (!user) return
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('progress_photos')
+        .select('*')
+        .order('date', { ascending: false })
+        .limit(50)
+      if (fetchError) throw fetchError
+
+      // Get signed URLs for each photo
+      if (data && data.length > 0) {
+        const photosWithUrls = await Promise.all(
+          data.map(async (photo: ProgressPhoto) => {
+            const { data: urlData } = await supabase.storage
+              .from('progress-photos')
+              .createSignedUrl(photo.photo_url, 3600) // 1 hour expiry
+            return { ...photo, photo_url: urlData?.signedUrl || photo.photo_url }
+          })
+        )
+        setPhotos(photosWithUrls)
+      } else {
+        setPhotos([])
+      }
+    } catch (err) {
+      console.error('Error loading photos:', err)
+    }
+  }
+
+  const uploadPhoto = async (file: File) => {
+    if (!user) return
+    setUploadingPhoto(true)
+    try {
+      const today = getToday()
+      const fileName = `${user.id}/${today}_${selectedPhotoType}_${Date.now()}.jpg`
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('progress-photos')
+        .upload(fileName, file, { contentType: 'image/jpeg' })
+
+      if (uploadError) throw uploadError
+
+      // Save to database
+      const { error: dbError } = await supabase
+        .from('progress_photos')
+        .upsert({
+          user_id: user.id,
+          date: today,
+          photo_type: selectedPhotoType,
+          photo_url: fileName,
+        }, { onConflict: 'user_id,date,photo_type' })
+
+      if (dbError) throw dbError
+
+      await loadPhotos()
+      setShowPhotoModal(false)
+      showToast(`Foto ${selectedPhotoType === 'front' ? 'frontal' : 'lateral'} guardada`)
+    } catch (err) {
+      console.error('Error uploading photo:', err)
+      setError('Error al subir foto')
+    }
+    setUploadingPhoto(false)
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      uploadPhoto(file)
+    }
   }
 
   const saveWeight = async () => {
@@ -395,6 +481,239 @@ export default function WeightPage() {
           </div>
         )}
       </div>
+
+      {/* Progress Photos Section */}
+      <div className="px-5 mt-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="fk-eyebrow">Fotos de progreso</div>
+          <button
+            onClick={() => setShowPhotoModal(true)}
+            className="flex items-center gap-1.5 text-xs text-signal font-medium"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            Añadir
+          </button>
+        </div>
+
+        {photos.length > 0 ? (
+          <div className="space-y-4">
+            {/* Photo Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {photos.slice(0, 4).map((photo) => (
+                <div
+                  key={photo.id}
+                  onClick={() => setViewingPhoto(photo)}
+                  className="relative aspect-[3/4] rounded-xl overflow-hidden bg-ink-7 cursor-pointer group"
+                >
+                  <Image
+                    src={photo.photo_url}
+                    alt={`Foto ${photo.photo_type}`}
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute bottom-2 left-2 right-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] fk-mono text-white/90 bg-ink/50 px-2 py-0.5 rounded-full">
+                        {photo.photo_type === 'front' ? 'Frontal' : 'Lateral'}
+                      </span>
+                      <span className="text-[10px] fk-mono text-white/70">
+                        {new Date(photo.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  </div>
+                  <button className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/20 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Maximize2 className="w-3.5 h-3.5 text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Compare Button */}
+            {photos.length >= 2 && (
+              <button
+                onClick={() => {
+                  const frontPhotos = photos.filter(p => p.photo_type === 'front')
+                  if (frontPhotos.length >= 2) {
+                    setComparePhotos([frontPhotos[frontPhotos.length - 1], frontPhotos[0]])
+                    setCompareMode(true)
+                  } else if (photos.length >= 2) {
+                    setComparePhotos([photos[photos.length - 1], photos[0]])
+                    setCompareMode(true)
+                  }
+                }}
+                className="w-full py-3 rounded-xl border border-ink-7 text-sm font-medium flex items-center justify-center gap-2"
+              >
+                <ImageIcon className="w-4 h-4" />
+                Comparar primera vs última
+              </button>
+            )}
+          </div>
+        ) : (
+          <div
+            onClick={() => setShowPhotoModal(true)}
+            className="bg-white border border-dashed border-ink-6 rounded-xl p-8 text-center cursor-pointer hover:border-ink-4 transition-colors"
+          >
+            <Camera className="w-10 h-10 text-ink-5 mx-auto mb-3" />
+            <p className="text-sm text-ink-4">Toma tu primera foto de progreso</p>
+            <p className="text-xs text-ink-5 mt-1">Frontal o lateral</p>
+          </div>
+        )}
+      </div>
+
+      {/* Photo Upload Modal */}
+      {showPhotoModal && (
+        <>
+          <div className="fixed inset-0 bg-ink/40 z-40" onClick={() => setShowPhotoModal(false)} />
+          <div className="fixed bottom-0 left-0 right-0 bg-paper rounded-t-[24px] p-5 z-50 animate-slide-up">
+            <div className="w-10 h-1 rounded-full bg-ink-6 mx-auto mb-5" />
+
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-serif text-xl font-light">Nueva foto</h2>
+              <button onClick={() => setShowPhotoModal(false)} className="w-8 h-8 rounded-full bg-paper-3 flex items-center justify-center">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Photo Type Selection */}
+            <div className="mb-5">
+              <div className="fk-eyebrow mb-3">Tipo de foto</div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSelectedPhotoType('front')}
+                  className={`flex-1 py-4 rounded-xl border text-center transition-colors ${
+                    selectedPhotoType === 'front'
+                      ? 'border-signal bg-signal/10 text-signal'
+                      : 'border-ink-7 text-ink-4'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">🧍</div>
+                  <div className="text-sm font-medium">Frontal</div>
+                </button>
+                <button
+                  onClick={() => setSelectedPhotoType('side')}
+                  className={`flex-1 py-4 rounded-xl border text-center transition-colors ${
+                    selectedPhotoType === 'side'
+                      ? 'border-signal bg-signal/10 text-signal'
+                      : 'border-ink-7 text-ink-4'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">🚶</div>
+                  <div className="text-sm font-medium">Lateral</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Upload Button */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingPhoto}
+              className="w-full py-4 rounded-full bg-ink text-paper font-medium text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {uploadingPhoto ? (
+                <>
+                  <PulseLine w={24} h={12} color="var(--paper)" strokeWidth={2} active />
+                  Subiendo...
+                </>
+              ) : (
+                <>
+                  <Camera className="w-4 h-4" />
+                  Tomar o seleccionar foto
+                </>
+              )}
+            </button>
+
+            <p className="text-[11px] text-ink-5 text-center mt-4">
+              Las fotos son privadas y solo tú puedes verlas
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* Photo Viewer Modal */}
+      {viewingPhoto && (
+        <>
+          <div className="fixed inset-0 bg-ink z-50" onClick={() => setViewingPhoto(null)}>
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
+              <div className="text-paper">
+                <div className="text-sm font-medium">
+                  {viewingPhoto.photo_type === 'front' ? 'Frontal' : 'Lateral'}
+                </div>
+                <div className="text-xs text-paper/60">
+                  {new Date(viewingPhoto.date).toLocaleDateString('es-MX', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </div>
+              </div>
+              <button className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                <X className="w-5 h-5 text-paper" />
+              </button>
+            </div>
+            <Image
+              src={viewingPhoto.photo_url}
+              alt={`Foto ${viewingPhoto.photo_type}`}
+              fill
+              className="object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Compare Mode Modal */}
+      {compareMode && comparePhotos[0] && comparePhotos[1] && (
+        <>
+          <div className="fixed inset-0 bg-ink z-50">
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
+              <div className="text-paper font-serif text-lg">Comparación</div>
+              <button
+                onClick={() => setCompareMode(false)}
+                className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center"
+              >
+                <X className="w-5 h-5 text-paper" />
+              </button>
+            </div>
+            <div className="absolute inset-0 top-16 flex">
+              {/* Before */}
+              <div className="flex-1 relative">
+                <Image
+                  src={comparePhotos[0].photo_url}
+                  alt="Antes"
+                  fill
+                  className="object-contain"
+                />
+                <div className="absolute bottom-4 left-4 bg-ink/70 text-paper px-3 py-1.5 rounded-full text-xs fk-mono">
+                  {new Date(comparePhotos[0].date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                </div>
+              </div>
+              {/* Divider */}
+              <div className="w-px bg-paper/30" />
+              {/* After */}
+              <div className="flex-1 relative">
+                <Image
+                  src={comparePhotos[1].photo_url}
+                  alt="Después"
+                  fill
+                  className="object-contain"
+                />
+                <div className="absolute bottom-4 right-4 bg-signal text-paper px-3 py-1.5 rounded-full text-xs fk-mono">
+                  {new Date(comparePhotos[1].date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Weight Form Modal */}
       {showForm && (
