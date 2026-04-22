@@ -7,6 +7,30 @@
 ---
 
 ## Ultimo agente
+Agente: Mobile Favorites Quick-Add
+Fecha: 22 de abril 2026
+Que hizo:
+
+### Mobile Favorites Quick-Add (22 abril) ✅
+- **Problema**: Favoritos solo accesibles desde sidebar (hidden en mobile)
+- **Solución**: Sección de favoritos visible en mobile con scroll horizontal
+
+**Cambios realizados:**
+- **Nueva sección en food/page.tsx**: Favoritos quick-add visible solo en mobile (`lg:hidden`)
+- **Con favoritos**:
+  - Scroll horizontal con cards de cada favorito
+  - Un tap agrega todos los items del favorito al log del día
+  - Muestra emojis de los grupos + nombre de comida
+  - Botón "+ Nuevo" al final para crear más favoritos
+- **Sin favoritos**:
+  - CTA card invitando a crear el primer favorito
+  - Link a /food/favorites para configurar
+- **Usa clase `no-scrollbar`** de globals.css para ocultar scrollbar
+- **CSS**: Utiliza `flex-shrink-0` y `min-w-[140px]` para scroll horizontal correcto
+
+---
+
+## Agente Anterior
 Agente: Food Page Simplification
 Fecha: 21 de abril 2026
 Que hizo:

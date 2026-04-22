@@ -397,6 +397,74 @@ export default function FoodPage() {
         </h1>
       </div>
 
+      {/* Mobile Quick Favorites - horizontal scroll */}
+      <div className="px-4 mb-6 lg:hidden">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-medium flex items-center gap-2">
+            <Star className="w-4 h-4 text-honey fill-honey" />
+            Favoritos
+          </h3>
+          {favorites.length > 0 && (
+            <Link href="/food/favorites" className="text-xs text-signal hover:underline">
+              Ver todos
+            </Link>
+          )}
+        </div>
+        {favorites.length > 0 ? (
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
+            {favorites.map(fav => (
+              <button
+                key={fav.id}
+                onClick={async () => {
+                  for (const item of fav.items) {
+                    await (supabase.from('food_logs') as any).insert({
+                      user_id: user?.id, date: todayStr, meal: fav.meal,
+                      group_type: item.group_type, quantity: item.quantity, food_name: item.food_name,
+                    })
+                  }
+                  await loadFoodLogs()
+                  showToast(`${fav.name} agregado`)
+                }}
+                className="flex-shrink-0 px-4 py-3 rounded-2xl bg-white border border-ink-7 hover:bg-paper-2 active:scale-95 transition-all min-w-[140px]"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Star className="w-3 h-3 text-honey fill-honey" />
+                  <span className="font-medium text-sm truncate">{fav.name}</span>
+                </div>
+                <div className="text-xs text-ink-4 capitalize truncate">
+                  {fav.items.map(i => FOOD_COLORS[i.group_type].emoji).join(' ')} · {fav.meal}
+                </div>
+              </button>
+            ))}
+            <Link
+              href="/food/favorites"
+              className="flex-shrink-0 px-4 py-3 rounded-2xl border-2 border-dashed border-ink-6 hover:border-signal hover:bg-signal-soft/20 transition-all min-w-[120px] flex items-center justify-center"
+            >
+              <div className="flex items-center gap-2 text-ink-4">
+                <Plus className="w-4 h-4" />
+                <span className="text-xs font-medium">Nuevo</span>
+              </div>
+            </Link>
+          </div>
+        ) : (
+          <Link
+            href="/food/favorites"
+            className="block p-4 rounded-2xl bg-honey-soft/50 border border-honey/20 hover:bg-honey-soft transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-honey-soft flex items-center justify-center">
+                <Star className="w-5 h-5 text-honey" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-sm">Crea tu primer favorito</p>
+                <p className="text-xs text-ink-4">Agrega comidas habituales con un tap</p>
+              </div>
+              <Plus className="w-5 h-5 text-honey" />
+            </div>
+          </Link>
+        )}
+      </div>
+
       {/* Main Grid */}
       <div className="px-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
