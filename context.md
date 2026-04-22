@@ -89,7 +89,17 @@ Transformación de Fitkis de app self-tracking a plataforma B2B para nutricionis
 
 **Mejoras adicionales (sesión 2):**
 
-11. **Dashboard Clinic mejorado** - `app/(clinic)/clinic/page.tsx`
+11. **Settings Clinic** - `app/(clinic)/clinic/settings/page.tsx`
+    - Edición de perfil profesional (display_name, license_number, specialty, clinic_name)
+    - Info de cuenta (email, tipo)
+
+12. **Reports Clinic** - `app/(clinic)/clinic/reports/page.tsx`
+    - Filtro por rango de fechas (7d, 30d, 90d)
+    - Stats resumen: pacientes activos, cambio total de peso, registros
+    - Lista de pacientes con métricas (peso actual, cambio, registros, última actividad)
+    - Links a detalle de cada paciente
+
+13. **Dashboard Clinic mejorado** - `app/(clinic)/clinic/page.tsx`
     - Muestra nombre del paciente (display_name)
     - Métricas de composición corporal (peso, grasa%, músculo, grasa kg)
     - Mini gráficas sparkline con hover para ver valor/fecha
