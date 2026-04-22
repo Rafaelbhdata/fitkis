@@ -110,7 +110,6 @@ export default function FavoritesPage() {
 
   const openCreateModal = () => {
     setNewFavName('')
-    setNewFavMeal('desayuno')
     setNewFavItems([])
     setShowCreateModal(true)
   }
