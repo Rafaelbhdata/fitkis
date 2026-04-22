@@ -46,8 +46,10 @@ export async function middleware(request: NextRequest) {
                            request.nextUrl.pathname.startsWith('/settings') ||
                            request.nextUrl.pathname.startsWith('/api/chat')
 
+  const isClinicRoute = request.nextUrl.pathname.startsWith('/clinic')
+
   // Redirect to login if accessing protected route without auth
-  if (!user && isProtectedRoute) {
+  if (!user && (isProtectedRoute || isClinicRoute)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
@@ -59,6 +61,11 @@ export async function middleware(request: NextRequest) {
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
+
+  // Check practitioner role for clinic routes
+  // Note: Full role check is done in the clinic pages since we can't
+  // make additional DB calls in edge middleware without Supabase edge client
+  // The clinic pages will show an error if the user is not a practitioner
 
   return supabaseResponse
 }

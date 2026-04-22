@@ -74,8 +74,8 @@ const tools: Anthropic.Tool[] = [
       properties: {
         meal: {
           type: 'string',
-          enum: ['desayuno', 'snack', 'comida', 'cena'],
-          description: 'Tipo de comida',
+          enum: ['desayuno', 'snack1', 'comida', 'snack2', 'cena', 'snack3'],
+          description: 'Tipo de comida (snack1=mañana, snack2=tarde, snack3=noche)',
         },
         group_type: {
           type: 'string',
@@ -553,10 +553,14 @@ GRUPOS ALIMENTICIOS Y SUS CÓDIGOS:
 - leguminosa = Leguminosas (frijoles, lentejas, garbanzos)
 
 COMIDAS DEL DÍA:
-- desayuno
-- snack
-- comida
-- cena`
+- desayuno (mañana)
+- snack1 (media mañana)
+- comida (mediodía)
+- snack2 (tarde)
+- cena (noche)
+- snack3 (antes de dormir)
+
+Nota: No todos los usuarios tienen todas las comidas habilitadas. Pregunta la hora aproximada si no queda claro.`
 
 export async function POST(request: Request) {
   try {

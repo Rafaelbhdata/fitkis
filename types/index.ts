@@ -2,7 +2,11 @@ export type RoutineType = 'upper_a' | 'upper_b' | 'lower_a' | 'lower_b'
 
 export type Feeling = 'muy_pesado' | 'dificil' | 'perfecto' | 'ligero' | 'quiero_mas'
 
-export type MealType = 'desayuno' | 'snack' | 'comida' | 'cena'
+export type MealType = 'desayuno' | 'snack1' | 'comida' | 'snack2' | 'cena' | 'snack3'
+
+export type UserRole = 'user' | 'practitioner'
+
+export type PatientStatus = 'pending' | 'active' | 'inactive'
 
 export type FoodGroup = 'verdura' | 'fruta' | 'carb' | 'proteina' | 'grasa' | 'leguminosa'
 
@@ -209,6 +213,77 @@ export interface MealBudget {
   grasa: number
 }
 
+// B2B Types
+
+export interface ActiveMeals {
+  desayuno: boolean
+  snack1: boolean
+  comida: boolean
+  snack2: boolean
+  cena: boolean
+  snack3: boolean
+}
+
+export interface UserProfile {
+  id: string
+  user_id: string
+  height_cm?: number
+  goal_weight_kg?: number
+  role: UserRole
+  created_at: string
+  updated_at: string
+}
+
+export interface Practitioner {
+  id: string
+  user_id: string
+  display_name: string
+  license_number?: string
+  specialty?: string
+  clinic_name?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PractitionerPatient {
+  id: string
+  practitioner_id: string
+  patient_id: string
+  status: PatientStatus
+  invited_at: string
+  accepted_at?: string
+  created_at: string
+}
+
+export interface DietConfig {
+  id: string
+  user_id: string
+  effective_date: string
+  verdura: number
+  fruta: number
+  carb: number
+  leguminosa: number
+  proteina: number
+  grasa: number
+  prescribed_by?: string
+  version: number
+  active: boolean
+  notes?: string
+  active_meals: ActiveMeals
+  meal_budgets?: Record<MealType, MealBudget>
+  created_at: string
+}
+
+// Patient with practitioner context (for clinic dashboard)
+export interface PatientWithRelation {
+  id: string  // user id
+  email: string
+  profile?: UserProfile
+  relation: PractitionerPatient
+  latest_weight?: WeightLog
+  latest_diet?: DietConfig
+}
+
 // Supabase Database types
 export interface Database {
   public: {
@@ -257,6 +332,26 @@ export interface Database {
         Row: FoodEquivalent
         Insert: Omit<FoodEquivalent, 'id' | 'created_at'>
         Update: Partial<Omit<FoodEquivalent, 'id' | 'created_at'>>
+      }
+      user_profiles: {
+        Row: UserProfile
+        Insert: Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<UserProfile, 'id' | 'created_at' | 'updated_at'>>
+      }
+      practitioners: {
+        Row: Practitioner
+        Insert: Omit<Practitioner, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<Practitioner, 'id' | 'created_at' | 'updated_at'>>
+      }
+      practitioner_patients: {
+        Row: PractitionerPatient
+        Insert: Omit<PractitionerPatient, 'id' | 'created_at'>
+        Update: Partial<Omit<PractitionerPatient, 'id' | 'created_at'>>
+      }
+      diet_configs: {
+        Row: DietConfig
+        Insert: Omit<DietConfig, 'id' | 'created_at'>
+        Update: Partial<Omit<DietConfig, 'id' | 'created_at'>>
       }
     }
     Views: {

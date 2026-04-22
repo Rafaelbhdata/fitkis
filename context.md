@@ -3,10 +3,89 @@
 ## Estado general
 - Setup del proyecto ✅ COMPLETADO
 - Sistema de diseño UI ✅ COMPLETADO (Rediseño v5.0 - "Paper & Pulse")
+- **B2B Platform ✅ EN PROGRESO** (Sprint 22 abril 2026)
 
 ---
 
 ## Ultimo agente
+Agente: B2B Practitioner Platform
+Fecha: 22 de abril 2026
+Que hizo:
+
+### B2B Practitioner Platform (22 abril) ✅
+Transformación de Fitkis de app self-tracking a plataforma B2B para nutricionistas.
+
+**Decisiones de diseño:**
+- Progress photos: Solo paciente (nutricionista no puede ver)
+- Journal: Solo paciente (privado)
+- Meals: 6 comidas fijas con toggle por paciente
+- Add patient: Vinculación por email (paciente crea su propia cuenta)
+- Reports: HTML print-friendly (no PDF)
+
+**Archivos creados:**
+
+1. **Migración 009** - `supabase/migrations/009_practitioner_model.sql`
+   - Tabla `practitioners` (display_name, license_number, specialty, clinic_name)
+   - Tabla `practitioner_patients` (relación many-to-many con status)
+   - Columna `role` en `user_profiles` ('user' | 'practitioner')
+   - Actualización de MealType a 6 comidas (desayuno, snack1, comida, snack2, cena, snack3)
+   - Columnas en `diet_configs`: prescribed_by, version, active, notes, active_meals, meal_budgets
+   - RLS policies para que practitioners lean datos de pacientes activos
+   - Función `is_practitioner_of()` helper para RLS
+   - Función `get_user_by_email()` para buscar usuarios por email
+
+2. **Types actualizados** - `types/index.ts`
+   - `MealType` actualizado a 6 comidas
+   - Nuevos tipos: `UserRole`, `PatientStatus`, `ActiveMeals`
+   - Nuevas interfaces: `UserProfile`, `Practitioner`, `PractitionerPatient`, `DietConfig`, `PatientWithRelation`
+
+3. **Clinic Layout** - `app/(clinic)/layout.tsx`
+   - Sidebar con navegación: Pacientes, Reportes, Configuración
+   - Links a "Mi cuenta" y logout
+   - Header mobile con menú hamburger
+
+4. **Dashboard Clinic** - `app/(clinic)/clinic/page.tsx`
+   - Lista de pacientes con estadísticas
+   - Cards de resumen: total, activos, pendientes
+   - Modal para vincular paciente por email
+   - Búsqueda de pacientes
+
+5. **Perfil Paciente** - `app/(clinic)/clinic/patient/[id]/page.tsx`
+   - Tabs: Resumen, Peso, Alimentación, Gym
+   - Vista read-only de datos del paciente
+   - Navegación de fechas para alimentación
+   - Links a editar plan y generar reporte
+
+6. **Editor de Plan** - `app/(clinic)/clinic/patient/[id]/plan/page.tsx`
+   - Configuración de presupuesto diario por grupo
+   - Toggle de comidas activas (6 meals)
+   - Notas para el paciente
+   - Fecha efectiva del plan
+   - Versionado automático
+
+7. **Reporte Print-Friendly** - `app/(clinic)/clinic/patient/[id]/report/page.tsx`
+   - Selector de rango de fechas
+   - Secciones: Peso, Alimentación, Gym
+   - Estilos optimizados para impresión (@media print)
+   - Promedios y comparativas
+
+8. **Food Page Actualizada** - `app/(app)/food/page.tsx`
+   - `ALL_MEALS` con 6 comidas
+   - Estado `activeMeals` que filtra comidas visibles
+   - `getCurrentMeal()` considera comidas activas
+   - Carga `active_meals` desde diet_config
+
+9. **Chat Route Actualizada** - `app/api/chat/route.ts`
+   - Enum de meals actualizado a 6 tipos
+   - System prompt actualizado con 6 comidas
+
+10. **Middleware Actualizado** - `middleware.ts`
+    - Rutas /clinic protegidas (requieren auth)
+    - Comentario sobre verificación de rol en páginas
+
+---
+
+## Agente Anterior
 Agente: Mobile Favorites Quick-Add
 Fecha: 22 de abril 2026
 Que hizo:
@@ -923,6 +1002,8 @@ npx tsc --noEmit   # Verificar TypeScript
 - `005_user_settings.sql` - user_profiles, diet_configs
 - `006_custom_foods.sql` - custom_foods (alimentos personalizados)
 - `007_food_equivalents.sql` - food_equivalents (BD SMAE con 2,537 alimentos)
+- `008_food_logs_favorite_name.sql` - Columna favorite_name para agrupar items de favoritos
+- `009_practitioner_model.sql` - **PENDIENTE** B2B: practitioners, practitioner_patients, RLS, 6 meals
 
 ---
 

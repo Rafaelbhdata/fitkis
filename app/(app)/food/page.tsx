@@ -9,7 +9,16 @@ import type { DailyBudget, FoodEquivalent } from '@/types'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { useToast } from '@/components/ui/Toast'
 import { PulseLine } from '@/components/ui/PulseLine'
-import type { MealType, FoodGroup, FoodLog, FavoriteMeal, CustomFood } from '@/types'
+import type { MealType, FoodGroup, FoodLog, FavoriteMeal, CustomFood, ActiveMeals } from '@/types'
+
+const DEFAULT_ACTIVE_MEALS: ActiveMeals = {
+  desayuno: true,
+  snack1: true,
+  comida: true,
+  snack2: false,
+  cena: true,
+  snack3: false,
+}
 
 // v5 Paper & Pulse food colors
 const FOOD_COLORS: Record<FoodGroup, { bg: string; fill: string; label: string; emoji: string }> = {
@@ -21,11 +30,13 @@ const FOOD_COLORS: Record<FoodGroup, { bg: string; fill: string; label: string; 
   grasa: { bg: 'bg-paper-3', fill: '#737373', label: 'Grasas', emoji: '🥑' },
 }
 
-const meals: { key: MealType; label: string; emoji: string }[] = [
+const ALL_MEALS: { key: MealType; label: string; emoji: string }[] = [
   { key: 'desayuno', label: 'Desayuno', emoji: '🌅' },
-  { key: 'snack', label: 'Snack', emoji: '🍌' },
+  { key: 'snack1', label: 'Snack 1', emoji: '🍌' },
   { key: 'comida', label: 'Comida', emoji: '🍽️' },
+  { key: 'snack2', label: 'Snack 2', emoji: '🍎' },
   { key: 'cena', label: 'Cena', emoji: '🌙' },
+  { key: 'snack3', label: 'Snack 3', emoji: '🥜' },
 ]
 
 export default function FoodPage() {
@@ -54,6 +65,10 @@ export default function FoodPage() {
   const [dbFoods, setDbFoods] = useState<FoodEquivalent[]>([])
   const [searchingFoods, setSearchingFoods] = useState(false)
   const [showFavoritesCategory, setShowFavoritesCategory] = useState(false)
+  const [activeMeals, setActiveMeals] = useState<ActiveMeals>(DEFAULT_ACTIVE_MEALS)
+
+  // Filter meals based on what's active for this user
+  const meals = ALL_MEALS.filter(m => activeMeals[m.key])
 
   // Date navigation
   const goToPrevDay = () => {
@@ -132,6 +147,10 @@ export default function FoodPage() {
           verdura: data.verdura, fruta: data.fruta, carb: data.carb,
           leguminosa: data.leguminosa, proteina: data.proteina, grasa: data.grasa,
         })
+        // Load active meals if present
+        if (data.active_meals) {
+          setActiveMeals(data.active_meals)
+        }
       }
     } catch (err) { /* use defaults */ }
   }
@@ -226,13 +245,34 @@ export default function FoodPage() {
 
   const mealLogs = (meal: MealType) => foodLogs.filter(f => f.meal === meal)
 
-  // Current meal based on time
+  // Current meal based on time (considering active meals)
   const getCurrentMeal = (): MealType => {
     const hour = new Date().getHours()
-    if (hour < 10) return 'desayuno'
-    if (hour < 13) return 'snack'
-    if (hour < 17) return 'comida'
-    return 'cena'
+    // Time-based meal suggestion
+    let suggested: MealType = 'desayuno'
+    if (hour < 9) suggested = 'desayuno'
+    else if (hour < 11) suggested = 'snack1'
+    else if (hour < 14) suggested = 'comida'
+    else if (hour < 17) suggested = 'snack2'
+    else if (hour < 20) suggested = 'cena'
+    else suggested = 'snack3'
+
+    // If suggested meal is active, use it
+    if (activeMeals[suggested]) return suggested
+
+    // Otherwise find the closest active meal
+    const allMealKeys: MealType[] = ['desayuno', 'snack1', 'comida', 'snack2', 'cena', 'snack3']
+    const suggestedIdx = allMealKeys.indexOf(suggested)
+
+    // Look forward first, then backward
+    for (let i = suggestedIdx; i < allMealKeys.length; i++) {
+      if (activeMeals[allMealKeys[i]]) return allMealKeys[i]
+    }
+    for (let i = suggestedIdx - 1; i >= 0; i--) {
+      if (activeMeals[allMealKeys[i]]) return allMealKeys[i]
+    }
+
+    return 'desayuno' // fallback
   }
   const currentMeal = getCurrentMeal()
 
@@ -290,49 +330,61 @@ export default function FoodPage() {
       verdura: {
         meals: {
           desayuno: 'Si quieres, agrega espinacas a tu omelette.',
-          snack: 'Zanahorias o jícama son un snack ligero si tienes hambre.',
+          snack1: 'Zanahorias o jícama son un snack ligero si tienes hambre.',
           comida: 'Una ensalada te ayuda a sentirte lleno sin muchas calorías.',
+          snack2: 'Pepino con limón es un snack refrescante.',
           cena: 'Puedes acompañar con brócoli o ensalada si quieres.',
+          snack3: 'Verduras crudas si te dio hambre antes de dormir.',
         },
       },
       fruta: {
         meals: {
           desayuno: 'Fresas o plátano si quieres algo dulce.',
-          snack: 'Una manzana es buena opción si tienes antojo.',
+          snack1: 'Una manzana es buena opción si tienes antojo.',
           comida: 'Papaya o melón de postre si tienes espacio.',
-          cena: 'Fruta antes de dormir si te quedaste con hambre.',
+          snack2: 'Unas uvas o kiwi para la tarde.',
+          cena: 'Fruta si te quedaste con hambre.',
+          snack3: 'Fruta antes de dormir si tienes antojo.',
         },
       },
       proteina: {
         meals: {
           desayuno: 'La proteína es importante para mantener músculo.',
-          snack: 'Yogurt griego si necesitas un boost de proteína.',
+          snack1: 'Yogurt griego si necesitas un boost de proteína.',
           comida: 'Asegura tu porción de proteína para no perder músculo.',
+          snack2: 'Queso cottage o jamón si necesitas proteína.',
           cena: 'Un huevo o atún extra ayuda a la recuperación.',
+          snack3: 'Claras de huevo o yogurt si tienes hambre.',
         },
       },
       carb: {
         meals: {
           desayuno: 'Avena o pan si necesitas energía para el día.',
-          snack: 'Los carbohidratos son opcionales si no tienes mucha hambre.',
+          snack1: 'Los carbohidratos son opcionales si no tienes mucha hambre.',
           comida: 'Arroz o tortilla si necesitas más energía.',
+          snack2: 'Galletas salmas o rice cakes si quieres.',
           cena: 'Puedes saltarte los carbohidratos en la cena sin problema.',
+          snack3: 'Los carbohidratos nocturnos son opcionales.',
         },
       },
       leguminosa: {
         meals: {
           desayuno: 'Las leguminosas son opcionales hoy.',
-          snack: 'Edamames si quieres un snack con fibra.',
+          snack1: 'Edamames si quieres un snack con fibra.',
           comida: 'Frijoles o lentejas si te gustan.',
+          snack2: 'Hummus con verduras es buena opción.',
           cena: 'Puedes incluirlas o no, tú decides.',
+          snack3: 'Las leguminosas son opcionales.',
         },
       },
       grasa: {
         meals: {
           desayuno: 'Un poco de aguacate si quieres.',
-          snack: 'Nueces si tienes hambre entre comidas.',
+          snack1: 'Nueces si tienes hambre entre comidas.',
           comida: 'Aceite de oliva en la ensalada es buena opción.',
+          snack2: 'Almendras o cacahuates si necesitas energía.',
           cena: 'Las grasas son opcionales si ya estás satisfecho.',
+          snack3: 'Un poco de chocolate amargo si tienes antojo.',
         },
       },
     }
@@ -699,8 +751,9 @@ export default function FoodPage() {
                     onClick={async () => {
                       for (const item of fav.items) {
                         await (supabase.from('food_logs') as any).insert({
-                          user_id: user?.id, date: todayStr, meal: fav.meal,
+                          user_id: user?.id, date: todayStr, meal: fav.meal || currentMeal,
                           group_type: item.group_type, quantity: item.quantity, food_name: item.food_name,
+                          favorite_name: fav.name,
                         })
                       }
                       await loadFoodLogs()
@@ -709,7 +762,7 @@ export default function FoodPage() {
                     className="w-full text-left p-3 rounded-xl border border-ink-7 hover:bg-paper-2 transition-colors"
                   >
                     <div className="font-medium text-sm">{fav.name}</div>
-                    <div className="text-xs text-ink-4 capitalize">{fav.meal} · {fav.items.length} items</div>
+                    <div className="text-xs text-ink-4">{fav.items.length} items</div>
                   </button>
                 ))}
               </div>
