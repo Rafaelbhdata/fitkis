@@ -212,6 +212,108 @@ export default function FoodPage() {
   }
   const currentMeal = getCurrentMeal()
 
+  // Generate dynamic coach suggestion based on what's missing
+  const getCoachSuggestion = () => {
+    const missing: { group: FoodGroup; amount: number; label: string }[] = []
+
+    const groups: { key: FoodGroup; label: string }[] = [
+      { key: 'verdura', label: 'verduras' },
+      { key: 'fruta', label: 'frutas' },
+      { key: 'proteina', label: 'proteína' },
+      { key: 'carb', label: 'cereales' },
+      { key: 'leguminosa', label: 'leguminosas' },
+      { key: 'grasa', label: 'grasas' },
+    ]
+
+    groups.forEach(g => {
+      const diff = userBudget[g.key] - consumed[g.key]
+      if (diff > 0) {
+        missing.push({ group: g.key, amount: diff, label: g.label })
+      }
+    })
+
+    if (missing.length === 0) {
+      return {
+        highlight: '¡Completaste tu plato!',
+        message: 'Excelente trabajo hoy. Mantén este ritmo.',
+        tip: null,
+      }
+    }
+
+    // Sort by amount missing (most first)
+    missing.sort((a, b) => b.amount - a.amount)
+    const top = missing[0]
+
+    // Generate contextual suggestions based on current meal time and what's missing
+    const suggestions: Record<FoodGroup, { meals: Record<MealType, string>; general: string }> = {
+      verdura: {
+        meals: {
+          desayuno: 'Agrega espinacas a tu omelette o come pepino en rodajas.',
+          snack: 'Zanahorias o jícama con limón son un snack perfecto.',
+          comida: 'Una ensalada grande como entrada te da 2 verduras fácil.',
+          cena: 'Acompaña tu cena con brócoli al vapor o una ensalada.',
+        },
+        general: 'Las verduras te ayudan a sentirte lleno con pocas calorías.',
+      },
+      fruta: {
+        meals: {
+          desayuno: 'Agrega fresas o plátano a tu desayuno.',
+          snack: 'Una manzana o mandarina es el snack perfecto.',
+          comida: 'Termina la comida con una porción de papaya o melón.',
+          cena: 'No olvides tu fruta del día antes de dormir.',
+        },
+        general: 'La fruta te da energía natural y vitaminas.',
+      },
+      proteina: {
+        meals: {
+          desayuno: 'Huevos, yogurt griego o jamón son buenas opciones.',
+          snack: 'Un yogurt griego cuenta como proteína + grasa.',
+          comida: 'Asegura una porción de pollo, pescado o carne.',
+          cena: 'Atún, huevo o queso panela para la cena.',
+        },
+        general: 'La proteína es clave para mantener músculo mientras bajas de peso.',
+      },
+      carb: {
+        meals: {
+          desayuno: 'Avena o pan integral son buenos carbohidratos.',
+          snack: 'Unas galletas integrales o fruta con carbohidrato.',
+          comida: 'Arroz integral, tortilla o papa en tu plato principal.',
+          cena: 'Tortillas o pasta integral para acompañar la cena.',
+        },
+        general: 'Los carbohidratos te dan energía para entrenar.',
+      },
+      leguminosa: {
+        meals: {
+          desayuno: 'Hummus con verduras es una opción creativa.',
+          snack: 'Edamames son un snack con leguminosa incluida.',
+          comida: 'Frijoles, lentejas o garbanzos con tu comida.',
+          cena: 'Una sopa de lenteja o frijoles de la olla.',
+        },
+        general: 'Las leguminosas son fibra y proteína vegetal.',
+      },
+      grasa: {
+        meals: {
+          desayuno: 'Aguacate o crema de cacahuate en tu desayuno.',
+          snack: 'Un puñado de nueces o almendras (10-12 piezas).',
+          comida: 'Aceite de oliva en la ensalada o aguacate.',
+          cena: 'Aceitunas, aguacate o queso de cabra.',
+        },
+        general: 'Las grasas saludables te ayudan a absorber vitaminas.',
+      },
+    }
+
+    const groupSuggestion = suggestions[top.group]
+    const mealTip = groupSuggestion.meals[currentMeal]
+
+    return {
+      highlight: `${top.amount} ${top.label}`,
+      message: mealTip,
+      tip: missing.length > 1 ? `También te faltan ${missing.slice(1, 3).map(m => `${m.amount} ${m.label}`).join(' y ')}.` : null,
+    }
+  }
+
+  const coachSuggestion = getCoachSuggestion()
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -426,17 +528,28 @@ export default function FoodPage() {
           <div className="bg-ink rounded-2xl p-5 text-paper">
             <div className="flex items-center gap-2 mb-3">
               <PulseLine w={20} h={10} color="var(--signal)" strokeWidth={1.5} />
-              <span className="fk-mono text-[10px] text-ink-4 uppercase tracking-wider">Coach</span>
+              <span className="fk-mono text-[10px] text-ink-4 uppercase tracking-wider">Coach · {meals.find(m => m.key === currentMeal)?.label}</span>
             </div>
-            <p className="font-serif text-lg leading-relaxed mb-4">
-              Te faltan <span className="text-signal italic">{userBudget.verdura - consumed.verdura} verduras</span>.
-              Una ensalada grande en la comida te ayuda a completarlas.
+            <p className="font-serif text-lg leading-relaxed mb-2">
+              {coachSuggestion.highlight !== '¡Completaste tu plato!' ? (
+                <>Te faltan <span className="text-signal italic">{coachSuggestion.highlight}</span>.</>
+              ) : (
+                <span className="text-signal italic">{coachSuggestion.highlight}</span>
+              )}
             </p>
+            <p className="text-sm text-paper/80 mb-3">
+              {coachSuggestion.message}
+            </p>
+            {coachSuggestion.tip && (
+              <p className="text-xs text-paper/60 mb-4">
+                {coachSuggestion.tip}
+              </p>
+            )}
             <Link
               href="/coach"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-signal text-white text-sm font-medium hover:bg-signal/90 transition-colors"
             >
-              Hablar con Coach
+              Más ideas
             </Link>
           </div>
 
