@@ -522,8 +522,8 @@ export default function WeightPage() {
                       </span>
                     </div>
                   </div>
-                  <button className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/20 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Maximize2 className="w-3.5 h-3.5 text-white" />
+                  <button className="absolute top-2 right-2 w-10 h-10 rounded-full bg-white/20 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Maximize2 className="w-4 h-4 text-white" />
                   </button>
                 </div>
               ))}
@@ -570,8 +570,8 @@ export default function WeightPage() {
 
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-serif text-xl font-light">Nueva foto</h2>
-              <button onClick={() => setShowPhotoModal(false)} className="w-8 h-8 rounded-full bg-paper-3 flex items-center justify-center">
-                <X className="w-4 h-4" />
+              <button onClick={() => setShowPhotoModal(false)} className="w-11 h-11 rounded-full bg-paper-3 flex items-center justify-center">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -724,8 +724,8 @@ export default function WeightPage() {
 
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-serif text-xl font-light">Composición corporal</h2>
-              <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-full bg-paper-3 flex items-center justify-center">
-                <X className="w-4 h-4" />
+              <button onClick={() => setShowForm(false)} className="w-11 h-11 rounded-full bg-paper-3 flex items-center justify-center">
+                <X className="w-5 h-5" />
               </button>
             </div>
 

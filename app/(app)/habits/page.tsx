@@ -444,18 +444,18 @@ export default function HabitsPage() {
                   <div className="flex items-center gap-2 mr-2">
                     <button
                       onClick={() => updateValue(habit, Math.max(0, habit.currentValue - 0.5))}
-                      className="w-8 h-8 rounded-lg bg-paper-3 flex items-center justify-center"
+                      className="w-10 h-10 rounded-lg bg-paper-3 flex items-center justify-center"
                     >
-                      <Minus className="w-4 h-4" />
+                      <Minus className="w-5 h-5" />
                     </button>
-                    <span className="w-6 text-center fk-mono text-sm font-medium">
+                    <span className="w-8 text-center fk-mono text-sm font-medium">
                       {habit.currentValue}
                     </span>
                     <button
                       onClick={() => updateValue(habit, habit.currentValue + 0.5)}
-                      className="w-8 h-8 rounded-lg bg-signal flex items-center justify-center"
+                      className="w-10 h-10 rounded-lg bg-signal flex items-center justify-center"
                     >
-                      <Plus className="w-4 h-4 text-white" />
+                      <Plus className="w-5 h-5 text-white" />
                     </button>
                   </div>
                 )}
@@ -506,8 +506,8 @@ export default function HabitsPage() {
               <h2 className="font-serif text-xl font-light">
                 {editingHabit ? 'Editar hábito' : 'Nuevo hábito'}
               </h2>
-              <button onClick={closeHabitModal} className="w-8 h-8 rounded-full bg-paper-3 flex items-center justify-center">
-                <X className="w-4 h-4" />
+              <button onClick={closeHabitModal} className="w-11 h-11 rounded-full bg-paper-3 flex items-center justify-center">
+                <X className="w-5 h-5" />
               </button>
             </div>
 

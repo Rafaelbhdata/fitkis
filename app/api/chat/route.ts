@@ -29,7 +29,7 @@ function createRouteHandlerClient() {
               cookieStore.set(name, value, options)
             )
           } catch {
-            // Ignore - middleware handles session refresh
+            // Expected in read-only contexts (middleware, streaming)
           }
         },
       },

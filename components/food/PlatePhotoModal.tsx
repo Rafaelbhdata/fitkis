@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback } from 'react'
 import { Camera, Upload, X, Check, AlertCircle, ChevronLeft, Loader2, Plus, Minus, Sparkles } from 'lucide-react'
 import { PulseLine } from '@/components/ui/PulseLine'
+import { compressImage } from '@/lib/image-utils'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import type { FoodGroup, MealType } from '@/types'
 
 interface PlateAnalysisItem {
@@ -55,6 +57,18 @@ export function PlatePhotoModal({ isOpen, onClose, selectedMeal, mealLabel, onAd
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
+  const handleClose = () => {
+    setStep('capture')
+    setImagePreview(null)
+    setAnalysis(null)
+    setEditedItems([])
+    setError(null)
+    setSaving(false)
+    onClose()
+  }
+
+  const focusTrapRef = useFocusTrap({ isActive: isOpen, onEscape: handleClose })
+
   const resetState = () => {
     setStep('capture')
     setImagePreview(null)
@@ -62,11 +76,6 @@ export function PlatePhotoModal({ isOpen, onClose, selectedMeal, mealLabel, onAd
     setEditedItems([])
     setError(null)
     setSaving(false)
-  }
-
-  const handleClose = () => {
-    resetState()
-    onClose()
   }
 
   const handleFileSelect = useCallback(async (file: File) => {
@@ -82,19 +91,39 @@ export function PlatePhotoModal({ isOpen, onClose, selectedMeal, mealLabel, onAd
       return
     }
 
-    // Create preview
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const base64 = e.target?.result as string
-      setImagePreview(base64)
-      await analyzeImage(base64)
+    try {
+      // Compress image before processing (reduces upload time and API costs)
+      const compressedFile = await compressImage(file, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.85,
+        maxSizeMB: 1
+      })
+
+      // Create preview from compressed image
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64 = e.target?.result as string
+        setImagePreview(base64)
+        await analyzeImage(base64)
+      }
+      reader.onerror = () => {
+        setError('Error al procesar la imagen')
+      }
+      reader.readAsDataURL(compressedFile)
+    } catch (err) {
+      console.error('Image compression error:', err)
+      setError('Error al procesar la imagen')
     }
-    reader.readAsDataURL(file)
   }, [])
 
   const analyzeImage = async (base64Image: string) => {
     setStep('analyzing')
     setError(null)
+
+    // Abort controller with 60s timeout for AI analysis
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
 
     try {
       const response = await fetch('/api/plate-analysis', {
@@ -104,7 +133,10 @@ export function PlatePhotoModal({ isOpen, onClose, selectedMeal, mealLabel, onAd
           image: base64Image,
           meal: selectedMeal,
         }),
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         throw new Error('Error al analizar la imagen')
@@ -122,7 +154,11 @@ export function PlatePhotoModal({ isOpen, onClose, selectedMeal, mealLabel, onAd
       }
     } catch (err) {
       console.error('Analysis error:', err)
-      setError('Error al analizar la imagen. Intenta de nuevo.')
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('La solicitud tardó demasiado. Intenta con una imagen más pequeña.')
+      } else {
+        setError('Error al analizar la imagen. Intenta de nuevo.')
+      }
       setStep('error')
     }
   }
@@ -161,7 +197,7 @@ export function PlatePhotoModal({ isOpen, onClose, selectedMeal, mealLabel, onAd
   return (
     <>
       <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50" onClick={handleClose} />
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-paper rounded-t-3xl border-t border-ink-7 shadow-2xl max-h-[90vh] overflow-hidden">
+      <div ref={focusTrapRef} className="fixed inset-x-0 bottom-0 z-50 bg-paper rounded-t-3xl border-t border-ink-7 shadow-2xl max-h-[90vh] overflow-hidden" role="dialog" aria-modal="true">
         <div className="p-5">
           <div className="w-10 h-1 rounded-full bg-ink-6 mx-auto mb-5" />
 
@@ -286,9 +322,9 @@ export function PlatePhotoModal({ isOpen, onClose, selectedMeal, mealLabel, onAd
                         </span>
                         <button
                           onClick={() => removeItem(index)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft transition-all"
+                          className="w-10 h-10 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft transition-all"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-5 h-5" />
                         </button>
                       </div>
                     </div>

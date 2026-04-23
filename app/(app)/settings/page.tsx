@@ -208,12 +208,19 @@ export default function SettingsPage() {
     setDeleting(true)
     setDeleteError(null)
 
+    // Abort controller with 30s timeout for account deletion
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
     try {
       const response = await fetch('/api/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation: deleteConfirmation })
+        body: JSON.stringify({ confirmation: deleteConfirmation }),
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       const data = await response.json()
 
@@ -227,7 +234,11 @@ export default function SettingsPage() {
       await supabase.auth.signOut()
       router.push('/login?deleted=true')
     } catch (err) {
-      setDeleteError('Error de conexión. Intenta de nuevo.')
+      if (err instanceof Error && err.name === 'AbortError') {
+        setDeleteError('La solicitud tardó demasiado. Intenta de nuevo.')
+      } else {
+        setDeleteError('Error de conexión. Intenta de nuevo.')
+      }
       setDeleting(false)
     }
   }

@@ -694,9 +694,9 @@ export default function FoodPage() {
                                   </div>
                                   <button
                                     onClick={() => deleteFood(log.id)}
-                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft opacity-0 group-hover:opacity-100 transition-all"
+                                    className="w-10 h-10 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft opacity-0 group-hover:opacity-100 transition-all"
                                   >
-                                    <X className="w-4 h-4" />
+                                    <X className="w-5 h-5" />
                                   </button>
                                 </div>
                               ))

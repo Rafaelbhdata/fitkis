@@ -44,6 +44,10 @@ export default function CoachPage() {
     setInput('')
     setIsLoading(true)
 
+    // Abort controller with 60s timeout for AI chat
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
+
     try {
       // Prepare messages for API (exclude initial assistant message for cleaner context)
       const apiMessages = [...messages.slice(1), userMessage].map(m => ({
@@ -55,7 +59,10 @@ export default function CoachPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: apiMessages }),
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
         throw new Error('Error en la respuesta')
@@ -69,9 +76,12 @@ export default function CoachPage() {
       }])
     } catch (error) {
       console.error('Error sending message:', error)
+      const errorMessage = error instanceof Error && error.name === 'AbortError'
+        ? 'La solicitud tardó demasiado. Por favor intenta de nuevo.'
+        : 'Lo siento, hubo un error procesando tu mensaje. Por favor intenta de nuevo.'
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Lo siento, hubo un error procesando tu mensaje. Por favor intenta de nuevo.',
+        content: errorMessage,
       }])
     } finally {
       setIsLoading(false)

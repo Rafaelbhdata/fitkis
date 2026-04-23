@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Barcode, Check, AlertCircle, Plus, Minus, Loader2, Camera, RefreshCw } from 'lucide-react'
 import { PulseLine } from '@/components/ui/PulseLine'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import type { FoodGroup, MealType } from '@/types'
 import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library'
 
@@ -78,6 +79,8 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
     resetState()
     onClose()
   }
+
+  const focusTrapRef = useFocusTrap({ isActive: isOpen, onEscape: handleClose })
 
   const stopCamera = () => {
     if (scanIntervalRef.current) {
@@ -199,8 +202,15 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
     setStep('loading')
     setError(null)
 
+    // Abort controller with 15s timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+
     try {
-      const response = await fetch(`/api/barcode-lookup?barcode=${encodeURIComponent(barcode)}`)
+      const response = await fetch(`/api/barcode-lookup?barcode=${encodeURIComponent(barcode)}`, {
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
       const data = await response.json()
 
       if (!response.ok) {
@@ -215,7 +225,11 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
         setStep('notfound')
       }
     } catch (err: any) {
-      setError(err.message || 'Error al buscar el producto')
+      if (err.name === 'AbortError') {
+        setError('La búsqueda tardó demasiado. Intenta de nuevo.')
+      } else {
+        setError(err.message || 'Error al buscar el producto')
+      }
       setStep('error')
     }
   }
@@ -260,7 +274,7 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
   return (
     <>
       <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50" onClick={handleClose} />
-      <div className="fixed inset-x-0 bottom-0 z-50 bg-paper rounded-t-3xl border-t border-ink-7 shadow-2xl max-h-[90vh] overflow-hidden">
+      <div ref={focusTrapRef} className="fixed inset-x-0 bottom-0 z-50 bg-paper rounded-t-3xl border-t border-ink-7 shadow-2xl max-h-[90vh] overflow-hidden" role="dialog" aria-modal="true">
         <div className="p-5">
           <div className="w-10 h-1 rounded-full bg-ink-6 mx-auto mb-5" />
 
@@ -426,9 +440,9 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
                         </div>
                         <button
                           onClick={() => removeEquivalent(index)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft"
+                          className="w-10 h-10 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-5 h-5" />
                         </button>
                       </div>
 

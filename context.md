@@ -8,6 +8,83 @@
 ---
 
 ## Ultimo agente
+Agente: Security Audit Fixes
+Fecha: 22 de abril 2026
+Que hizo:
+
+### Security Audit - Fixes Críticos y Medios (22 abril) ✅
+
+**Auditoría completa del frontend** - 22 hallazgos identificados, críticos y medios corregidos.
+
+#### Fixes Críticos ✅
+1. **AUD-015: BarcodeDetector Safari/Firefox fallback**
+   - Agregado ZXing library como fallback para navegadores sin BarcodeDetector API
+   - Chrome/Edge usan API nativa, Safari/Firefox usan @zxing/library
+   - `components/food/BarcodeScannerModal.tsx`
+
+2. **AUD-017: CASCADE faltantes en foreign keys**
+   - Migración `012_cascade_fixes.sql` con ON DELETE CASCADE en 7 tablas
+   - journal_entries, journal_used_questions, progress_photos, user_profiles, diet_configs, custom_foods, schedule_overrides
+   - RLS policies para practitioners ver fotos/journal de pacientes
+
+3. **AUD-018: Eliminación de cuenta**
+   - API endpoint `app/api/delete-account/route.ts`
+   - Requiere frase de confirmación exacta: "ELIMINAR MI CUENTA"
+   - Verifica que practitioner no tenga pacientes activos
+   - Limpia archivos de storage antes de eliminar
+   - UI en Settings con modal de confirmación
+
+#### Fixes Medios ✅
+4. **AUD-019: ErrorBoundary global**
+   - Nuevo componente `components/ui/ErrorBoundary.tsx`
+   - Integrado en `app/(app)/layout.tsx` envolviendo children
+   - UI de error con botón "Intentar de nuevo" e "Ir al inicio"
+
+5. **AUD-020: Timeouts en API calls**
+   - AbortController con timeouts en todos los fetch del cliente
+   - PlatePhotoModal: 60s (análisis AI)
+   - CoachBubble: 15s (prompts), 60s (chat AI)
+   - BarcodeScannerModal: 15s
+   - Settings delete: 30s
+   - coach/page.tsx: 60s
+
+6. **AUD-021: Empty catch blocks**
+   - Revisados - son intencionales por patrones de Supabase SSR
+
+7. **AUD-022: Touch targets mínimo 44px**
+   - 12+ botones actualizados de w-8/h-8 a w-10/h-10 o w-11/h-11
+   - Botones de cerrar modales, eliminar items, +/- cantidad
+
+8. **AUD-023: Focus trap en modales**
+   - Nuevo hook `hooks/useFocusTrap.ts`
+   - Trap de foco, retorno de foco, manejo de Escape
+   - Integrado en PlatePhotoModal y BarcodeScannerModal
+
+9. **AUD-025: Manejo de estado offline**
+   - Hook `hooks/useOnlineStatus.ts` detecta online/offline
+   - Componente `components/ui/OfflineToast.tsx`
+   - Toast fijo cuando se pierde conexión
+
+10. **AUD-028: Compresión de imágenes**
+    - Utilidad `lib/image-utils.ts` con compressImage()
+    - Comprime a max 1200x1200, quality 0.85, max 1MB
+    - Integrado en PlatePhotoModal antes de análisis
+
+#### Archivos Nuevos
+- `supabase/migrations/012_cascade_fixes.sql`
+- `app/api/delete-account/route.ts`
+- `components/ui/ErrorBoundary.tsx`
+- `components/ui/OfflineToast.tsx`
+- `hooks/useFocusTrap.ts`
+- `hooks/useOnlineStatus.ts`
+- `lib/image-utils.ts`
+
+#### Pendiente (LOW priority)
+- **AUD-016**: Generar tipos de Supabase (90+ any casts)
+
+---
+
+## Agente Anterior
 Agente: Sprint 2 - Smart Food Logging & Coach AI
 Fecha: 22 de abril 2026
 Que hizo:
@@ -902,13 +979,28 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 
 ---
 
-## Auditoría de Frontend (3 abril 2026)
+## Auditoría de Frontend (3 abril 2026 + 22 abril 2026)
 
 ### Problemas Críticos CORREGIDOS ✅
 1. **Logout** - Agregado botón en header del dashboard
 2. **Cantidad comida** - Selector de 0.5 a N porciones
 3. **Contraste muted** - Ahora cumple WCAG AA (4.7:1)
 4. **Manejo errores** - try/catch + alertas en todas las páginas
+
+### Segunda Auditoría (22 abril 2026) ✅
+| ID | Issue | Severidad | Estado |
+|---|---|---|---|
+| AUD-015 | BarcodeDetector Safari/Firefox | Crítico | ✅ ZXing fallback |
+| AUD-017 | CASCADE faltantes (7 tablas) | Crítico | ✅ Migración 012 |
+| AUD-018 | Sin eliminación de cuenta | Crítico | ✅ API + UI |
+| AUD-019 | ErrorBoundary global | Medio | ✅ Implementado |
+| AUD-020 | Timeouts en API calls | Medio | ✅ AbortController |
+| AUD-021 | Empty catch blocks | Medio | ✅ Revisado (intencional) |
+| AUD-022 | Touch targets < 44px | Medio | ✅ 12+ botones |
+| AUD-023 | Focus trap en modales | Medio | ✅ useFocusTrap hook |
+| AUD-025 | Manejo offline | Medio | ✅ OfflineToast |
+| AUD-028 | Compresión imágenes | Medio | ✅ image-utils.ts |
+| AUD-016 | Tipos Supabase (any) | Bajo | ⏳ Pendiente |
 
 ### Funcionalidades PENDIENTES (para futuro)
 | Feature | Prioridad | Estado |
@@ -1100,6 +1192,7 @@ npx tsc --noEmit   # Verificar TypeScript
 - `009_practitioner_model.sql` - ✅ B2B: practitioners, practitioner_patients, RLS, 6 meals
 - `010_plate_analysis.sql` - ✅ plate_analysis_logs para análisis de fotos
 - `011_barcode_cache.sql` - ✅ barcode_cache para Open Food Facts
+- `012_cascade_fixes.sql` - ✅ ON DELETE CASCADE en 7 tablas + RLS practitioners
 
 ---
 

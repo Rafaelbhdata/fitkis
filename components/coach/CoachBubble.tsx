@@ -52,10 +52,16 @@ export default function CoachBubble() {
   // Fetch dynamic suggested prompts when chat opens
   useEffect(() => {
     if (isOpen && messages.length === 1) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const fetchPrompts = async () => {
         setLoadingPrompts(true);
         try {
-          const response = await fetch('/api/suggested-prompts');
+          const response = await fetch('/api/suggested-prompts', {
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
           if (response.ok) {
             const data = await response.json();
             if (data.prompts && data.prompts.length > 0) {
@@ -63,12 +69,19 @@ export default function CoachBubble() {
             }
           }
         } catch (error) {
-          console.error('Error fetching suggested prompts:', error);
+          if (error instanceof Error && error.name !== 'AbortError') {
+            console.error('Error fetching suggested prompts:', error);
+          }
         } finally {
           setLoadingPrompts(false);
         }
       };
       fetchPrompts();
+
+      return () => {
+        controller.abort();
+        clearTimeout(timeoutId);
+      };
     }
   }, [isOpen, messages.length]);
 
@@ -80,6 +93,10 @@ export default function CoachBubble() {
     setInput('');
     setIsLoading(true);
 
+    // Abort controller with 60s timeout for AI chat
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
     try {
       const apiMessages = [...messages.slice(1), userMessage].map((m) => ({
         role: m.role,
@@ -90,7 +107,10 @@ export default function CoachBubble() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: apiMessages }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) throw new Error('Error en la respuesta');
 
@@ -98,11 +118,14 @@ export default function CoachBubble() {
       setMessages((prev) => [...prev, { role: 'assistant', content: data.message }]);
     } catch (error) {
       console.error('Error sending message:', error);
+      const errorMessage = error instanceof Error && error.name === 'AbortError'
+        ? 'La solicitud tardó demasiado. Intenta de nuevo.'
+        : 'Error procesando tu mensaje. Intenta de nuevo.';
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'Error procesando tu mensaje. Intenta de nuevo.',
+          content: errorMessage,
         },
       ]);
     } finally {
@@ -159,9 +182,9 @@ export default function CoachBubble() {
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-8 h-8 rounded-lg hover:bg-paper-2 flex items-center justify-center transition-colors text-ink-4 hover:text-ink"
+                className="w-11 h-11 rounded-lg hover:bg-paper-2 flex items-center justify-center transition-colors text-ink-4 hover:text-ink"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 

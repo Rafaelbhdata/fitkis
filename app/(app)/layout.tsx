@@ -2,6 +2,8 @@ import Sidebar from '@/components/ui/Sidebar';
 import Header from '@/components/ui/Header';
 import { MobileDock } from '@/components/MobileDock';
 import CoachBubble from '@/components/coach/CoachBubble';
+import ErrorBoundary from '@/components/ui/ErrorBoundary';
+import OfflineToast from '@/components/ui/OfflineToast';
 
 export default function AppLayout({
   children,
@@ -21,7 +23,9 @@ export default function AppLayout({
         {/* Mobile: top padding for header, bottom for dock */}
         <div className="pt-14 md:pt-0 pb-24 md:pb-6 md:px-6">
           <div className="max-w-5xl mx-auto md:py-6">
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </div>
         </div>
       </main>
@@ -31,6 +35,9 @@ export default function AppLayout({
 
       {/* Coach AI Floating Button */}
       <CoachBubble />
+
+      {/* Offline Status Toast */}
+      <OfflineToast />
     </div>
   );
 }

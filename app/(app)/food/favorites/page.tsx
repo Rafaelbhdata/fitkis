@@ -224,9 +224,9 @@ export default function FavoritesPage() {
                 </div>
                 <button
                   onClick={() => deleteFavorite(fav.id)}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft transition-colors"
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry hover:bg-berry-soft transition-colors"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-5 h-5" />
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -302,9 +302,9 @@ export default function FavoritesPage() {
                           </span>
                           <button
                             onClick={() => removeItemFromFavorite(index)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry"
+                            className="w-10 h-10 rounded-lg flex items-center justify-center text-ink-4 hover:text-berry"
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-5 h-5" />
                           </button>
                         </div>
                       ))}
