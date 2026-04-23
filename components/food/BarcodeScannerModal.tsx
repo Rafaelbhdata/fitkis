@@ -163,7 +163,7 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
             }
 
             try {
-              const result = await reader.decodeOnceFromVideoElement(videoRef.current)
+              const result = await reader.decodeFromVideoElement(videoRef.current)
               if (result) {
                 const code = result.getText()
                 if (code) {
