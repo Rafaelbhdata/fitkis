@@ -36,7 +36,9 @@ export function SetRow({
         <input
           type="number"
           inputMode="decimal"
-          className="input text-center py-2.5 text-sm"
+          min="0"
+          max="2000"
+          className="input text-center py-2.5 text-base"
           placeholder="--"
           value={lbs}
           onChange={(e) => onLbsChange(e.target.value)}
@@ -47,7 +49,9 @@ export function SetRow({
         <input
           type="number"
           inputMode="numeric"
-          className="input text-center py-2.5 text-sm"
+          min="0"
+          max="500"
+          className="input text-center py-2.5 text-base"
           placeholder={String(targetReps)}
           value={reps}
           onChange={(e) => onRepsChange(e.target.value)}
@@ -57,7 +61,8 @@ export function SetRow({
       <div className="col-span-2 flex justify-center">
         <button
           onClick={onToggleComplete}
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95 ${
+          aria-label={completed ? 'Marcar serie incompleta' : 'Marcar serie completada'}
+          className={`w-11 h-11 rounded-full flex items-center justify-center transition-all active:scale-95 ${
             completed
               ? 'bg-accent text-background'
               : 'bg-accent/10 text-accent'

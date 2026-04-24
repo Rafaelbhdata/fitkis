@@ -62,10 +62,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Check practitioner role for clinic routes
-  // Note: Full role check is done in the clinic pages since we can't
-  // make additional DB calls in edge middleware without Supabase edge client
-  // The clinic pages will show an error if the user is not a practitioner
+  // Enforce practitioner role for /clinic/*
+  // Clinic pages still do their own defense-in-depth check, but this blocks
+  // unauthenticated probing and makes the boundary explicit.
+  if (user && isClinicRoute) {
+    const { data: practitioner } = await supabase
+      .from('practitioners')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!practitioner) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+  }
 
   return supabaseResponse
 }
