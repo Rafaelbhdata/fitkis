@@ -60,6 +60,7 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
   const streamRef = useRef<MediaStream | null>(null)
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null)
+  const barcodeHandledRef = useRef(false)
   const [useZxingFallback, setUseZxingFallback] = useState(false)
 
   const resetState = () => {
@@ -116,6 +117,15 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
         // Check if native BarcodeDetector is available (Chrome/Edge)
         const hasBarcodeDetector = 'BarcodeDetector' in window
 
+        barcodeHandledRef.current = false
+
+        const handleCode = async (code: string) => {
+          if (barcodeHandledRef.current) return
+          barcodeHandledRef.current = true
+          stopCamera()
+          await lookupBarcode(code)
+        }
+
         if (hasBarcodeDetector) {
           // Use native BarcodeDetector for best performance
           setUseZxingFallback(false)
@@ -124,15 +134,13 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
           })
 
           scanIntervalRef.current = setInterval(async () => {
+            if (barcodeHandledRef.current) return
             if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
               try {
                 const barcodes = await detector.detect(videoRef.current)
                 if (barcodes.length > 0) {
                   const code = barcodes[0].rawValue
-                  if (code) {
-                    stopCamera()
-                    await lookupBarcode(code)
-                  }
+                  if (code) handleCode(code)
                 }
               } catch (err) {
                 // Silent fail for detection errors
@@ -140,7 +148,11 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
             }
           }, 200)
         } else {
-          // Fallback to ZXing for Safari/Firefox
+          // Fallback to ZXing for Safari/Firefox/iOS.
+          // Use the callback form of decodeFromVideoElement: ZXing handles
+          // the continuous loop internally. The previous setInterval calling
+          // decodeFromVideoElement stacked concurrent decode loops and failed
+          // on mobile Safari.
           setUseZxingFallback(true)
 
           const hints = new Map()
@@ -156,29 +168,13 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
           const reader = new BrowserMultiFormatReader(hints)
           zxingReaderRef.current = reader
 
-          // Start continuous scanning
-          const scanWithZxing = async () => {
-            if (!videoRef.current || videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) {
-              return
+          reader.decodeFromVideoElement(videoRef.current, (result: { getText: () => string } | undefined) => {
+            if (result && !barcodeHandledRef.current) {
+              const code = result.getText()
+              if (code) handleCode(code)
             }
-
-            try {
-              const result = await reader.decodeFromVideoElement(videoRef.current)
-              if (result) {
-                const code = result.getText()
-                if (code) {
-                  stopCamera()
-                  await lookupBarcode(code)
-                  return
-                }
-              }
-            } catch (err) {
-              // ZXing throws when no barcode found - this is expected
-            }
-          }
-
-          // Poll for barcodes
-          scanIntervalRef.current = setInterval(scanWithZxing, 300)
+            // The error path (no barcode on frame) fires continuously — ignore.
+          })
         }
       }
     } catch (err) {
