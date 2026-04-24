@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { useGymStreak } from '@/lib/hooks';
 import LogoMark from './LogoMark';
 import { PulseLine } from './PulseLine';
 
@@ -36,17 +37,14 @@ const secondaryNav = [
   { href: '/equivalentes', label: 'Equivalentes', icon: Apple },
 ];
 
-interface SidebarProps {
-  streak?: number;
-}
-
 /**
  * Sidebar v5 — Desktop side navigation
  * Paper background, ink text, PulseLine on active item
  */
-export default function Sidebar({ streak = 0 }: SidebarProps) {
+export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const streak = useGymStreak();
 
   const handleLogout = async () => {
     const supabase = createClient();

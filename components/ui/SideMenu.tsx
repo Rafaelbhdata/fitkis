@@ -20,6 +20,7 @@ import {
   Dumbbell
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { useGymStreak } from '@/lib/hooks'
 import LogoMark from './LogoMark'
 import { PulseLine } from './PulseLine'
 
@@ -47,6 +48,7 @@ const secondaryNav = [
 export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const streak = useGymStreak()
 
   // Lock body scroll when menu is open
   useEffect(() => {
@@ -165,15 +167,17 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
         </nav>
 
         {/* Streak Badge */}
-        <div className="px-4 py-3 border-t border-ink-7">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-signal-soft border border-signal/20">
-            <Flame className="w-5 h-5 text-signal" />
-            <div>
-              <p className="text-sm font-semibold text-signal">5 días</p>
-              <p className="text-[10px] text-signal/70">Racha actual</p>
+        {streak > 0 && (
+          <div className="px-4 py-3 border-t border-ink-7">
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-signal-soft border border-signal/20">
+              <Flame className="w-5 h-5 text-signal" />
+              <div>
+                <p className="text-sm font-semibold text-signal">{streak} {streak === 1 ? 'día' : 'días'}</p>
+                <p className="text-[10px] text-signal/70">Racha actual</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Footer */}
         <div className="p-3 border-t border-ink-7">

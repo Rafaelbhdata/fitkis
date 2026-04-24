@@ -13,10 +13,10 @@ export default function AppLayout({
   return (
     <div className="min-h-screen bg-paper">
       {/* Desktop Sidebar - hidden on mobile, visible on md+ */}
-      <Sidebar streak={5} />
+      <Sidebar />
 
       {/* Mobile Header with hamburger menu - visible on mobile only */}
-      <Header streak={5} />
+      <Header />
 
       {/* Main Content */}
       <main className="md:pl-sidebar">

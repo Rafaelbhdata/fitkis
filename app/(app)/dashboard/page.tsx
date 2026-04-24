@@ -154,13 +154,14 @@ export default function DashboardPage() {
     h.type === 'quantity' ? h.value >= (h.target_value || 0) : h.completed
   ).length
 
-  // Pulse score (simplified - combine metrics)
-  const pulseScore = Math.round(
-    ((totalConsumed / totalBudget) * 25) + // Food: 25%
-    (gymStreak > 0 ? 25 : 0) + // Movement: 25%
-    25 + // Sleep placeholder: 25%
-    ((completedHabits / Math.max(uniqueHabits.length, 1)) * 25) // Mood/habits: 25%
-  )
+  // Pulse score — three real pillars: food, movement, habits
+  const foodScore = Math.min(1, totalConsumed / totalBudget) * 34
+  const gymScore = gymStreak > 0 ? 33 : 0
+  const habitsScore = (completedHabits / Math.max(uniqueHabits.length, 1)) * 33
+  const pulseScore = Math.round(foodScore + gymScore + habitsScore)
+
+  // Latest weight for the pulse card
+  const latestWeight = weightLogs[0]?.weight_kg
 
   // Get greeting and user name
   const userName = user?.email?.split('@')[0] || 'Usuario'
@@ -289,8 +290,8 @@ export default function DashboardPage() {
           {[
             { l: 'Comida', v: `${totalConsumed}/${totalBudget}`, c: 'var(--leaf)' },
             { l: 'Mov.', v: routineType ? 'Gym' : 'Rest', c: 'var(--signal)' },
-            { l: 'Sueño', v: '7:20', c: 'var(--sky)' },
-            { l: 'Ánimo', v: completedHabits.toString(), c: 'var(--honey)' },
+            { l: 'Peso', v: latestWeight ? `${latestWeight}` : '—', c: 'var(--sky)' },
+            { l: 'Hábitos', v: `${completedHabits}/${uniqueHabits.length}`, c: 'var(--honey)' },
           ].map(m => (
             <div key={m.l}>
               <div className="w-1.5 h-1.5 rounded-full mb-1.5" style={{ background: m.c }} />

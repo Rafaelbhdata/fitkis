@@ -6,10 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, Flame } from 'lucide-react';
 import SideMenu from './SideMenu';
 import LogoMark from './LogoMark';
-
-interface HeaderProps {
-  streak?: number;
-}
+import { useGymStreak } from '@/lib/hooks';
 
 // Get page title from pathname
 function getPageTitle(pathname: string): string {
@@ -28,10 +25,11 @@ function getPageTitle(pathname: string): string {
  * Header v5 — Barra superior mobile
  * Paper background + ink text, logo serif
  */
-export default function Header({ streak = 0 }: HeaderProps) {
+export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
+  const streak = useGymStreak();
 
   return (
     <>
