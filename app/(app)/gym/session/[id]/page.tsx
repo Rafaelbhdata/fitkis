@@ -273,6 +273,15 @@ export default function SessionPage() {
 
     const suggestions: ProgressionSuggestion[] = []
 
+    // Returns only the "working sets" — those at the session's top weight.
+    // This excludes warmup sets with lighter weights that would otherwise
+    // block progression if their reps are below target.
+    const getWorkingSets = (sets: SessionSet[]): SessionSet[] => {
+      const maxLbs = Math.max(...sets.map(s => s.lbs || 0))
+      if (maxLbs <= 0) return []
+      return sets.filter(s => s.lbs === maxLbs)
+    }
+
     exercises.forEach(exercise => {
       const exerciseSets = typedPastSets.filter(s => s.exercise_id === exercise.id)
       const session1Sets = exerciseSets.filter(s => s.session_id === typedPastSessions[0].id)
@@ -281,15 +290,24 @@ export default function SessionPage() {
       if (session1Sets.length === 0 || session2Sets.length === 0) return
 
       const targetReps = parseTargetReps(exercise.reps)
-      const session1Complete = session1Sets.every(s => s.reps && s.reps >= targetReps)
-      const session2Complete = session2Sets.every(s => s.reps && s.reps >= targetReps)
+      const workingSets1 = getWorkingSets(session1Sets)
+      const workingSets2 = getWorkingSets(session2Sets)
+
+      if (workingSets1.length === 0 || workingSets2.length === 0) return
+
+      const session1Complete = workingSets1.every(s => s.reps && s.reps >= targetReps)
+      const session2Complete = workingSets2.every(s => s.reps && s.reps >= targetReps)
 
       if (session1Complete && session2Complete) {
-        const lastWeight = Math.max(...session1Sets.map(s => s.lbs || 0))
-        if (lastWeight > 0) {
+        // Use the higher of the two sessions' top weights as the baseline.
+        // If user progressed between session2 → session1, we respect that.
+        const max1 = Math.max(...workingSets1.map(s => s.lbs || 0))
+        const max2 = Math.max(...workingSets2.map(s => s.lbs || 0))
+        const baseline = Math.max(max1, max2)
+        if (baseline > 0) {
           suggestions.push({
             exerciseId: exercise.id,
-            suggestedLbs: lastWeight + 5,
+            suggestedLbs: baseline + 5,
             reason: `Completaste todas las reps en las últimas 2 sesiones`,
           })
         }

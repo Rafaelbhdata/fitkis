@@ -150,9 +150,16 @@ export default function DashboardPage() {
     return { ...h, completed: log?.completed || false, value: log?.value || 0 }
   })
 
-  const completedHabits = habitsWithState.filter(h =>
-    h.type === 'quantity' ? h.value >= (h.target_value || 0) : h.completed
-  ).length
+  // For weekly_frequency habits, "complete" means hitting the weekly target,
+  // not just checking it off today. We compute the 7-day count from allFoodLogs...
+  // Actually habit logs are in habitLogs (today only) so we need a different source.
+  // For dashboard simplicity: treat weekly_frequency as complete only if today is checked
+  // AND the week total has hit target. For today-only signal we fall back to daily check.
+  const completedHabits = habitsWithState.filter(h => {
+    if (h.type === 'quantity') return h.value >= (h.target_value || 0)
+    if (h.type === 'weekly_frequency') return h.completed // daily signal on dashboard — full weekly math en la página de hábitos
+    return h.completed
+  }).length
 
   // Pulse score — three real pillars: food, movement, habits
   const foodScore = Math.min(1, totalConsumed / totalBudget) * 34

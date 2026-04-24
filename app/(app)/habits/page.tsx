@@ -326,7 +326,7 @@ export default function HabitsPage() {
 
   const completedCount = habits.filter(h => {
     if (h.type === 'quantity') return h.currentValue >= (h.target_value || 0)
-    if (h.type === 'weekly_frequency') return h.completed
+    if (h.type === 'weekly_frequency') return getWeekCompletions(h.id) >= (h.target_value || 0)
     return h.completed
   }).length
 
@@ -469,7 +469,7 @@ export default function HabitsPage() {
 
                 {/* Week count */}
                 <div className="fk-mono text-[10px] text-ink-4 tracking-wide">
-                  {getWeekCompletions(habit.id)}/7
+                  {getWeekCompletions(habit.id)}/{habit.type === 'weekly_frequency' && habit.target_value ? habit.target_value : 7}
                 </div>
 
                 {/* Edit/Delete */}

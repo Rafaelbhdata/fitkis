@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Plus, Search, X, Minus, Mic, Droplet, Star, Camera, Barcode } from 'lucide-react'
-import { getToday, formatDateISO } from '@/lib/utils'
+import { getToday, formatDateISO, expandFoodLogEntry } from '@/lib/utils'
 import { FOOD_GROUP_LABELS, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 import type { DailyBudget, FoodEquivalent } from '@/types'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -180,13 +180,17 @@ export default function FoodPage() {
   const addFood = async () => {
     if (!user || !selectedGroup || !selectedFood) return
     try {
-      await (supabase.from('food_logs') as any).insert({
+      const entries = expandFoodLogEntry(selectedFood.name, selectedGroup, quantity)
+      const rows = entries.map(e => ({
         user_id: user.id, date: todayStr, meal: selectedMeal,
-        group_type: selectedGroup, quantity, food_name: selectedFood.name,
-      })
+        group_type: e.group_type, quantity: e.quantity, food_name: e.food_name,
+      }))
+      await (supabase.from('food_logs') as any).insert(rows)
       await loadFoodLogs()
       closeModal()
-      showToast(`${selectedFood.name} agregado`)
+      showToast(entries.length > 1
+        ? `${selectedFood.name} (cuenta como ${entries.length} equivalentes)`
+        : `${selectedFood.name} agregado`)
     } catch (err) { setError('Error al agregar alimento') }
   }
 
@@ -203,17 +207,18 @@ export default function FoodPage() {
   const addFavoriteToMeal = async (fav: FavoriteMeal) => {
     if (!user) return
     try {
-      for (const item of fav.items) {
-        await (supabase.from('food_logs') as any).insert({
+      const rows = fav.items.flatMap(item =>
+        expandFoodLogEntry(item.food_name, item.group_type, item.quantity).map(e => ({
           user_id: user.id,
           date: todayStr,
           meal: selectedMeal,
-          group_type: item.group_type,
-          quantity: item.quantity,
-          food_name: item.food_name,
+          group_type: e.group_type,
+          quantity: e.quantity,
+          food_name: e.food_name,
           favorite_name: fav.name,
-        })
-      }
+        }))
+      )
+      await (supabase.from('food_logs') as any).insert(rows)
       await loadFoodLogs()
       closeModal()
       showToast(`${fav.name} agregado a ${selectedMeal}`)
@@ -231,18 +236,26 @@ export default function FoodPage() {
 
   const addItemsFromPhoto = async (items: { group_type: FoodGroup; quantity: number; food_name: string }[]) => {
     if (!user) return
-    for (const item of items) {
-      await (supabase.from('food_logs') as any).insert({
+    const rows = items.flatMap(item =>
+      expandFoodLogEntry(item.food_name, item.group_type, item.quantity).map(e => ({
         user_id: user.id,
         date: todayStr,
         meal: selectedMeal,
-        group_type: item.group_type,
-        quantity: item.quantity,
-        food_name: item.food_name,
-      })
-    }
+        group_type: e.group_type,
+        quantity: e.quantity,
+        food_name: e.food_name,
+      }))
+    )
+    const results = await Promise.allSettled(
+      rows.map(row => (supabase.from('food_logs') as any).insert(row))
+    )
+    const failed = results.filter(r => r.status === 'rejected').length
     await loadFoodLogs()
-    showToast(`${items.length} alimentos agregados`)
+    if (failed > 0) {
+      showToast(`${items.length - failed} de ${items.length} alimentos agregados (${failed} fallaron)`)
+    } else {
+      showToast(`${items.length} ${items.length === 1 ? 'alimento agregado' : 'alimentos agregados'}`)
+    }
   }
 
   // Calculate consumed per group
@@ -785,13 +798,14 @@ export default function FoodPage() {
                   <button
                     key={fav.id}
                     onClick={async () => {
-                      for (const item of fav.items) {
-                        await (supabase.from('food_logs') as any).insert({
+                      const rows = fav.items.flatMap(item =>
+                        expandFoodLogEntry(item.food_name, item.group_type, item.quantity).map(e => ({
                           user_id: user?.id, date: todayStr, meal: fav.meal || currentMeal,
-                          group_type: item.group_type, quantity: item.quantity, food_name: item.food_name,
+                          group_type: e.group_type, quantity: e.quantity, food_name: e.food_name,
                           favorite_name: fav.name,
-                        })
-                      }
+                        }))
+                      )
+                      await (supabase.from('food_logs') as any).insert(rows)
                       await loadFoodLogs()
                       showToast(`${fav.name} agregado`)
                     }}

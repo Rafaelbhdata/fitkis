@@ -88,6 +88,23 @@ export function getTodayInTimezone(timezone = 'America/Mexico_City'): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
 }
 
+// Expand a food log into one or more entries based on special-case dual-group foods.
+// Yogurt griego: counts as 1 proteína + 1 grasa (CLAUDE.md food rules).
+export function expandFoodLogEntry(
+  foodName: string | null | undefined,
+  groupType: FoodGroup,
+  quantity: number
+): Array<{ group_type: FoodGroup; quantity: number; food_name: string | null | undefined }> {
+  const name = foodName || ''
+  if (/yogurt\s*griego/i.test(name)) {
+    return [
+      { group_type: 'proteina', quantity, food_name: foodName },
+      { group_type: 'grasa', quantity, food_name: foodName },
+    ]
+  }
+  return [{ group_type: groupType, quantity, food_name: foodName }]
+}
+
 // Check if a date is a scheduled gym day (not rest)
 export function isGymDay(date: Date): boolean {
   const jsDay = date.getDay()
