@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Plus, Droplets, BookOpen, Pill, X, Minus, Target, ChevronRight, ChevronLeft, Trash2, Edit3, Check } from 'lucide-react'
-import { getToday } from '@/lib/utils'
+import { getToday, formatDateISO } from '@/lib/utils'
 import { useToast } from '@/components/ui/Toast'
 import { DEFAULT_HABITS } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -52,7 +52,7 @@ export default function HabitsPage() {
   const navigateDate = (days: number) => {
     const date = new Date(selectedDate + 'T12:00:00')
     date.setDate(date.getDate() + days)
-    const newDateStr = date.toISOString().split('T')[0]
+    const newDateStr = formatDateISO(date)
     if (newDateStr <= todayStr) {
       setSelectedDate(newDateStr)
     }
@@ -99,7 +99,7 @@ export default function HabitsPage() {
       const { data: monthLogsData } = await supabase
         .from('habit_logs')
         .select('*')
-        .gte('date', monthAgo.toISOString().split('T')[0])
+        .gte('date', formatDateISO(monthAgo))
         .order('date', { ascending: false })
 
       if (monthLogsData) setMonthLogs(monthLogsData as HabitLog[])
@@ -283,7 +283,7 @@ export default function HabitsPage() {
     for (let i = 0; i < 30; i++) {
       const checkDate = new Date(todayDate)
       checkDate.setDate(todayDate.getDate() - i)
-      const dateStr = checkDate.toISOString().split('T')[0]
+      const dateStr = formatDateISO(checkDate)
 
       if (dates.includes(dateStr)) {
         streak++
@@ -303,7 +303,7 @@ export default function HabitsPage() {
     for (let i = 6; i >= 0; i--) {
       const date = new Date(todayDate)
       date.setDate(todayDate.getDate() - i)
-      const dateStr = date.toISOString().split('T')[0]
+      const dateStr = formatDateISO(date)
       const log = monthLogs.find(l => l.habit_id === habitId && l.date === dateStr)
       const isCompleted = log?.completed || (log?.value && log.value > 0)
       days.push(isCompleted ? 1 : 0)

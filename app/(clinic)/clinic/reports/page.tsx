@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
+import { getToday, formatDateISO } from '@/lib/utils'
 import Link from 'next/link'
 
 interface PatientData {
@@ -79,10 +80,10 @@ export default function ClinicReportsPage() {
         return
       }
 
-      const today = new Date().toISOString().split('T')[0]
+      const today = getToday()
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split('T')[0]
+      const thirtyDaysAgoStr = formatDateISO(thirtyDaysAgo)
 
       const patientsData: PatientData[] = []
       const activities: ActivityItem[] = []
@@ -210,8 +211,8 @@ export default function ClinicReportsPage() {
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
 
-    if (dateStr === today.toISOString().split('T')[0]) return 'Hoy'
-    if (dateStr === yesterday.toISOString().split('T')[0]) return 'Ayer'
+    if (dateStr === formatDateISO(today)) return 'Hoy'
+    if (dateStr === formatDateISO(yesterday)) return 'Ayer'
 
     return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
   }

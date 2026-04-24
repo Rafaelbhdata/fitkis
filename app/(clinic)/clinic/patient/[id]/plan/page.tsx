@@ -7,6 +7,7 @@ import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { useToast } from '@/components/ui/Toast'
 import { FOOD_GROUP_LABELS } from '@/lib/constants'
+import { getToday } from '@/lib/utils'
 import type { FoodGroup, MealType, DietConfig, ActiveMeals } from '@/types'
 
 const MEALS: { key: MealType; label: string }[] = [
@@ -55,7 +56,7 @@ export default function PlanEditorPage() {
   const [budget, setBudget] = useState<Record<FoodGroup, number>>(DEFAULT_BUDGET)
   const [activeMeals, setActiveMeals] = useState<ActiveMeals>(DEFAULT_ACTIVE_MEALS)
   const [notes, setNotes] = useState('')
-  const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0])
+  const [effectiveDate, setEffectiveDate] = useState(getToday())
 
   useEffect(() => {
     if (user && patientId) {

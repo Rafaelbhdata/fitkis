@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getDayOfWeek, getRoutineForDay, getRoutineName, getToday, calculateGymStreak, calculateDietStreak } from '@/lib/utils'
+import { getDayOfWeek, getRoutineForDay, getRoutineName, getToday, calculateGymStreak, calculateDietStreak, formatDateISO } from '@/lib/utils'
 import { DAILY_BUDGET, ROUTINES, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import {
@@ -49,7 +49,7 @@ export default function DashboardPage() {
     try {
       const ninetyDaysAgo = new Date()
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
-      const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split('T')[0]
+      const ninetyDaysAgoStr = formatDateISO(ninetyDaysAgo)
 
       const [foodRes, allFoodRes, weightRes, habitsRes, habitLogsRes, gymRes, overridesRes, dietConfigRes] = await Promise.all([
         supabase.from('food_logs').select('*').eq('date', todayStr),

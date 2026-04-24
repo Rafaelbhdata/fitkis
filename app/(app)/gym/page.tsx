@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ROUTINES, ROUTINE_SCHEDULE } from '@/lib/constants'
-import { formatDuration } from '@/lib/utils'
+import { formatDuration, formatDateISO } from '@/lib/utils'
 import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Settings, Coffee, TrendingUp, Check } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
@@ -11,7 +11,6 @@ import type { GymSession, SessionSet, RoutineType, Routine, ScheduleOverride } f
 
 const DAY_NAMES = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const jsDayToUiIndex = (jsDay: number) => (jsDay + 6) % 7
-const formatDateISO = (date: Date) => date.toISOString().split('T')[0]
 
 export default function GymPage() {
   const { user } = useUser()

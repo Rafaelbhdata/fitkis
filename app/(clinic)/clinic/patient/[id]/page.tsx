@@ -10,6 +10,7 @@ import {
 import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { FOOD_GROUP_LABELS } from '@/lib/constants'
+import { getToday } from '@/lib/utils'
 import type { FoodGroup, MealType, WeightLog, FoodLog, GymSession, DietConfig, ActiveMeals } from '@/types'
 
 const TABS = [
@@ -154,7 +155,7 @@ export default function PatientDetailPage() {
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>([])
   const [gymSessions, setGymSessions] = useState<GymSession[]>([])
   const [dietConfig, setDietConfig] = useState<DietConfig | null>(null)
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(getToday())
 
   useEffect(() => {
     if (user && patientId) {
@@ -560,7 +561,7 @@ export default function PatientDetailPage() {
               className="bg-white rounded-xl px-4 py-2 border border-ink-7 text-sm"
             />
             <button
-              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+              onClick={() => setSelectedDate(getToday())}
               className="px-3 py-2 rounded-xl border border-ink-7 text-sm hover:bg-paper-2"
             >
               Hoy

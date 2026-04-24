@@ -4,9 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw, BookOpen, Save, Check } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { JOURNAL_QUESTIONS, getRandomQuestions, getReplacementQuestion } from '@/lib/journal-questions'
+import { formatDateISO } from '@/lib/utils'
 import type { JournalQuestion } from '@/types'
-
-const formatDateISO = (date: Date) => date.toISOString().split('T')[0]
 
 const formatDateDisplay = (date: Date) => {
   return date.toLocaleDateString('es-MX', {

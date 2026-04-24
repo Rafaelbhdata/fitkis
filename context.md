@@ -8,6 +8,29 @@
 ---
 
 ## Ultimo agente
+Agente: agent:fix — Timezone bug
+Fecha: 24 de abril 2026
+Que hizo:
+
+### Fix crítico: registros "se borran o cambian de día" (24 abril) ✅
+
+**Bug:** Registros de comida/peso/hábitos desaparecían o se pasaban al día siguiente a partir de las 6pm hora CDMX.
+
+**Causa raíz:** `getToday()` y todos los usos inline de `new Date().toISOString().split('T')[0]` devuelven fecha en **UTC**, no en zona local. Como CDMX es UTC-6, después de las 6pm la app creía que ya era "mañana":
+- Consultas `.eq('date', getToday())` dejaban de encontrar registros del día
+- Nuevos registros se guardaban con fecha del día siguiente
+
+**Fix:**
+- `lib/utils.ts`: `formatDateISO()` ahora usa `getFullYear/Month/Date` locales; `getToday()` lo llama. Nuevo `getTodayInTimezone('America/Mexico_City')` para API routes (Vercel corre en UTC).
+- 18 archivos actualizados: client pages (`food`, `habits`, `habits/progress`, `journal`, `gym`, `gym/session/[id]`, `dashboard`, `settings`, clinic pages), API routes (`api/chat`, `api/suggested-prompts`), y `scripts/seed-practitioner-demo.js`.
+- Eliminadas definiciones locales duplicadas de `formatDateISO` en `journal` y `gym` (tenían el mismo bug).
+- Datos históricos: revisados por el usuario, se ven correctos — no requiere migración.
+
+**Commit:** `fix: use local timezone for date strings — causa: toISOString() devuelve UTC`
+
+---
+
+## Agente Anterior
 Agente: Security Audit Fixes
 Fecha: 22 de abril 2026
 Que hizo:

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Plus, Search, X, Minus, Mic, Droplet, Star, Camera, Barcode } from 'lucide-react'
-import { getToday } from '@/lib/utils'
+import { getToday, formatDateISO } from '@/lib/utils'
 import { FOOD_GROUP_LABELS, DEFAULT_DAILY_BUDGET } from '@/lib/constants'
 import type { DailyBudget, FoodEquivalent } from '@/types'
 import { useUser, useSupabase } from '@/lib/hooks'
@@ -43,7 +43,7 @@ const ALL_MEALS: { key: MealType; label: string; emoji: string }[] = [
 
 export default function FoodPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const todayStr = selectedDate.toISOString().split('T')[0]
+  const todayStr = formatDateISO(selectedDate)
   const isToday = todayStr === getToday()
 
   const dateStr = selectedDate.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })

@@ -8,6 +8,7 @@ import {
   ROUTINES,
   ROUTINE_SCHEDULE,
 } from '@/lib/constants'
+import { getTodayInTimezone } from '@/lib/utils'
 import type { FoodGroup, MealType } from '@/types'
 
 function createRouteHandlerClient() {
@@ -300,7 +301,7 @@ async function executeTool(
   supabase: ReturnType<typeof createRouteHandlerClient>,
   userId: string
 ): Promise<string> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getTodayInTimezone()
 
   switch (toolName) {
     case 'get_today_food_logs': {
@@ -536,7 +537,7 @@ async function getPatientContext(
   supabase: ReturnType<typeof createRouteHandlerClient>,
   userId: string
 ): Promise<PatientContext> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getTodayInTimezone()
 
   // Check if user has an active practitioner relationship
   const { data: relationship } = await supabase

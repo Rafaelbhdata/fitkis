@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Settings, User, Target, Utensils, Save, Check, Plus, Trash2, Calendar, AlertTriangle, Loader2 } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { DEFAULT_DAILY_BUDGET } from '@/lib/constants'
+import { getToday } from '@/lib/utils'
 
 interface UserProfile {
   display_name: string | null
@@ -55,7 +56,7 @@ export default function SettingsPage() {
   // Diet configs state
   const [dietConfigs, setDietConfigs] = useState<DietConfig[]>([])
   const [showNewDiet, setShowNewDiet] = useState(false)
-  const [newDietDate, setNewDietDate] = useState(new Date().toISOString().split('T')[0])
+  const [newDietDate, setNewDietDate] = useState(getToday())
   const [newDiet, setNewDiet] = useState({
     verdura: DEFAULT_DAILY_BUDGET.verdura,
     fruta: DEFAULT_DAILY_BUDGET.fruta,

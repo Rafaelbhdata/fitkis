@@ -25,7 +25,7 @@ export function formatShortDate(date: Date | string): string {
 }
 
 export function getToday(): string {
-  return new Date().toISOString().split('T')[0]
+  return formatDateISO(new Date())
 }
 
 export function getDayOfWeek(): number {
@@ -71,9 +71,21 @@ export function getBMICategory(bmi: number): string {
   return 'Obesidad III'
 }
 
-// Format date as YYYY-MM-DD
+// Format date as YYYY-MM-DD in the user's LOCAL timezone.
+// Why: toISOString() returns UTC, which causes logs made after 6pm CDMX
+// to be saved under the next day's date — losing them from "today's" view.
 export function formatDateISO(date: Date): string {
-  return date.toISOString().split('T')[0]
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// Returns today's date (YYYY-MM-DD) in a specific IANA timezone.
+// Why: server routes (Vercel) run in UTC, so `new Date()` + local getters
+// would still return UTC. Use this in API routes to pin to the user's zone.
+export function getTodayInTimezone(timezone = 'America/Mexico_City'): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
 }
 
 // Check if a date is a scheduled gym day (not rest)

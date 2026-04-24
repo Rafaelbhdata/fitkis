@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { ROUTINE_SCHEDULE, DAILY_BUDGET } from '@/lib/constants'
+import { getTodayInTimezone } from '@/lib/utils'
 import type { FoodGroup } from '@/types'
 
 function createRouteHandlerClient() {
@@ -44,7 +45,7 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = getTodayInTimezone()
     const hour = new Date().getHours()
 
     // Get today's food logs

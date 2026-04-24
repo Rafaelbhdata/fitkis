@@ -6,6 +6,7 @@ import { ChevronLeft, Printer, Calendar } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { FOOD_GROUP_LABELS } from '@/lib/constants'
+import { getToday, formatDateISO } from '@/lib/utils'
 import type { FoodGroup, MealType, WeightLog, FoodLog, GymSession, DietConfig } from '@/types'
 
 const MEAL_LABELS: Record<MealType, string> = {
@@ -26,8 +27,8 @@ export default function PatientReportPage() {
 
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState({
-    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0],
+    start: formatDateISO(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
+    end: getToday(),
   })
 
   // Data

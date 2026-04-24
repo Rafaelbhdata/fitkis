@@ -27,6 +27,11 @@ if (!supabaseUrl || !supabaseServiceKey) {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+// Format Date as YYYY-MM-DD in Mexico City timezone (script may run in UTC).
+function formatDateISO(date) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City' }).format(date)
+}
+
 // ============================================
 // 1. MEXICAN PRODUCTS FOR BARCODE_CACHE
 // ============================================
@@ -562,7 +567,7 @@ async function createAlertConditions(patientIds) {
       .from('food_logs')
       .delete()
       .eq('user_id', patientIds[i])
-      .gte('date', threeDaysAgo.toISOString().split('T')[0])
+      .gte('date', formatDateISO(threeDaysAgo))
 
     if (!error) {
       console.log(`   📭 Patient ${i + 1}: Cleared recent food logs (inactivity alert)`)
@@ -583,7 +588,7 @@ async function createAlertConditions(patientIds) {
       .from('weight_logs')
       .upsert({
         user_id: patientIds[i],
-        date: thirtyDaysAgo.toISOString().split('T')[0],
+        date: formatDateISO(thirtyDaysAgo),
         weight_kg: baseWeight
       }, { onConflict: 'user_id,date' })
 
@@ -592,7 +597,7 @@ async function createAlertConditions(patientIds) {
       .from('weight_logs')
       .upsert({
         user_id: patientIds[i],
-        date: today.toISOString().split('T')[0],
+        date: formatDateISO(today),
         weight_kg: baseWeight + 1.5 + (i * 0.5) // +1.5, +2.0, +2.5 kg gain
       }, { onConflict: 'user_id,date' })
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Flame, Target, Zap, TrendingUp, Calendar, Award, ChevronDown } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
-import { getToday } from '@/lib/utils'
+import { getToday, formatDateISO } from '@/lib/utils'
 import {
   AreaChart,
   Area,
@@ -78,7 +78,7 @@ export default function HabitsProgressPage() {
     const { data: logsData } = await supabase
       .from('habit_logs')
       .select('*')
-      .gte('date', ninetyDaysAgo.toISOString().split('T')[0])
+      .gte('date', formatDateISO(ninetyDaysAgo))
       .order('date', { ascending: true })
 
     if (logsData) {
@@ -107,7 +107,7 @@ export default function HabitsProgressPage() {
       for (let d = 0; d < 7; d++) {
         const checkDate = new Date(weekStart)
         checkDate.setDate(weekStart.getDate() + d)
-        const dateStr = checkDate.toISOString().split('T')[0]
+        const dateStr = formatDateISO(checkDate)
 
         // Don't count future days
         if (dateStr > todayStr) continue
@@ -122,7 +122,7 @@ export default function HabitsProgressPage() {
       const weekLabel = weekStart.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
 
       weeks.push({
-        week: weekStart.toISOString().split('T')[0],
+        week: formatDateISO(weekStart),
         weekLabel,
         completionRate: totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0,
         totalDays,
@@ -149,7 +149,7 @@ export default function HabitsProgressPage() {
     for (let i = 0; i < 90; i++) {
       const checkDate = new Date(today)
       checkDate.setDate(today.getDate() - i)
-      const dateStr = checkDate.toISOString().split('T')[0]
+      const dateStr = formatDateISO(checkDate)
 
       if (uniqueDates.includes(dateStr)) {
         currentStreak++
@@ -210,7 +210,7 @@ export default function HabitsProgressPage() {
     for (let i = 29; i >= 0; i--) {
       const date = new Date(today)
       date.setDate(today.getDate() - i)
-      const dateStr = date.toISOString().split('T')[0]
+      const dateStr = formatDateISO(date)
       const log = allLogs.find(l => l.habit_id === habitId && l.date === dateStr)
       const isCompleted = log?.completed || (log?.value && log.value > 0)
 

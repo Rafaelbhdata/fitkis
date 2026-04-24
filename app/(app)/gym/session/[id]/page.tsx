@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Check, ChevronDown, X, HelpCircle, Timer } from 'lucide-react'
 import { RestTimer, ExerciseInstructions, ProgressionBanner, SetRow } from '@/components/gym'
 import { ROUTINES, FEELING_OPTIONS } from '@/lib/constants'
-import { getRoutineName, formatDuration } from '@/lib/utils'
+import { getRoutineName, formatDuration, getToday } from '@/lib/utils'
 import { useUser, useSupabase } from '@/lib/hooks'
 import type { RoutineType, Feeling, GymSession, SessionSet } from '@/types'
 
@@ -372,7 +372,7 @@ export default function SessionPage() {
       let sessionIdToUse = currentSessionId
 
       if (!sessionIdToUse) {
-        const today = new Date().toISOString().split('T')[0]
+        const today = getToday()
         const { data: newSession, error: sessionError } = await (supabase
           .from('gym_sessions') as any)
           .insert({
