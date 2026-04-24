@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ROUTINES, ROUTINE_SCHEDULE } from '@/lib/constants'
 import { formatDuration, formatDateISO } from '@/lib/utils'
-import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Settings, Coffee, TrendingUp, Check } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Play, History, Dumbbell, Settings, Coffee, TrendingUp, Check, Eye, AlertTriangle } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
 import type { GymSession, SessionSet, RoutineType, Routine, ScheduleOverride } from '@/types'
@@ -25,6 +25,32 @@ export default function GymPage() {
   const [weekSessions, setWeekSessions] = useState<Record<string, GymSession>>({})
   const [weekOverrides, setWeekOverrides] = useState<Record<string, string>>({})
   const [lastSession, setLastSession] = useState<{ session: GymSession; sets: SessionSet[] } | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date>(today)
+
+  const selectedISO = formatDateISO(selectedDate)
+  const isSelectedToday = selectedISO === todayISO
+  const isSelectedPast = selectedDate < today
+  const selectedSession = weekSessions[selectedISO]
+
+  const formatDayLabel = (d: Date): string => {
+    const diffDays = Math.round((d.getTime() - today.getTime()) / 86400000)
+    if (diffDays === 0) return 'Hoy'
+    if (diffDays === -1) return 'Ayer'
+    if (diffDays === 1) return 'Mañana'
+    return d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' })
+  }
+
+  // Max 21 days back; no navegar al futuro
+  const minSelectable = new Date(today)
+  minSelectable.setDate(minSelectable.getDate() - 21)
+  const canNavigatePrev = selectedDate > minSelectable
+  const canNavigateNext = !isSelectedToday && selectedDate < today
+
+  const navigateDay = (delta: number) => {
+    const next = new Date(selectedDate)
+    next.setDate(next.getDate() + delta)
+    setSelectedDate(next)
+  }
 
   // Get the week dates (Monday-first)
   const getWeekDates = () => {
@@ -81,7 +107,7 @@ export default function GymPage() {
     return ROUTINE_SCHEDULE[date.getDay()]
   }
 
-  const routineKey = getRoutineForDate(today)
+  const routineKey = getRoutineForDate(selectedDate)
   const isRest = routineKey === 'rest'
   const routine: Routine | null = isRest ? null : ROUTINES[routineKey]
 
@@ -200,12 +226,56 @@ export default function GymPage() {
         <PulseLine w={280} h={28} color="var(--signal)" strokeWidth={1.8} active />
       </div>
 
-      {/* Today's Workout */}
-      <div className="px-5 mt-6">
-        <div className="fk-eyebrow mb-2.5">Hoy</div>
+      {/* Day selector */}
+      <div className="px-5 mt-6 flex items-center justify-between">
+        <button
+          onClick={() => navigateDay(-1)}
+          disabled={!canNavigatePrev}
+          className="w-10 h-10 rounded-full bg-white border border-ink-7 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Día anterior"
+        >
+          <ChevronLeft className="w-4 h-4 text-ink" />
+        </button>
+        <div className="text-center">
+          <div className="fk-eyebrow">{isSelectedToday ? 'Hoy' : 'Revisando'}</div>
+          <div className="text-sm font-medium capitalize">{formatDayLabel(selectedDate)}</div>
+        </div>
+        <button
+          onClick={() => navigateDay(1)}
+          disabled={!canNavigateNext}
+          className="w-10 h-10 rounded-full bg-white border border-ink-7 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="Día siguiente"
+        >
+          <ChevronRight className="w-4 h-4 text-ink" />
+        </button>
+      </div>
 
+      {!isSelectedToday && (
+        <div className="px-5 mt-2">
+          <button
+            onClick={() => setSelectedDate(today)}
+            className="text-xs fk-mono uppercase tracking-wider text-signal hover:underline"
+          >
+            ← Volver a hoy
+          </button>
+        </div>
+      )}
+
+      {/* Selected Day Workout */}
+      <div className="px-5 mt-4">
         {routine ? (
           <>
+            {/* Missed workout banner */}
+            {isSelectedPast && !selectedSession && (
+              <div className="mb-4 p-4 bg-berry-soft border border-berry/20 rounded-xl flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-berry flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-berry">Te saltaste este día</p>
+                  <p className="text-xs text-ink-4 mt-0.5">Te tocaba {routine.name}. No pasa nada, sigue adelante.</p>
+                </div>
+              </div>
+            )}
+
             {/* Routine Hero */}
             <div className="bg-cream rounded-[20px] p-5 mb-4">
               <div className="flex items-start justify-between mb-4">
@@ -227,14 +297,28 @@ export default function GymPage() {
                 ))}
               </div>
 
-              {/* Start button */}
-              <Link
-                href={`/gym/session/new?routine=${routineKey}`}
-                className="w-full py-3 rounded-full bg-ink text-paper flex items-center justify-center gap-2 text-sm font-semibold hover:bg-ink-2 transition-colors"
-              >
-                <Play className="w-4 h-4" fill="currentColor" />
-                Iniciar entrenamiento
-              </Link>
+              {/* CTA — varies by selected day and whether session exists */}
+              {selectedSession ? (
+                <Link
+                  href={`/gym/session/${selectedSession.id}`}
+                  className="w-full py-3 rounded-full bg-ink text-paper flex items-center justify-center gap-2 text-sm font-semibold hover:bg-ink-2 transition-colors"
+                >
+                  <Eye className="w-4 h-4" />
+                  Ver sesión
+                </Link>
+              ) : isSelectedToday ? (
+                <Link
+                  href={`/gym/session/new?routine=${routineKey}`}
+                  className="w-full py-3 rounded-full bg-ink text-paper flex items-center justify-center gap-2 text-sm font-semibold hover:bg-ink-2 transition-colors"
+                >
+                  <Play className="w-4 h-4" fill="currentColor" />
+                  Iniciar entrenamiento
+                </Link>
+              ) : (
+                <div className="w-full py-3 rounded-full bg-paper-3 text-ink-4 flex items-center justify-center gap-2 text-sm font-medium">
+                  {isSelectedPast ? 'Sin sesión registrada' : 'Aún no disponible'}
+                </div>
+              )}
             </div>
 
             {/* Exercise List */}

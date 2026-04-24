@@ -601,6 +601,50 @@ export const DEFAULT_HABITS = [
   },
 ]
 
+// Banco de hábitos comunes mostrado al crear uno nuevo.
+// Clickear uno prellena los campos del formulario.
+export type HabitTemplate = {
+  name: string
+  type: 'daily_check' | 'quantity' | 'weekly_frequency'
+  target_value: number | null
+  unit: string | null
+  emoji: string
+  category: 'Nutrición' | 'Ejercicio' | 'Mental' | 'Disciplina' | 'Recuperación'
+}
+
+export const HABIT_TEMPLATES: HabitTemplate[] = [
+  // Nutrición
+  { name: 'Agua', type: 'quantity', target_value: 2, unit: 'litros', emoji: '💧', category: 'Nutrición' },
+  { name: 'Creatina', type: 'daily_check', target_value: null, unit: null, emoji: '💪', category: 'Nutrición' },
+  { name: 'Multivitamínico', type: 'daily_check', target_value: null, unit: null, emoji: '💊', category: 'Nutrición' },
+  { name: 'Omega 3', type: 'daily_check', target_value: null, unit: null, emoji: '🐟', category: 'Nutrición' },
+  { name: 'Proteína en polvo', type: 'daily_check', target_value: null, unit: null, emoji: '🥛', category: 'Nutrición' },
+  { name: 'Café', type: 'quantity', target_value: 2, unit: 'tazas', emoji: '☕', category: 'Nutrición' },
+
+  // Ejercicio
+  { name: 'Pasos', type: 'quantity', target_value: 10000, unit: 'pasos', emoji: '🚶', category: 'Ejercicio' },
+  { name: 'Cardio', type: 'weekly_frequency', target_value: 3, unit: 'días/semana', emoji: '🏃', category: 'Ejercicio' },
+  { name: 'Estiramiento', type: 'daily_check', target_value: null, unit: null, emoji: '🤸', category: 'Ejercicio' },
+  { name: 'Movilidad', type: 'quantity', target_value: 10, unit: 'minutos', emoji: '🧘‍♂️', category: 'Ejercicio' },
+
+  // Mental
+  { name: 'Meditación', type: 'quantity', target_value: 10, unit: 'minutos', emoji: '🧘', category: 'Mental' },
+  { name: 'Lectura', type: 'weekly_frequency', target_value: 4, unit: 'días/semana', emoji: '📚', category: 'Mental' },
+  { name: 'Journaling', type: 'daily_check', target_value: null, unit: null, emoji: '📓', category: 'Mental' },
+  { name: 'Gratitud', type: 'daily_check', target_value: null, unit: null, emoji: '🙏', category: 'Mental' },
+
+  // Disciplina
+  { name: 'Sin azúcar añadida', type: 'daily_check', target_value: null, unit: null, emoji: '🚫', category: 'Disciplina' },
+  { name: 'Sin alcohol', type: 'daily_check', target_value: null, unit: null, emoji: '🍷', category: 'Disciplina' },
+  { name: 'Sin pantallas antes de dormir', type: 'daily_check', target_value: null, unit: null, emoji: '📵', category: 'Disciplina' },
+  { name: 'Ayuno intermitente', type: 'daily_check', target_value: null, unit: null, emoji: '⏰', category: 'Disciplina' },
+
+  // Recuperación
+  { name: 'Dormir 8h', type: 'daily_check', target_value: null, unit: null, emoji: '😴', category: 'Recuperación' },
+  { name: 'Sauna', type: 'weekly_frequency', target_value: 2, unit: 'días/semana', emoji: '🔥', category: 'Recuperación' },
+  { name: 'Ducha fría', type: 'daily_check', target_value: null, unit: null, emoji: '🚿', category: 'Recuperación' },
+]
+
 // ==================== USUARIO ====================
 
 export const USER_PROFILE = {

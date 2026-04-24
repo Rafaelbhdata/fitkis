@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Plus, Droplets, BookOpen, Pill, X, Minus, Target, ChevronRight, ChevronLeft, Trash2, Edit3, Check } from 'lucide-react'
 import { getToday, formatDateISO } from '@/lib/utils'
 import { useToast } from '@/components/ui/Toast'
-import { DEFAULT_HABITS } from '@/lib/constants'
+import { DEFAULT_HABITS, HABIT_TEMPLATES, type HabitTemplate } from '@/lib/constants'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
 import type { Habit, HabitLog } from '@/types'
@@ -206,6 +206,13 @@ export default function HabitsPage() {
     setHabitTarget('')
     setHabitUnit('')
     setShowHabitModal(true)
+  }
+
+  const applyTemplate = (tpl: HabitTemplate) => {
+    setHabitName(tpl.name)
+    setHabitType(tpl.type)
+    setHabitTarget(tpl.target_value?.toString() || '')
+    setHabitUnit(tpl.unit || '')
   }
 
   const openEditModal = (habit: Habit) => {
@@ -511,7 +518,51 @@ export default function HabitsPage() {
               </button>
             </div>
 
-            <div className="space-y-5">
+            <div className="space-y-5 max-h-[70vh] overflow-y-auto">
+              {/* Template picker — solo al crear */}
+              {!editingHabit && (() => {
+                const existingNames = new Set(habits.map(h => h.name.toLowerCase()))
+                const available = HABIT_TEMPLATES.filter(t => !existingNames.has(t.name.toLowerCase()))
+                if (available.length === 0) return null
+                const byCategory = available.reduce<Record<string, HabitTemplate[]>>((acc, t) => {
+                  ;(acc[t.category] ||= []).push(t)
+                  return acc
+                }, {})
+                return (
+                  <div>
+                    <label className="fk-eyebrow mb-2 block">Elige uno rápido</label>
+                    <div className="space-y-3">
+                      {Object.entries(byCategory).map(([cat, tpls]) => (
+                        <div key={cat}>
+                          <p className="text-[10px] fk-mono text-ink-4 uppercase tracking-wider mb-1.5">{cat}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {tpls.map(tpl => (
+                              <button
+                                key={tpl.name}
+                                onClick={() => applyTemplate(tpl)}
+                                className={`px-3 py-2 rounded-full text-xs font-medium border transition-all flex items-center gap-1.5 ${
+                                  habitName === tpl.name
+                                    ? 'bg-ink text-paper border-ink'
+                                    : 'bg-white border-ink-7 hover:bg-paper-2'
+                                }`}
+                              >
+                                <span>{tpl.emoji}</span>
+                                <span>{tpl.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 mt-4">
+                      <div className="flex-1 h-px bg-ink-7" />
+                      <span className="text-[10px] fk-mono text-ink-4 uppercase tracking-wider">o crea uno personalizado</span>
+                      <div className="flex-1 h-px bg-ink-7" />
+                    </div>
+                  </div>
+                )
+              })()}
+
               <div>
                 <label className="fk-eyebrow mb-2 block">Nombre</label>
                 <input
