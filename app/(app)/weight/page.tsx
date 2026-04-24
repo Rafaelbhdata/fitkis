@@ -187,17 +187,25 @@ export default function WeightPage() {
 
   const saveWeight = async () => {
     if (!user || !weight) return
+    const weightNum = parseFloat(weight)
+    if (!Number.isFinite(weightNum) || weightNum < 20 || weightNum > 300) {
+      setError('Peso fuera de rango (20-300 kg)')
+      return
+    }
     setSaving(true)
     setError(null)
     try {
       const logData: Record<string, any> = {
         user_id: user.id,
         date: getToday(),
-        weight_kg: parseFloat(weight),
+        weight_kg: weightNum,
       }
-      if (muscleMass) logData.muscle_mass_kg = parseFloat(muscleMass)
-      if (bodyFatMass) logData.body_fat_mass_kg = parseFloat(bodyFatMass)
-      if (bodyFatPercentage) logData.body_fat_percentage = parseFloat(bodyFatPercentage)
+      const mm = parseFloat(muscleMass)
+      const bfm = parseFloat(bodyFatMass)
+      const bfp = parseFloat(bodyFatPercentage)
+      if (muscleMass && Number.isFinite(mm) && mm > 0) logData.muscle_mass_kg = mm
+      if (bodyFatMass && Number.isFinite(bfm) && bfm > 0) logData.body_fat_mass_kg = bfm
+      if (bodyFatPercentage && Number.isFinite(bfp) && bfp >= 0 && bfp <= 70) logData.body_fat_percentage = bfp
 
       const { error: saveError } = await (supabase.from('weight_logs') as any).insert(logData)
       if (saveError) throw saveError
@@ -737,6 +745,8 @@ export default function WeightPage() {
                   type="number"
                   inputMode="decimal"
                   step="0.1"
+                  min="20"
+                  max="300"
                   className="w-full px-4 py-4 rounded-xl border border-ink-7 bg-white text-2xl font-serif text-center"
                   placeholder="80.0"
                   value={weight}

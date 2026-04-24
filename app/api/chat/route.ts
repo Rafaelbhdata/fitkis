@@ -42,6 +42,31 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
+// Validate a positive finite number within [min, max]. Throws with a user-safe message.
+function validateNumber(
+  value: unknown,
+  field: string,
+  opts: { min?: number; max?: number; allowZero?: boolean } = {}
+): number {
+  const n = typeof value === 'number' ? value : NaN
+  if (!Number.isFinite(n)) throw new Error(`${field}: debe ser un número válido`)
+  const min = opts.min ?? (opts.allowZero ? 0 : 0.001)
+  if (n < min) throw new Error(`${field}: debe ser al menos ${min}`)
+  if (opts.max !== undefined && n > opts.max) throw new Error(`${field}: excede el máximo (${opts.max})`)
+  return n
+}
+
+const VALID_MEALS: MealType[] = ['desayuno', 'snack1', 'comida', 'snack2', 'cena', 'snack3']
+const VALID_GROUPS: FoodGroup[] = ['verdura', 'fruta', 'carb', 'proteina', 'grasa', 'leguminosa']
+const VALID_FEELINGS = ['muy_pesado', 'dificil', 'perfecto', 'ligero', 'quiero_mas'] as const
+
+function validateEnum<T extends string>(value: unknown, field: string, allowed: readonly T[]): T {
+  if (typeof value !== 'string' || !allowed.includes(value as T)) {
+    throw new Error(`${field}: valor inválido (esperado: ${allowed.join(', ')})`)
+  }
+  return value as T
+}
+
 // Tool definitions for the coach
 const tools: Anthropic.Tool[] = [
   {
@@ -325,20 +350,27 @@ async function executeTool(
     }
 
     case 'add_food_log': {
-      const { data, error } = await supabase
-        .from('food_logs')
-        .insert({
-          user_id: userId,
-          date: (toolInput.date as string) || today,
-          meal: toolInput.meal as MealType,
-          group_type: toolInput.group_type as FoodGroup,
-          quantity: toolInput.quantity as number,
-          food_name: toolInput.food_name as string | undefined,
-        })
-        .select()
-        .single()
-      if (error) return JSON.stringify({ error: error.message })
-      return JSON.stringify({ success: true, data })
+      try {
+        const meal = validateEnum(toolInput.meal, 'meal', VALID_MEALS)
+        const group_type = validateEnum(toolInput.group_type, 'group_type', VALID_GROUPS)
+        const quantity = validateNumber(toolInput.quantity, 'quantity', { min: 0.1, max: 20 })
+        const { data, error } = await supabase
+          .from('food_logs')
+          .insert({
+            user_id: userId,
+            date: (toolInput.date as string) || today,
+            meal,
+            group_type,
+            quantity,
+            food_name: toolInput.food_name as string | undefined,
+          })
+          .select()
+          .single()
+        if (error) return JSON.stringify({ error: error.message })
+        return JSON.stringify({ success: true, data })
+      } catch (err) {
+        return JSON.stringify({ error: err instanceof Error ? err.message : 'Invalid input' })
+      }
     }
 
     case 'delete_food_log': {
@@ -382,19 +414,41 @@ async function executeTool(
     }
 
     case 'update_session_set': {
-      const updates: Record<string, unknown> = {}
-      if (toolInput.lbs !== undefined) updates.lbs = toolInput.lbs
-      if (toolInput.reps !== undefined) updates.reps = toolInput.reps
-      if (toolInput.feeling !== undefined) updates.feeling = toolInput.feeling
+      try {
+        const updates: Record<string, unknown> = {}
+        if (toolInput.lbs !== undefined) {
+          updates.lbs = validateNumber(toolInput.lbs, 'lbs', { min: 0, max: 2000, allowZero: true })
+        }
+        if (toolInput.reps !== undefined) {
+          updates.reps = validateNumber(toolInput.reps, 'reps', { min: 0, max: 500, allowZero: true })
+        }
+        if (toolInput.feeling !== undefined) {
+          updates.feeling = validateEnum(toolInput.feeling, 'feeling', VALID_FEELINGS)
+        }
 
-      const { data, error } = await supabase
-        .from('session_sets')
-        .update(updates)
-        .eq('id', toolInput.set_id as string)
-        .select()
-        .single()
-      if (error) return JSON.stringify({ error: error.message })
-      return JSON.stringify({ success: true, data })
+        // Verify set ownership via join on gym_sessions.user_id before updating
+        const { data: existing } = await supabase
+          .from('session_sets')
+          .select('session_id, gym_sessions!inner(user_id)')
+          .eq('id', toolInput.set_id as string)
+          .maybeSingle()
+
+        const ownerId = (existing as { gym_sessions?: { user_id?: string } } | null)?.gym_sessions?.user_id
+        if (!existing || ownerId !== userId) {
+          return JSON.stringify({ error: 'Set no encontrado o sin permisos' })
+        }
+
+        const { data, error } = await supabase
+          .from('session_sets')
+          .update(updates)
+          .eq('id', toolInput.set_id as string)
+          .select()
+          .single()
+        if (error) return JSON.stringify({ error: error.message })
+        return JSON.stringify({ success: true, data })
+      } catch (err) {
+        return JSON.stringify({ error: err instanceof Error ? err.message : 'Invalid input' })
+      }
     }
 
     case 'get_weight_logs': {
@@ -409,18 +463,23 @@ async function executeTool(
     }
 
     case 'add_weight_log': {
-      const { data, error } = await supabase
-        .from('weight_logs')
-        .upsert({
-          user_id: userId,
-          date: (toolInput.date as string) || today,
-          weight_kg: toolInput.weight_kg as number,
-          notes: toolInput.notes as string | undefined,
-        }, { onConflict: 'user_id,date' })
-        .select()
-        .single()
-      if (error) return JSON.stringify({ error: error.message })
-      return JSON.stringify({ success: true, data })
+      try {
+        const weight_kg = validateNumber(toolInput.weight_kg, 'weight_kg', { min: 20, max: 300 })
+        const { data, error } = await supabase
+          .from('weight_logs')
+          .upsert({
+            user_id: userId,
+            date: (toolInput.date as string) || today,
+            weight_kg,
+            notes: toolInput.notes as string | undefined,
+          }, { onConflict: 'user_id,date' })
+          .select()
+          .single()
+        if (error) return JSON.stringify({ error: error.message })
+        return JSON.stringify({ success: true, data })
+      } catch (err) {
+        return JSON.stringify({ error: err instanceof Error ? err.message : 'Invalid input' })
+      }
     }
 
     case 'get_habits_status': {
@@ -440,19 +499,38 @@ async function executeTool(
     }
 
     case 'log_habit': {
-      const { data, error } = await supabase
-        .from('habit_logs')
-        .upsert({
-          habit_id: toolInput.habit_id as string,
-          user_id: userId,
-          date: today,
-          value: toolInput.value as number | undefined,
-          completed: toolInput.completed as boolean ?? true,
-        }, { onConflict: 'habit_id,date' })
-        .select()
-        .single()
-      if (error) return JSON.stringify({ error: error.message })
-      return JSON.stringify({ success: true, data })
+      try {
+        const value = toolInput.value !== undefined
+          ? validateNumber(toolInput.value, 'value', { min: 0, max: 1000, allowZero: true })
+          : undefined
+
+        // Verify habit ownership before upsert
+        const { data: habit } = await supabase
+          .from('habits')
+          .select('user_id')
+          .eq('id', toolInput.habit_id as string)
+          .maybeSingle()
+
+        if (!habit || (habit as { user_id: string }).user_id !== userId) {
+          return JSON.stringify({ error: 'Hábito no encontrado o sin permisos' })
+        }
+
+        const { data, error } = await supabase
+          .from('habit_logs')
+          .upsert({
+            habit_id: toolInput.habit_id as string,
+            user_id: userId,
+            date: today,
+            value,
+            completed: toolInput.completed as boolean ?? true,
+          }, { onConflict: 'habit_id,date' })
+          .select()
+          .single()
+        if (error) return JSON.stringify({ error: error.message })
+        return JSON.stringify({ success: true, data })
+      } catch (err) {
+        return JSON.stringify({ error: err instanceof Error ? err.message : 'Invalid input' })
+      }
     }
 
     case 'get_food_equivalents': {
@@ -551,7 +629,7 @@ async function getPatientContext(
     `)
     .eq('patient_id', userId)
     .eq('status', 'active')
-    .single()
+    .maybeSingle()
 
   // Get active diet config
   const { data: dietConfig } = await supabase
@@ -561,7 +639,7 @@ async function getPatientContext(
     .eq('active', true)
     .order('effective_date', { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
   // Get today's food logs for progress
   const { data: todayLogs } = await supabase
@@ -610,7 +688,7 @@ async function getPatientContext(
     .from('user_profiles')
     .select('goal_weight_kg')
     .eq('user_id', userId)
-    .single()
+    .maybeSingle()
 
   // Build default budget
   const defaultBudget = {

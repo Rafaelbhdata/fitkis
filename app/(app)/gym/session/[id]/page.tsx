@@ -371,6 +371,15 @@ export default function SessionPage() {
     try {
       let sessionIdToUse = currentSessionId
 
+      const parseClamped = (str: string, min: number, max: number, isInt: boolean): number | null => {
+        if (!str) return null
+        const n = isInt ? parseInt(str, 10) : parseFloat(str)
+        if (!Number.isFinite(n)) return null
+        return Math.min(max, Math.max(min, n))
+      }
+      const cardioMin = parseClamped(cardioMinutes, 0, 180, true)
+      const cardioSpd = parseClamped(cardioSpeed, 0, 30, false)
+
       if (!sessionIdToUse) {
         const today = getToday()
         const { data: newSession, error: sessionError } = await (supabase
@@ -380,8 +389,8 @@ export default function SessionPage() {
             date: today,
             routine_type: routineType,
             duration_seconds: elapsedSeconds,
-            cardio_minutes: cardioMinutes ? parseInt(cardioMinutes) : null,
-            cardio_speed: cardioSpeed ? parseFloat(cardioSpeed) : null,
+            cardio_minutes: cardioMin,
+            cardio_speed: cardioSpd,
           })
           .select()
           .single()
@@ -394,8 +403,8 @@ export default function SessionPage() {
           .from('gym_sessions') as any)
           .update({
             duration_seconds: elapsedSeconds,
-            cardio_minutes: cardioMinutes ? parseInt(cardioMinutes) : null,
-            cardio_speed: cardioSpeed ? parseFloat(cardioSpeed) : null,
+            cardio_minutes: cardioMin,
+            cardio_speed: cardioSpd,
           })
           .eq('id', sessionIdToUse)
       }
@@ -631,6 +640,8 @@ export default function SessionPage() {
               <input
                 type="number"
                 inputMode="numeric"
+                min="0"
+                max="180"
                 className="input"
                 placeholder="15"
                 value={cardioMinutes}
@@ -644,6 +655,8 @@ export default function SessionPage() {
                 type="number"
                 inputMode="decimal"
                 step="0.1"
+                min="0"
+                max="30"
                 className="input"
                 placeholder="5.5"
                 value={cardioSpeed}
