@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import Anthropic from '@anthropic-ai/sdk'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   FOOD_EQUIVALENTS,
   DAILY_BUDGET,
@@ -10,33 +9,7 @@ import {
 } from '@/lib/constants'
 import { getTodayInTimezone } from '@/lib/utils'
 import type { FoodGroup, MealType } from '@/types'
-
-function createRouteHandlerClient() {
-  const cookieStore = cookies()
-
-  // Using 'any' for Database type since not all tables are typed
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return createServerClient<any>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Expected in read-only contexts (middleware, streaming)
-          }
-        },
-      },
-    }
-  )
-}
+import { getAuthedUser } from '@/lib/api-auth'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -323,7 +296,7 @@ const tools: Anthropic.Tool[] = [
 async function executeTool(
   toolName: string,
   toolInput: Record<string, unknown>,
-  supabase: ReturnType<typeof createRouteHandlerClient>,
+  supabase: SupabaseClient,
   userId: string
 ): Promise<string> {
   const today = getTodayInTimezone()
@@ -612,7 +585,7 @@ interface PatientContext {
 }
 
 async function getPatientContext(
-  supabase: ReturnType<typeof createRouteHandlerClient>,
+  supabase: SupabaseClient,
   userId: string
 ): Promise<PatientContext> {
   const today = getTodayInTimezone()
@@ -851,10 +824,8 @@ GRUPOS ALIMENTICIOS Y SUS CÓDIGOS:
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const { user, supabase } = await getAuthedUser(request)
+    if (!user || !supabase) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
