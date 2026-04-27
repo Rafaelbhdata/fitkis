@@ -21,7 +21,7 @@ export default function LoginPage() {
     setError(null)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
@@ -34,7 +34,18 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    const userId = signInData.user?.id
+    let destination = '/dashboard'
+    if (userId) {
+      const { data: practitioner } = await supabase
+        .from('practitioners')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (practitioner) destination = '/clinic'
+    }
+
+    router.push(destination)
     router.refresh()
   }
 

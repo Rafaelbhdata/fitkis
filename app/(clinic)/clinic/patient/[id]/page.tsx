@@ -5,12 +5,12 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ChevronLeft, Scale, Utensils, Dumbbell, Target, Calendar,
-  TrendingDown, TrendingUp, Minus, FileText, Edit, Printer
+  TrendingDown, TrendingUp, Minus, FileText, Edit, Printer, Plus, X, Pencil, Trash2
 } from 'lucide-react'
 import { useUser, useSupabase } from '@/lib/hooks'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { FOOD_GROUP_LABELS } from '@/lib/constants'
-import { getToday } from '@/lib/utils'
+import { getToday, formatDate, formatShortDate, parseLocalDate } from '@/lib/utils'
 import type { FoodGroup, MealType, WeightLog, FoodLog, GymSession, DietConfig, ActiveMeals } from '@/types'
 
 const TABS = [
@@ -130,7 +130,7 @@ function MetricCard({
           className="absolute -top-6 bg-ink text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10"
           style={{ left: '50%', transform: 'translateX(-50%)' }}
         >
-          {hoveredPoint.value} {unit} · {new Date(hoveredPoint.date).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+          {hoveredPoint.value} {unit} · {formatShortDate(hoveredPoint.date)}
         </div>
       )}
     </div>
@@ -156,6 +156,18 @@ export default function PatientDetailPage() {
   const [gymSessions, setGymSessions] = useState<GymSession[]>([])
   const [dietConfig, setDietConfig] = useState<DietConfig | null>(null)
   const [selectedDate, setSelectedDate] = useState(getToday())
+
+  // Measurement form (practitioner). Used for both new and edit-existing.
+  const [showAddMeasurement, setShowAddMeasurement] = useState(false)
+  const [editingMeasurement, setEditingMeasurement] = useState<WeightLog | null>(null)
+  const [mDate, setMDate] = useState(getToday())
+  const [mWeight, setMWeight] = useState('')
+  const [mMuscle, setMMuscle] = useState('')
+  const [mFatMass, setMFatMass] = useState('')
+  const [mFatPct, setMFatPct] = useState('')
+  const [mNotes, setMNotes] = useState('')
+  const [mError, setMError] = useState<string | null>(null)
+  const [savingMeasurement, setSavingMeasurement] = useState(false)
 
   useEffect(() => {
     if (user && patientId) {
@@ -239,6 +251,120 @@ export default function PatientDetailPage() {
     }
 
     setLoading(false)
+  }
+
+  const reloadWeightLogs = async () => {
+    const { data: weights } = await (supabase as any)
+      .from('weight_logs')
+      .select('*')
+      .eq('user_id', patientId)
+      .order('date', { ascending: false })
+      .limit(30)
+    if (weights) setWeightLogs(weights)
+  }
+
+  const resetMeasurementForm = () => {
+    setMDate(getToday())
+    setMWeight('')
+    setMMuscle('')
+    setMFatMass('')
+    setMFatPct('')
+    setMNotes('')
+    setMError(null)
+    setEditingMeasurement(null)
+  }
+
+  const openEditMeasurement = (log: WeightLog) => {
+    setEditingMeasurement(log)
+    setMDate(log.date)
+    setMWeight(log.weight_kg.toString())
+    setMMuscle(log.muscle_mass_kg?.toString() ?? '')
+    setMFatMass(log.body_fat_mass_kg?.toString() ?? '')
+    setMFatPct(log.body_fat_percentage?.toString() ?? '')
+    setMNotes(log.notes ?? '')
+    setMError(null)
+    setShowAddMeasurement(true)
+  }
+
+  const saveMeasurement = async () => {
+    if (!mWeight) {
+      setMError('Peso requerido')
+      return
+    }
+    const weightNum = parseFloat(mWeight)
+    if (!Number.isFinite(weightNum) || weightNum < 20 || weightNum > 300) {
+      setMError('Peso fuera de rango (20-300 kg)')
+      return
+    }
+    setSavingMeasurement(true)
+    setMError(null)
+    try {
+      const mm = parseFloat(mMuscle)
+      const bfm = parseFloat(mFatMass)
+      const bfp = parseFloat(mFatPct)
+      const fields: Record<string, any> = {
+        weight_kg: weightNum,
+        muscle_mass_kg: mMuscle && Number.isFinite(mm) && mm > 0 ? mm : null,
+        body_fat_mass_kg: mFatMass && Number.isFinite(bfm) && bfm > 0 ? bfm : null,
+        body_fat_percentage: mFatPct && Number.isFinite(bfp) && bfp >= 0 && bfp <= 70 ? bfp : null,
+        notes: mNotes.trim() || null,
+      }
+
+      if (editingMeasurement) {
+        // Edit existing record (date may have been changed too).
+        const { error: updateError } = await (supabase.from('weight_logs') as any)
+          .update({ ...fields, date: mDate })
+          .eq('id', editingMeasurement.id)
+        if (updateError) throw updateError
+      } else {
+        // Manual "upsert" for new entries: if a record exists for the same
+        // (patient, date), overwrite it; otherwise insert. Avoids depending
+        // on a (user_id, date) unique constraint that may not be present.
+        const { data: existing } = await (supabase as any)
+          .from('weight_logs')
+          .select('id')
+          .eq('user_id', patientId)
+          .eq('date', mDate)
+          .maybeSingle()
+
+        if (existing?.id) {
+          const { error: updateError } = await (supabase.from('weight_logs') as any)
+            .update(fields)
+            .eq('id', existing.id)
+          if (updateError) throw updateError
+        } else {
+          const { error: insertError } = await (supabase.from('weight_logs') as any)
+            .insert({ user_id: patientId, date: mDate, ...fields })
+          if (insertError) throw insertError
+        }
+      }
+      await reloadWeightLogs()
+      resetMeasurementForm()
+      setShowAddMeasurement(false)
+    } catch (err: any) {
+      setMError(err?.message || 'Error al guardar la medición')
+    }
+    setSavingMeasurement(false)
+  }
+
+  const deleteMeasurement = async () => {
+    if (!editingMeasurement) return
+    if (!window.confirm('¿Eliminar esta medición? No se puede deshacer.')) return
+    setSavingMeasurement(true)
+    setMError(null)
+    try {
+      const { error: deleteError } = await supabase
+        .from('weight_logs')
+        .delete()
+        .eq('id', editingMeasurement.id)
+      if (deleteError) throw deleteError
+      await reloadWeightLogs()
+      resetMeasurementForm()
+      setShowAddMeasurement(false)
+    } catch (err: any) {
+      setMError(err?.message || 'Error al eliminar la medición')
+    }
+    setSavingMeasurement(false)
   }
 
   const loadFoodLogs = async () => {
@@ -351,7 +477,7 @@ export default function PatientDetailPage() {
               <span className="font-medium">Composición corporal</span>
               {latestWeight && (
                 <span className="text-xs text-ink-4 ml-auto">
-                  Última medición: {new Date(latestWeight.date).toLocaleDateString('es-MX')}
+                  Última medición: {formatShortDate(latestWeight.date)}
                 </span>
               )}
             </div>
@@ -423,7 +549,7 @@ export default function PatientDetailPage() {
                     ))}
                   </div>
                   <p className="text-xs text-ink-4">
-                    Versión {dietConfig.version} · Desde {new Date(dietConfig.effective_date).toLocaleDateString('es-MX')}
+                    Versión {dietConfig.version} · Desde {formatShortDate(dietConfig.effective_date)}
                   </p>
                 </>
               ) : (
@@ -451,6 +577,21 @@ export default function PatientDetailPage() {
 
       {activeTab === 'weight' && (
         <div className="space-y-4">
+          {/* Action bar */}
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">Composición corporal</h3>
+            <button
+              onClick={() => {
+                resetMeasurementForm()
+                setShowAddMeasurement(true)
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-full bg-ink text-paper text-sm font-medium hover:bg-ink-2 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Agregar medición
+            </button>
+          </div>
+
           {/* Charts Section */}
           {weightLogs.length > 0 && (
             <div className="bg-white rounded-2xl border border-ink-7 p-5">
@@ -500,10 +641,16 @@ export default function PatientDetailPage() {
             {weightLogs.length > 0 ? (
               <div className="divide-y divide-ink-7">
                 {weightLogs.map(log => (
-                  <div key={log.id} className="p-4">
+                  <button
+                    type="button"
+                    key={log.id}
+                    onClick={() => openEditMeasurement(log)}
+                    className="w-full text-left p-4 hover:bg-paper-2 transition-colors"
+                  >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-medium">
-                        {new Date(log.date).toLocaleDateString('es-MX', {
+                      <div className="text-sm font-medium flex items-center gap-2">
+                        <Pencil className="w-3.5 h-3.5 text-ink-5" />
+                        {parseLocalDate(log.date).toLocaleDateString('es-MX', {
                           weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
                         })}
                       </div>
@@ -538,7 +685,7 @@ export default function PatientDetailPage() {
                     {log.notes && (
                       <p className="text-sm text-ink-4 mt-2 pt-2 border-t border-ink-7">{log.notes}</p>
                     )}
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -572,9 +719,7 @@ export default function PatientDetailPage() {
           <div className="bg-white rounded-2xl border border-ink-7 overflow-hidden">
             <div className="p-5 border-b border-ink-7">
               <h3 className="font-medium">
-                {new Date(selectedDate).toLocaleDateString('es-MX', {
-                  weekday: 'long', day: 'numeric', month: 'long'
-                })}
+                {formatDate(selectedDate)}
               </h3>
             </div>
             {foodLogs.length > 0 ? (
@@ -624,7 +769,7 @@ export default function PatientDetailPage() {
                       {session.routine_type.replace('_', ' ')}
                     </div>
                     <div className="text-sm text-ink-4">
-                      {new Date(session.date).toLocaleDateString('es-MX')}
+                      {formatShortDate(session.date)}
                     </div>
                   </div>
                   {session.cardio_minutes && (
@@ -642,6 +787,180 @@ export default function PatientDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Add-measurement modal (practitioner workflow) */}
+      {showAddMeasurement && (
+        <>
+          <div
+            className="fixed inset-0 bg-ink/40 z-40"
+            onClick={() => !savingMeasurement && setShowAddMeasurement(false)}
+          />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(520px,calc(100vw-32px))] max-h-[90vh] overflow-y-auto bg-paper rounded-2xl p-6 z-50 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-serif text-xl font-light">
+                  {editingMeasurement ? 'Editar medición' : 'Nueva medición'}
+                </h2>
+                <p className="text-xs text-ink-4 mt-0.5">
+                  Para {patientName || 'el paciente'}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  resetMeasurementForm()
+                  setShowAddMeasurement(false)
+                }}
+                disabled={savingMeasurement}
+                className="w-10 h-10 rounded-full bg-paper-3 flex items-center justify-center disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {mError && (
+              <div className="mb-4 p-3 bg-berry-soft border border-berry/20 rounded-xl text-berry text-sm">
+                {mError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* Date */}
+              <div>
+                <label className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-1.5 block">
+                  Fecha de la medición
+                </label>
+                <input
+                  type="date"
+                  value={mDate}
+                  onChange={e => setMDate(e.target.value)}
+                  max={getToday()}
+                  className="w-full px-4 py-3 rounded-xl border border-ink-7 bg-white text-sm"
+                />
+              </div>
+
+              {/* Weight */}
+              <div>
+                <label className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-1.5 block">
+                  Peso (kg) *
+                </label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min="20"
+                  max="300"
+                  className="w-full px-4 py-3 rounded-xl border border-ink-7 bg-white text-lg font-serif text-center"
+                  placeholder="80.0"
+                  value={mWeight}
+                  onChange={e => setMWeight(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              {/* Composition (optional) */}
+              <div className="pt-2 border-t border-ink-7">
+                <div className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-3">
+                  Composición (opcional)
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-1.5 block">
+                      Masa Muscular (kg)
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      className="w-full px-3 py-2.5 rounded-xl border border-ink-7 bg-white text-base font-serif text-center"
+                      placeholder="35.0"
+                      value={mMuscle}
+                      onChange={e => setMMuscle(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-1.5 block">
+                      Masa Grasa (kg)
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      className="w-full px-3 py-2.5 rounded-xl border border-ink-7 bg-white text-base font-serif text-center"
+                      placeholder="20.0"
+                      value={mFatMass}
+                      onChange={e => setMFatMass(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-1.5 block">
+                      % Grasa Corporal
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      className="w-full px-3 py-2.5 rounded-xl border border-ink-7 bg-white text-base font-serif text-center"
+                      placeholder="25.0"
+                      value={mFatPct}
+                      onChange={e => setMFatPct(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-[11px] fk-mono text-ink-4 uppercase tracking-wide mb-1.5 block">
+                  Notas (opcional)
+                </label>
+                <textarea
+                  value={mNotes}
+                  onChange={e => setMNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Observaciones de la consulta..."
+                  className="w-full px-3 py-2.5 rounded-xl border border-ink-7 bg-white text-sm resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                {editingMeasurement ? (
+                  <button
+                    onClick={deleteMeasurement}
+                    disabled={savingMeasurement}
+                    className="py-3 px-4 rounded-xl border border-berry/30 text-berry text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Eliminar
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      resetMeasurementForm()
+                      setShowAddMeasurement(false)
+                    }}
+                    disabled={savingMeasurement}
+                    className="flex-1 py-3 rounded-xl border border-ink-7 text-sm font-medium disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                )}
+                <button
+                  onClick={saveMeasurement}
+                  disabled={savingMeasurement || !mWeight}
+                  className="flex-1 py-3 rounded-full bg-ink text-paper font-medium text-sm disabled:opacity-50"
+                >
+                  {savingMeasurement
+                    ? 'Guardando...'
+                    : editingMeasurement
+                    ? 'Actualizar'
+                    : 'Guardar medición'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

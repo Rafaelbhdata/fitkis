@@ -7,9 +7,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Parse a date input as a LOCAL date.
+// Why: `new Date("2026-04-22")` is parsed as UTC midnight, which in CDMX (UTC-6)
+// renders as April 21 — shifting headings by one day. Detect plain YYYY-MM-DD
+// strings and build the Date from local components instead.
+export function parseLocalDate(date: Date | string): Date {
+  if (date instanceof Date) return date
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date)
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return new Date(date)
+}
+
 export function formatDate(date: Date | string): string {
-  const d = new Date(date)
-  return d.toLocaleDateString('es-MX', {
+  return parseLocalDate(date).toLocaleDateString('es-MX', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -17,8 +27,7 @@ export function formatDate(date: Date | string): string {
 }
 
 export function formatShortDate(date: Date | string): string {
-  const d = new Date(date)
-  return d.toLocaleDateString('es-MX', {
+  return parseLocalDate(date).toLocaleDateString('es-MX', {
     day: 'numeric',
     month: 'short',
   })

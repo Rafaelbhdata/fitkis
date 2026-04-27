@@ -55,10 +55,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect to dashboard if accessing auth pages while logged in
+  // Logged-in user landing on auth pages: route by role.
+  // Practitioners go to /clinic, patients to /dashboard.
   if (user && isAuthPage) {
+    const { data: practitioner } = await supabase
+      .from('practitioners')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = practitioner ? '/clinic' : '/dashboard'
     return NextResponse.redirect(url)
   }
 
