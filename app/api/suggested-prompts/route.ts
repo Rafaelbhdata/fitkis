@@ -1,34 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { getAuthedUser } from '@/lib/api-auth'
 import { ROUTINE_SCHEDULE, DAILY_BUDGET } from '@/lib/constants'
 import { getTodayInTimezone } from '@/lib/utils'
 import type { FoodGroup } from '@/types'
-
-function createRouteHandlerClient() {
-  const cookieStore = cookies()
-
-  return createServerClient<any>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Ignore
-          }
-        },
-      },
-    }
-  )
-}
 
 interface SuggestedPrompt {
   label: string
@@ -36,12 +10,10 @@ interface SuggestedPrompt {
   priority: number
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const supabase = createRouteHandlerClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const { user, supabase } = await getAuthedUser(request)
+    if (!user || !supabase) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
