@@ -83,6 +83,15 @@ interface BarcodeLookupResult {
   error?: string
 }
 
+// SMAE equivalents are conventionally portion-based ("1 envase = 1 proteína")
+// rather than strictly gram-based, and serving sizes from Open Food Facts are
+// often inflated (whole package). Estimates here are intentionally conservative:
+// higher thresholds, floor-rounding to .5, and a per-group cap.
+const MAX_EQUIV_PER_GROUP = 1.5
+function floorHalf(n: number) {
+  return Math.floor(n * 2) / 2
+}
+
 function estimateSMAEEquivalents(nutrients: NutrientData, servingGrams: number = 100): { group_type: FoodGroup; quantity: number; note?: string }[] {
   const equivalents: { group_type: FoodGroup; quantity: number; note?: string }[] = []
 
@@ -94,8 +103,8 @@ function estimateSMAEEquivalents(nutrients: NutrientData, servingGrams: number =
   const sugar = ((nutrients.sugars_100g || 0) * servingGrams) / 100
 
   // Estimate protein equivalents (1 equiv = ~7g protein)
-  if (protein >= 5) {
-    const proteinEquiv = Math.round((protein / 7) * 2) / 2 // Round to nearest 0.5
+  if (protein >= 7) {
+    const proteinEquiv = Math.min(floorHalf(protein / 7), MAX_EQUIV_PER_GROUP)
     if (proteinEquiv > 0) {
       equivalents.push({
         group_type: 'proteina',
@@ -106,8 +115,8 @@ function estimateSMAEEquivalents(nutrients: NutrientData, servingGrams: number =
   }
 
   // Estimate fat equivalents (1 equiv = ~5g fat)
-  if (fat >= 3) {
-    const fatEquiv = Math.round((fat / 5) * 2) / 2
+  if (fat >= 5) {
+    const fatEquiv = Math.min(floorHalf(fat / 5), MAX_EQUIV_PER_GROUP)
     if (fatEquiv > 0) {
       equivalents.push({
         group_type: 'grasa',
@@ -120,10 +129,10 @@ function estimateSMAEEquivalents(nutrients: NutrientData, servingGrams: number =
   // Estimate carb equivalents (1 equiv = ~15g carbs)
   // Subtract fiber to get net carbs for more accurate estimation
   const netCarbs = carbs - fiber
-  if (netCarbs >= 10) {
+  if (netCarbs >= 15) {
     // Check if it's likely a legume (high protein + carbs)
-    if (protein >= 5 && netCarbs >= 15) {
-      const legumEquiv = Math.round((netCarbs / 20) * 2) / 2 // Legumes have ~20g carbs per equiv
+    if (protein >= 7 && netCarbs >= 20) {
+      const legumEquiv = Math.min(floorHalf(netCarbs / 20), MAX_EQUIV_PER_GROUP) // Legumes have ~20g carbs per equiv
       if (legumEquiv > 0) {
         equivalents.push({
           group_type: 'leguminosa',
@@ -133,7 +142,7 @@ function estimateSMAEEquivalents(nutrients: NutrientData, servingGrams: number =
       }
     } else {
       // Regular carb
-      const carbEquiv = Math.round((netCarbs / 15) * 2) / 2
+      const carbEquiv = Math.min(floorHalf(netCarbs / 15), MAX_EQUIV_PER_GROUP)
       if (carbEquiv > 0) {
         equivalents.push({
           group_type: 'carb',
@@ -189,10 +198,27 @@ export async function GET(request: Request) {
       .single()
 
     if (cached) {
+      // Re-estimate equivalents on cache hit so older rows benefit from
+      // calibration updates without needing to re-fetch from Open Food Facts.
+      const cachedProduct = cached.product_data
+      if (cachedProduct?.nutrients_per_100g) {
+        const np = cachedProduct.nutrients_per_100g
+        const nutriments: NutrientData = {
+          carbohydrates_100g: np.carbs,
+          proteins_100g: np.protein,
+          fat_100g: np.fat,
+          fiber_100g: np.fiber,
+          sugars_100g: np.sugar,
+          energy_kcal_100g: np.calories,
+        }
+        const servingMatch = (cachedProduct.serving_size || '').match(/(\d+(?:\.\d+)?)\s*(?:g|ml)/i)
+        const servingGrams = servingMatch ? parseFloat(servingMatch[1]) : 100
+        cachedProduct.estimated_equivalents = estimateSMAEEquivalents(nutriments, servingGrams)
+      }
       const result: BarcodeLookupResult = {
         success: true,
         found: true,
-        product: cached.product_data,
+        product: cachedProduct,
         source: 'cache'
       }
       return NextResponse.json(result)
