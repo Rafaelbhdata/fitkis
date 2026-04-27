@@ -5,7 +5,10 @@ import { X, Barcode, Check, AlertCircle, Plus, Minus, Loader2, Camera, RefreshCw
 import { PulseLine } from '@/components/ui/PulseLine'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
 import type { FoodGroup, MealType } from '@/types'
-import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library'
+import { BarcodeFormat, DecodeHintType } from '@zxing/library'
+// BrowserMultiFormatReader's continuous-decode (callback) overload lives in
+// @zxing/browser; the @zxing/library one is single-shot (Promise<Result>).
+import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
 
 interface ProductEquivalent {
   group_type: FoodGroup
@@ -60,6 +63,7 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
   const streamRef = useRef<MediaStream | null>(null)
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const zxingReaderRef = useRef<BrowserMultiFormatReader | null>(null)
+  const zxingControlsRef = useRef<IScannerControls | null>(null)
   const barcodeHandledRef = useRef(false)
   const [useZxingFallback, setUseZxingFallback] = useState(false)
 
@@ -88,10 +92,11 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
       clearInterval(scanIntervalRef.current)
       scanIntervalRef.current = null
     }
-    if (zxingReaderRef.current) {
-      zxingReaderRef.current.reset()
-      zxingReaderRef.current = null
+    if (zxingControlsRef.current) {
+      zxingControlsRef.current.stop()
+      zxingControlsRef.current = null
     }
+    zxingReaderRef.current = null
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
@@ -168,13 +173,14 @@ export function BarcodeScannerModal({ isOpen, onClose, selectedMeal, mealLabel, 
           const reader = new BrowserMultiFormatReader(hints)
           zxingReaderRef.current = reader
 
-          reader.decodeFromVideoElement(videoRef.current, (result: { getText: () => string } | undefined) => {
+          const controls = await reader.decodeFromVideoElement(videoRef.current, (result) => {
             if (result && !barcodeHandledRef.current) {
               const code = result.getText()
               if (code) handleCode(code)
             }
             // The error path (no barcode on frame) fires continuously — ignore.
           })
+          zxingControlsRef.current = controls
         }
       }
     } catch (err) {
