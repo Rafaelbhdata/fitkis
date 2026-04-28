@@ -1,33 +1,6 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { getAuthedUser } from '@/lib/api-auth'
 import { createClient } from '@supabase/supabase-js'
-
-// Create authenticated client to verify user
-function createRouteHandlerClient() {
-  const cookieStore = cookies()
-
-  return createServerClient<any>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Ignore - happens in middleware
-          }
-        },
-      },
-    }
-  )
-}
 
 // Admin client with service role for user deletion
 function createAdminClient() {
@@ -45,14 +18,11 @@ function createAdminClient() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient()
-    const adminClient = createAdminClient()
-
-    // Verify authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { user, supabase } = await getAuthedUser(request)
+    if (!user || !supabase) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
+    const adminClient = createAdminClient()
 
     // Parse request body for confirmation
     const body = await request.json()
