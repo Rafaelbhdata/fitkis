@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { RoutineType } from '@/types'
+import type { RoutineType, FoodGroup } from '@/types'
 import { ROUTINE_SCHEDULE, ROUTINES } from './constants'
 
 export function cn(...inputs: ClassValue[]) {
@@ -182,8 +182,6 @@ export function calculateGymStreak(
 }
 
 // Calculate diet streak: consecutive days where food was logged AND within budget
-import type { FoodGroup } from '@/types'
-
 export function calculateDietStreak(
   foodLogs: { date: string; group_type: FoodGroup; quantity: number }[],
   dailyBudget: Record<FoodGroup, number>
