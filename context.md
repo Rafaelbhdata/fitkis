@@ -4,6 +4,20 @@
 - Setup del proyecto ✅ COMPLETADO
 - Sistema de diseño UI ✅ COMPLETADO (Rediseño v5.0 - "Paper & Pulse")
 - **B2B Platform ✅ EN PROGRESO** (Sprint 22 abril 2026)
+- **App móvil ✅ PARIDAD FUNCIONAL** (4 mayo 2026 — pendiente polish + release)
+
+## App móvil
+
+Repo: `https://github.com/Rafaelbhdata/fitkis-mobile`
+
+- React Native + Expo SDK 54, comparte backend Supabase y endpoints `/api/*`.
+- Plans 1–6 completos: auth, dashboard, gym, food (con barcode + plate AI), habits, weight, coach AI, journal, settings con delete account.
+- API routes en Vercel aceptan bearer JWT via `lib/api-auth.ts` (Plan 1).
+- Plan 7 en curso: polish (safe-area, KAV, a11y, empty states) + smoke test consolidado. Fases 7b (assets), 7c (closed beta) y 8 (public release) gated en aprobación de Apple Developer.
+
+**Patient routes en web:** vivas pero frozen hasta que móvil se valide en producción 2–4 semanas. Cutover (eliminar/redirect) es decisión post-launch.
+
+**Archivos sincronizados manualmente entre repos:** `types/index.ts`, `lib/utils.ts`, `lib/constants.ts`, `lib/journal-questions.ts`. PRs deben listar los espejados.
 
 ---
 
