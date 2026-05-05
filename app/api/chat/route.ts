@@ -858,7 +858,7 @@ export async function POST(request: Request) {
 
     // Initial call to Claude
     let response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: systemPrompt,
       tools,
@@ -896,7 +896,7 @@ export async function POST(request: Request) {
 
       // Continue the conversation with full history
       response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
         system: systemPrompt,
         tools,
