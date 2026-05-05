@@ -15,6 +15,11 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
+// Chat does a tool-use loop with Claude (multiple round-trips), which can
+// easily exceed Vercel's 10s default. Bump to 60s — works on Pro; on Hobby
+// fluid compute also allows up to 60s.
+export const maxDuration = 60
+
 // Validate a positive finite number within [min, max]. Throws with a user-safe message.
 function validateNumber(
   value: unknown,
