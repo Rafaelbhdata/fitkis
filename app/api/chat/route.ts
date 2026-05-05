@@ -831,8 +831,21 @@ export async function POST(request: Request) {
 
     const { messages } = await request.json()
 
-    // Get patient context for personalized system prompt
-    const patientContext = await getPatientContext(supabase, user.id)
+    // Get patient context for personalized system prompt.
+    // If any query fails (missing table, RLS, etc.), fall back to defaults so
+    // the chat still works.
+    let patientContext: PatientContext
+    try {
+      patientContext = await getPatientContext(supabase, user.id)
+    } catch (ctxErr) {
+      console.error('getPatientContext failed, using defaults:', ctxErr)
+      patientContext = {
+        hasPractitioner: false,
+        dailyBudget: { verdura: 4, fruta: 2, carb: 4, leguminosa: 1, proteina: 8, grasa: 6 },
+        activeMeals: { desayuno: true, snack1: true, comida: true, snack2: true, cena: true, snack3: true },
+        todayProgress: { verdura: 0, fruta: 0, carb: 0, leguminosa: 0, proteina: 0, grasa: 0 },
+      }
+    }
     const systemPrompt = buildSystemPrompt(patientContext)
 
     // Maintain conversation history through tool-use loop
@@ -898,8 +911,11 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Chat API error:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    const name = error instanceof Error ? error.name : 'Error'
+    // Surface the real error so the mobile client and Vercel logs match.
     return NextResponse.json(
-      { error: 'Error procesando el mensaje' },
+      { error: 'Error procesando el mensaje', detail: `${name}: ${message}` },
       { status: 500 }
     )
   }
