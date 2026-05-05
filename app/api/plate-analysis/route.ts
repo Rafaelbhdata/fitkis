@@ -195,8 +195,10 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Plate analysis error:', error)
+    const message = error instanceof Error ? error.message : String(error)
+    const name = error instanceof Error ? error.name : 'Error'
     return NextResponse.json(
-      { error: 'Error al analizar la imagen' },
+      { error: `Error al analizar la imagen: ${name}: ${message}` },
       { status: 500 }
     )
   }
