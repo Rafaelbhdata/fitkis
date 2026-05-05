@@ -36,6 +36,10 @@ export async function middleware(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') ||
                      request.nextUrl.pathname.startsWith('/register')
 
+  // NOTE: don't list `/api/*` here. API routes do their own auth via
+  // getAuthedUser, which supports bearer tokens (mobile) AND cookies (web).
+  // Listing them in middleware redirects bearer-only mobile requests to
+  // /login (307) because the middleware can only see cookies.
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') ||
                            request.nextUrl.pathname.startsWith('/gym') ||
                            request.nextUrl.pathname.startsWith('/food') ||
@@ -43,8 +47,7 @@ export async function middleware(request: NextRequest) {
                            request.nextUrl.pathname.startsWith('/weight') ||
                            request.nextUrl.pathname.startsWith('/journal') ||
                            request.nextUrl.pathname.startsWith('/coach') ||
-                           request.nextUrl.pathname.startsWith('/settings') ||
-                           request.nextUrl.pathname.startsWith('/api/chat')
+                           request.nextUrl.pathname.startsWith('/settings')
 
   const isClinicRoute = request.nextUrl.pathname.startsWith('/clinic')
 
