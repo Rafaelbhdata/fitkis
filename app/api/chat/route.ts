@@ -561,6 +561,30 @@ async function executeTool(
   }
 }
 
+// Coach personality presets — two independent axes the user picks in Settings.
+type CoachTone = 'sereno' | 'cercano' | 'directo' | 'academico'
+type CoachStyle = 'estricto' | 'equilibrado' | 'animador'
+
+const TONE_DIRECTIVES: Record<CoachTone, string> = {
+  sereno:
+    'Tono: pausado y editorial. Frases medidas, sin floritura, sin signos de exclamación. Como un coach que ha visto todo y no se altera.',
+  cercano:
+    'Tono: cálido y cercano, como un amigo que sabe del tema. Permite alguna palabra coloquial natural ("oye", "fíjate") sin caer en modismos forzados. Evita la solemnidad.',
+  directo:
+    'Tono: muy breve, sin rodeos, militar. Frases cortas, una idea por frase. Cero relleno, cero cortesías de manual. Termina rápido.',
+  academico:
+    'Tono: explicativo y reflexivo. Cuando dé un consejo, da el porqué corto detrás (fisiología, balance energético, contexto). No suena pedante: explica como buen profesor.',
+}
+
+const STYLE_DIRECTIVES: Record<CoachStyle, string> = {
+  estricto:
+    'Estilo de coaching: confronta cuando el usuario se sale del plan. No suaviza la realidad. Si se excede, lo dice y ofrece un correctivo concreto. Nunca insulta ni culpa.',
+  equilibrado:
+    'Estilo de coaching: directo pero amable. Sugiere ajustes con calma, no juzga. Si el usuario se excede, ofrece un siguiente paso útil sin dramatismo.',
+  animador:
+    'Estilo de coaching: celebra el proceso. Cuando el usuario se excede, encuentra el aprendizaje y vuelve al plan. Refuerza lo que ya está haciendo bien antes de sugerir un cambio.',
+}
+
 // Patient context for Coach AI
 interface PatientContext {
   hasPractitioner: boolean
@@ -587,6 +611,8 @@ interface PatientContext {
   goalWeight?: number
   weightChange30d?: number
   prescriptionNotes?: string
+  coachTone: CoachTone
+  coachStyle: CoachStyle
 }
 
 async function getPatientContext(
@@ -661,10 +687,10 @@ async function getPatientContext(
     }
   }
 
-  // Get goal weight from user profile
+  // Get goal weight + coach personality preferences from user profile
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('goal_weight_kg')
+    .select('goal_weight_kg, coach_tone, coach_style')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -709,6 +735,8 @@ async function getPatientContext(
     goalWeight: profile?.goal_weight_kg,
     weightChange30d,
     prescriptionNotes: dietConfig?.notes,
+    coachTone: (profile?.coach_tone as CoachTone | undefined) || 'sereno',
+    coachStyle: (profile?.coach_style as CoachStyle | undefined) || 'equilibrado',
   }
 }
 
@@ -777,7 +805,14 @@ ${activeMealsList.includes('snack2') ? '- snack2 (tarde)' : ''}
 ${activeMealsList.includes('cena') ? '- cena (noche)' : ''}
 ${activeMealsList.includes('snack3') ? '- snack3 (antes de dormir)' : ''}`
 
+  // Personality preset directives picked by the user in Settings
+  const personalitySection = `
+PERSONALIDAD (estos dos rasgos son el filtro principal sobre todo lo demás del estilo):
+${TONE_DIRECTIVES[context.coachTone]}
+${STYLE_DIRECTIVES[context.coachStyle]}`
+
   return `Eres el Coach AI personal de FitKis, una app de fitness y nutrición. Tu nombre es Coach Fit.
+${personalitySection}
 ${practitionerSection}
 ${budgetSection}
 ${progressSection}
@@ -852,6 +887,8 @@ export async function POST(request: Request) {
         dailyBudget: { verdura: 4, fruta: 2, carb: 4, leguminosa: 1, proteina: 8, grasa: 6 },
         activeMeals: { desayuno: true, snack1: true, comida: true, snack2: true, cena: true, snack3: true },
         todayProgress: { verdura: 0, fruta: 0, carb: 0, leguminosa: 0, proteina: 0, grasa: 0 },
+        coachTone: 'sereno',
+        coachStyle: 'equilibrado',
       }
     }
     const systemPrompt = buildSystemPrompt(patientContext)
