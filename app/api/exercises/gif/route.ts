@@ -11,7 +11,6 @@
 // redirect / SSRF abuse.
 
 import { NextResponse } from 'next/server'
-import { getAuthedUser } from '@/lib/api-auth'
 
 const ALLOWED_HOSTS = [
   'exercisedb.p.rapidapi.com',
@@ -20,12 +19,12 @@ const ALLOWED_HOSTS = [
   'd205bpvrqc9yn1.cloudfront.net',
 ]
 
+// NOTE: Public on purpose. The mobile <Image> can't pass our bearer
+// token, and gating this endpoint blocks the GIF from rendering. We
+// keep the search endpoint authed (so the catalog isn't browsable
+// anonymously) and trust the host allowlist + the fact that the worst
+// outcome is bandwidth from someone hotlinking known exercise IDs.
 export async function GET(request: Request) {
-  const { user } = await getAuthedUser(request)
-  if (!user) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  }
-
   const apiKey = process.env.RAPIDAPI_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'RAPIDAPI_KEY missing' }, { status: 500 })
