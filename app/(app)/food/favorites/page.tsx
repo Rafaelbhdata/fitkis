@@ -156,6 +156,7 @@ export default function FavoritesPage() {
       const { error: saveError } = await (supabase.from('favorite_meals') as any).insert({
         user_id: user.id,
         name: newFavName,
+        meal: null, // favorites are meal-agnostic; the user picks the meal at apply time
         items: newFavItems,
       })
       if (saveError) throw saveError
@@ -163,7 +164,9 @@ export default function FavoritesPage() {
       closeCreateModal()
       showToast(`"${newFavName}" guardado`)
     } catch (err) {
-      setError('Error al guardar favorito')
+      console.error('saveFavorite failed:', err)
+      const detail = err instanceof Error ? err.message : String(err)
+      setError(`Error al guardar favorito: ${detail}`)
     }
     setSaving(false)
   }
