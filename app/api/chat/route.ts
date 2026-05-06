@@ -741,6 +741,23 @@ async function getPatientContext(
 }
 
 function buildSystemPrompt(context: PatientContext): string {
+  // Anchor "today" so Claude can compute "ayer", "el lunes", etc. when the
+  // user logs food/weight after the fact. Without this, the model has no
+  // ground truth for relative dates and defaults to its training cutoff.
+  const today = getTodayInTimezone('America/Mexico_City')
+  const todayHumanLong = new Date(today + 'T12:00:00').toLocaleDateString('es-MX', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+  const dateSection = `
+FECHA ACTUAL:
+- Hoy es ${todayHumanLong} (${today} en formato YYYY-MM-DD).
+- Cuando el usuario mencione "ayer", "antier", "el lunes pasado" u otra fecha relativa,
+  calcula la fecha exacta y pásala al campo \`date\` del tool. Nunca asumas que un
+  registro fuera de hoy va a hoy: si la fecha es distinta, debes pasarla explícita.`
+
   // Build practitioner context section
   const practitionerSection = context.hasPractitioner
     ? `
@@ -813,6 +830,7 @@ ${STYLE_DIRECTIVES[context.coachStyle]}`
 
   return `Eres el Coach AI personal de FitKis, una app de fitness y nutrición. Tu nombre es Coach Fit.
 ${personalitySection}
+${dateSection}
 ${practitionerSection}
 ${budgetSection}
 ${progressSection}
