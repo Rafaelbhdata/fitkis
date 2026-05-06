@@ -168,13 +168,29 @@ Devuelve el JSON con todos los ${usable.length} ejercicios traducidos.`
       }
     }
 
+    // Per-row UPDATEs. Upsert balks because the row needs `name` (NOT
+    // NULL) and we're not sending it. Individual updates are ~20 round-
+    // trips per batch but each is small and parallel-safe via Promise.all.
     if (updates.length > 0) {
-      // Supabase upsert with the existing primary key. We update only
-      // these two columns so the rest of the row stays intact.
-      const { error: upErr } = await admin.from('exercises').upsert(updates, { onConflict: 'id' })
-      if (upErr) {
+      const results = await Promise.all(
+        updates.map((u) =>
+          admin
+            .from('exercises')
+            .update({
+              instructions_es: u.instructions_es,
+              translated_at: u.translated_at,
+            })
+            .eq('id', u.id)
+        )
+      )
+      const failedUpdate = results.find((r) => r.error)
+      if (failedUpdate?.error) {
         return NextResponse.json(
-          { error: 'Update failed', detail: upErr.message, translated_so_far: totalTranslated },
+          {
+            error: 'Update failed',
+            detail: failedUpdate.error.message,
+            translated_so_far: totalTranslated,
+          },
           { status: 500 }
         )
       }
