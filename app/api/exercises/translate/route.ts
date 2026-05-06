@@ -18,7 +18,7 @@ export const maxDuration = 120
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const MODEL = 'claude-haiku-4-5-20251001'
 
-const BATCH_SIZE = 20
+const BATCH_SIZE = 10
 const TIME_BUDGET_MS = 100_000 // exit when only 20s left of the 120s budget
 
 const SYSTEM_PROMPT = `Eres un traductor experto en fitness. Recibes instrucciones de ejercicios en inglés y devuelves la versión en español natural.
@@ -110,7 +110,7 @@ Devuelve el JSON con todos los ${usable.length} ejercicios traducidos.`
     try {
       const resp = await anthropic.messages.create({
         model: MODEL,
-        max_tokens: 4000,
+        max_tokens: 8000,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMsg }],
       })
