@@ -12,14 +12,10 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { getAuthedUser } from '@/lib/api-auth'
-import {
-  ROUTINE_TEMPLATES,
-  pickTemplateFallback,
-  isTemplateAvailable,
-  type Goal,
-  type Experience,
-  type Equipment,
-} from '@/lib/routine-templates'
+
+type Goal = 'lose_weight' | 'gain_muscle' | 'strength' | 'maintain'
+type Experience = 'new' | 'returning' | 'intermediate' | 'advanced'
+type Equipment = 'full_gym' | 'home_weights' | 'bodyweight'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -90,35 +86,74 @@ export async function POST(request: Request) {
     const bodyweightKg =
       (weightRow as { weight_kg?: number } | null)?.weight_kg ?? null
 
-    // Build the templates section. We only let the AI recommend templates
-    // that are actually implemented (have routines). Stubs are listed so
-    // the AI is aware of the catalog but flagged so it doesn't pick them.
-    const templatesBlock = Object.values(ROUTINE_TEMPLATES)
-      .map((t) => {
-        const status = isTemplateAvailable(t.key) ? 'AVAILABLE' : 'NOT YET AVAILABLE — do not pick'
-        return `- key: ${t.key} [${status}]
+    // Pull the live blueprint catalog from the DB. Only templates that
+    // actually have exercises in routine_blueprint_exercises are eligible
+    // — that's our "available" check now (replaces the file-based stub
+    // mechanism).
+    const { data: blueprints, error: bpErr } = await (supabase as any)
+      .from('routine_blueprints')
+      .select('template_key, name, description, best_for, goal, experience_min, days_per_week, equipment')
+      .eq('active', true)
+    if (bpErr) {
+      return NextResponse.json({ error: 'Blueprint read failed', detail: bpErr.message }, { status: 500 })
+    }
+    const allBlueprints = (blueprints ?? []) as Array<{
+      template_key: string
+      name: string
+      description: string | null
+      best_for: string | null
+      goal: Goal
+      experience_min: Experience
+      days_per_week: number
+      equipment: Equipment
+    }>
+
+    // Pull the exercises that belong to each template. Used by the AI to
+    // estimate per-exercise initial weights.
+    const { data: bpExercises } = await (supabase as any)
+      .from('routine_blueprint_exercises')
+      .select(`
+        template_key,
+        exercise_db_id,
+        exercise:exercises (id, name, equipment)
+      `)
+    const exercisesByTemplate: Record<string, Array<{ id: string; name: string; equipment: string }>> = {}
+    ;((bpExercises ?? []) as any[]).forEach((row) => {
+      const ex = Array.isArray(row.exercise) ? row.exercise[0] : row.exercise
+      if (!ex) return
+      if (!exercisesByTemplate[row.template_key]) exercisesByTemplate[row.template_key] = []
+      // Deduplicate per template (an exercise may appear in multiple days).
+      if (!exercisesByTemplate[row.template_key].some((e) => e.id === ex.id)) {
+        exercisesByTemplate[row.template_key].push({
+          id: ex.id,
+          name: ex.name,
+          equipment: ex.equipment ?? '',
+        })
+      }
+    })
+
+    // Build the templates section the AI sees.
+    const templatesBlock = allBlueprints
+      .map((t) => `- key: ${t.template_key}
   name: ${t.name}
-  description: ${t.description}
-  bestFor: ${t.bestFor}
-  days: ${t.daysPerWeek}
-  matchHints: goals=${t.matchHints.goals.join('|')}, experience=${t.matchHints.experience.join('|')}, equipment=${t.matchHints.equipment.join('|')}, days=${t.matchHints.daysRange.join('-')}`
-      })
+  description: ${t.description ?? ''}
+  bestFor: ${t.best_for ?? ''}
+  goal: ${t.goal} | experience_min: ${t.experience_min} | days: ${t.days_per_week} | equipment: ${t.equipment}`)
       .join('\n\n')
 
-    // List of exercises the AI can suggest weights for. Only takes them
-    // from currently-available templates so we never hand it ids that
-    // won't render.
-    const exercisesByTemplate: Record<string, Array<{ id: string; name: string; equipment: string }>> = {}
-    for (const t of Object.values(ROUTINE_TEMPLATES)) {
-      if (!isTemplateAvailable(t.key)) continue
-      const flat: { id: string; name: string; equipment: string }[] = []
-      for (const r of Object.values(t.routines)) {
-        for (const ex of r.exercises) {
-          flat.push({ id: ex.id, name: ex.name, equipment: ex.equipment })
-        }
-      }
-      exercisesByTemplate[t.key] = flat
+    // Rule-based fallback used when AI fails. Picks the closest template
+    // by exact equipment match + closest days.
+    const ruleBasedFallback = (): string => {
+      const sameEquip = allBlueprints.filter((t) => t.equipment === input.equipment)
+      const pool = sameEquip.length > 0 ? sameEquip : allBlueprints
+      // Pick the template whose days_per_week is closest to the input.
+      pool.sort((a, b) =>
+        Math.abs(a.days_per_week - input.daysPerWeek) -
+        Math.abs(b.days_per_week - input.daysPerWeek)
+      )
+      return pool[0]?.template_key ?? ''
     }
+    const validKeys = new Set(allBlueprints.map((t) => t.template_key))
 
     const systemPrompt = `Eres Coach Fit, el coach AI de FitKis. Un usuario está terminando su onboarding y necesita que le recomiendes un plan inicial.
 
@@ -226,7 +261,7 @@ Recomiéndame un plan.`
         }
         if (
           parsed.template_key &&
-          isTemplateAvailable(parsed.template_key) &&
+          validKeys.has(parsed.template_key) &&
           parsed.summary
         ) {
           aiResult = {
@@ -241,21 +276,15 @@ Recomiéndame un plan.`
       console.error('Onboarding AI call failed, will fall back:', err)
     }
 
-    // Fallback path — rule-based picker, no per-exercise weights, generic
-    // template description as summary. Always returns a valid plan.
+    // Fallback path — rule-based picker against the live blueprint set,
+    // no per-exercise weights, generic blueprint description as summary.
     if (!aiResult) {
-      const key = pickTemplateFallback({
-        goal: input.goal,
-        experience: input.experience,
-        daysPerWeek: input.daysPerWeek,
-        equipment: input.equipment,
-      })
-      const templateKey = isTemplateAvailable(key) ? key : 'upper_lower_4d'
-      const t = ROUTINE_TEMPLATES[templateKey]
+      const templateKey = ruleBasedFallback()
+      const t = allBlueprints.find((b) => b.template_key === templateKey)
       aiResult = {
         templateKey,
         initialWeights: {},
-        summary: `${t.description} ${t.bestFor}`,
+        summary: t ? `${t.description ?? ''} ${t.best_for ?? ''}`.trim() : '',
         source: 'fallback',
       }
     }
