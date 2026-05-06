@@ -212,7 +212,7 @@ key: ${t.key}
 nombre: ${t.name}
 goal: ${t.goal} | exp_min: ${t.experienceMin} | days: ${t.daysPerWeek} | equipment: ${t.equipment}
 schedule (sun=0..sat=6): ${JSON.stringify(t.schedule)}
-day_keys que necesitas llenar: ${[...new Set(Object.values(t.schedule).filter((v) => v !== 'rest'))].join(', ')}
+day_keys que necesitas llenar: ${Array.from(new Set(Object.values(t.schedule).filter((v) => v !== 'rest'))).join(', ')}
 spec: ${t.daySpec}`).join('\n')}
 
 CATÁLOGO COMPLETO:
