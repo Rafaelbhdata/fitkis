@@ -151,18 +151,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Bad secret' }, { status: 403 })
   }
 
+  // Generate one template at a time so we fit inside Vercel's 60s window.
+  // Caller passes ?key=<template_key>; missing key returns the list so
+  // the caller can iterate. ?key=all is rejected to discourage timeouts.
+  const requestedKey = url.searchParams.get('key')
+  if (!requestedKey) {
+    return NextResponse.json({
+      error: 'Missing ?key param',
+      hint: 'Iterate over each key with separate requests.',
+      keys: TEMPLATE_SPECS.map((t) => t.key),
+    }, { status: 400 })
+  }
+  const spec = TEMPLATE_SPECS.find((t) => t.key === requestedKey)
+  if (!spec) {
+    return NextResponse.json({ error: `Unknown template key: ${requestedKey}` }, { status: 400 })
+  }
+
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  // Pull a compact view of the catalog so Claude can pick by id without
-  // burning huge token budgets.
-  const { data: catalog, error: catError } = await admin
-    .from('exercises')
-    .select('id, name, body_part, target, equipment')
-    .order('id')
+  // Pull only exercises whose equipment matches the template's spec.
+  // Drops the prompt size from ~70KB to a few KB and lets Claude focus
+  // on legitimate picks. Bodyweight templates allow body weight only;
+  // home_weights allows dumbbell + body weight; full_gym allows everything.
+  const equipmentFilter = (() => {
+    if (spec.equipment === 'bodyweight') return ['body weight']
+    if (spec.equipment === 'home_weights') return ['dumbbell', 'body weight']
+    return null // full_gym → no filter
+  })()
+
+  let catalogQuery = admin.from('exercises').select('id, name, body_part, target, equipment')
+  if (equipmentFilter) catalogQuery = catalogQuery.in('equipment', equipmentFilter)
+  const { data: catalog, error: catError } = await catalogQuery.order('id')
   if (catError || !catalog) {
     return NextResponse.json({ error: 'Catalog read failed', detail: catError?.message }, { status: 500 })
   }
@@ -189,36 +212,33 @@ REGLAS UNIVERSALES:
 - Para el target del músculo del día (ej "push"), apunta a body_part=chest, shoulders, upper arms (tríceps).
 - Da preferencia a ejercicios con nombres reconocibles (squat, bench press, etc.) sobre variaciones exóticas.
 
-FORMATO DE SALIDA (JSON estricto, sin markdown):
+FORMATO DE SALIDA (JSON estricto, sin markdown, un solo template):
 {
-  "templates": [
-    {
-      "template_key": "<key del template>",
-      "days": {
-        "<day_key>": [
-          { "exercise_db_id": "<id>", "sets": <n>, "reps": "<string>", "rest_seconds": <n>, "tip_es": "<opcional, frase corta editorial>" }
-        ]
-      }
-    }
-  ]
+  "template_key": "<key del template>",
+  "days": {
+    "<day_key>": [
+      { "exercise_db_id": "<id>", "sets": <n>, "reps": "<string>", "rest_seconds": <n>, "tip_es": "<opcional, frase corta editorial>" }
+    ]
+  }
 }
 
 NO incluyas comentarios. NO uses markdown. Solo el JSON crudo.`
 
-  const userMsg = `Arma estos ${TEMPLATE_SPECS.length} templates:
+  const dayKeysToFill = Array.from(new Set(Object.values(spec.schedule).filter((v) => v !== 'rest')))
 
-${TEMPLATE_SPECS.map((t) => `---
-key: ${t.key}
-nombre: ${t.name}
-goal: ${t.goal} | exp_min: ${t.experienceMin} | days: ${t.daysPerWeek} | equipment: ${t.equipment}
-schedule (sun=0..sat=6): ${JSON.stringify(t.schedule)}
-day_keys que necesitas llenar: ${Array.from(new Set(Object.values(t.schedule).filter((v) => v !== 'rest'))).join(', ')}
-spec: ${t.daySpec}`).join('\n')}
+  const userMsg = `Arma este template:
 
-CATÁLOGO COMPLETO:
+key: ${spec.key}
+nombre: ${spec.name}
+goal: ${spec.goal} | exp_min: ${spec.experienceMin} | days: ${spec.daysPerWeek} | equipment: ${spec.equipment}
+schedule (sun=0..sat=6): ${JSON.stringify(spec.schedule)}
+day_keys que necesitas llenar: ${dayKeysToFill.join(', ')}
+spec: ${spec.daySpec}
+
+CATÁLOGO DISPONIBLE (filtrado a equipment compatible):
 ${catalogText}
 
-Devuelve el JSON con los 12 templates y todos sus day_keys completos.`
+Devuelve UN template en el JSON.`
 
   let aiJson: any = null
   try {
@@ -236,74 +256,60 @@ Devuelve el JSON con los 12 templates y todos sus day_keys completos.`
     return NextResponse.json({ error: 'AI generation failed', detail }, { status: 500 })
   }
 
-  if (!Array.isArray(aiJson?.templates)) {
-    return NextResponse.json({ error: 'AI returned malformed payload' }, { status: 500 })
+  if (!aiJson?.days || typeof aiJson.days !== 'object') {
+    return NextResponse.json({ error: 'AI returned malformed payload', got: aiJson }, { status: 500 })
   }
 
   // Validate that every exercise_db_id Claude returned actually exists.
   const validIds = new Set(catalog.map((e: any) => e.id))
-
-  const blueprintRows: any[] = []
   const exerciseRows: any[] = []
   const skipped: string[] = []
 
-  for (const spec of TEMPLATE_SPECS) {
-    const aiTemplate = aiJson.templates.find((t: any) => t.template_key === spec.key)
-    if (!aiTemplate || !aiTemplate.days) {
-      skipped.push(`${spec.key} — missing in AI response`)
-      continue
-    }
-    blueprintRows.push({
-      template_key: spec.key,
-      name: spec.name,
-      description: spec.description,
-      best_for: spec.bestFor,
-      goal: spec.goal,
-      experience_min: spec.experienceMin,
-      days_per_week: spec.daysPerWeek,
-      equipment: spec.equipment,
-      schedule: spec.schedule,
-      active: true,
-      updated_at: new Date().toISOString(),
-    })
-    for (const [dayKey, exs] of Object.entries(aiTemplate.days)) {
-      if (!Array.isArray(exs)) continue
-      ;(exs as any[]).forEach((ex, i) => {
-        if (!validIds.has(ex.exercise_db_id)) {
-          skipped.push(`${spec.key}/${dayKey}#${i} — invalid id ${ex.exercise_db_id}`)
-          return
-        }
-        exerciseRows.push({
-          template_key: spec.key,
-          day_key: dayKey,
-          order_index: i,
-          exercise_db_id: ex.exercise_db_id,
-          sets: ex.sets ?? 3,
-          reps: String(ex.reps ?? '8-10'),
-          rest_seconds: ex.rest_seconds ?? 90,
-          tip_es: ex.tip_es ?? null,
-        })
+  for (const [dayKey, exs] of Object.entries(aiJson.days)) {
+    if (!Array.isArray(exs)) continue
+    ;(exs as any[]).forEach((ex, i) => {
+      if (!validIds.has(ex.exercise_db_id)) {
+        skipped.push(`${dayKey}#${i} — invalid id ${ex.exercise_db_id}`)
+        return
+      }
+      exerciseRows.push({
+        template_key: spec.key,
+        day_key: dayKey,
+        order_index: i,
+        exercise_db_id: ex.exercise_db_id,
+        sets: ex.sets ?? 3,
+        reps: String(ex.reps ?? '8-10'),
+        rest_seconds: ex.rest_seconds ?? 90,
+        tip_es: ex.tip_es ?? null,
       })
-    }
+    })
   }
 
-  // Wipe + replace, atomic-ish. Delete old rows for the templates we
-  // generated, then insert fresh.
-  const keys = blueprintRows.map((r) => r.template_key)
-  if (keys.length > 0) {
-    await admin.from('routine_blueprint_exercises').delete().in('template_key', keys)
-    const { error: bpErr } = await admin.from('routine_blueprints').upsert(blueprintRows, { onConflict: 'template_key' })
-    if (bpErr) return NextResponse.json({ error: 'Blueprint upsert failed', detail: bpErr.message }, { status: 500 })
+  // Wipe + replace for THIS template only.
+  await admin.from('routine_blueprint_exercises').delete().eq('template_key', spec.key)
+  const { error: bpErr } = await admin.from('routine_blueprints').upsert({
+    template_key: spec.key,
+    name: spec.name,
+    description: spec.description,
+    best_for: spec.bestFor,
+    goal: spec.goal,
+    experience_min: spec.experienceMin,
+    days_per_week: spec.daysPerWeek,
+    equipment: spec.equipment,
+    schedule: spec.schedule,
+    active: true,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'template_key' })
+  if (bpErr) return NextResponse.json({ error: 'Blueprint upsert failed', detail: bpErr.message }, { status: 500 })
 
-    if (exerciseRows.length > 0) {
-      const { error: exErr } = await admin.from('routine_blueprint_exercises').insert(exerciseRows)
-      if (exErr) return NextResponse.json({ error: 'Exercise insert failed', detail: exErr.message }, { status: 500 })
-    }
+  if (exerciseRows.length > 0) {
+    const { error: exErr } = await admin.from('routine_blueprint_exercises').insert(exerciseRows)
+    if (exErr) return NextResponse.json({ error: 'Exercise insert failed', detail: exErr.message }, { status: 500 })
   }
 
   return NextResponse.json({
     ok: true,
-    templates_generated: blueprintRows.length,
+    template_key: spec.key,
     exercises_inserted: exerciseRows.length,
     skipped,
   })
