@@ -20,6 +20,36 @@ const anthropic = new Anthropic({
 // fluid compute also allows up to 60s.
 export const maxDuration = 60
 
+// Try Sonnet 4.6 first; if Anthropic returns 529 (Overloaded) or 429 (rate
+// limit), retry with backoff. After two failures on the primary, fall back
+// to Haiku 4.5 — slower-but-cheaper-and-different-pool model so the user
+// still gets a reply when one model is saturated.
+const PRIMARY_MODEL = 'claude-sonnet-4-6'
+const FALLBACK_MODEL = 'claude-haiku-4-5-20251001'
+
+type ClaudeParams = Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>
+
+async function callClaudeWithFallback(
+  params: ClaudeParams
+): Promise<Anthropic.Message> {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  const isRetriable = (err: any) => err?.status === 529 || err?.status === 429
+  let lastError: any
+
+  for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await anthropic.messages.create({ ...params, model })
+      } catch (err) {
+        lastError = err
+        if (!isRetriable(err)) break // hard error → stop, don't try fallback
+        if (attempt < 2) await sleep(500 * Math.pow(2, attempt)) // 500ms, 1s
+      }
+    }
+  }
+  throw lastError
+}
+
 // Validate a positive finite number within [min, max]. Throws with a user-safe message.
 function validateNumber(
   value: unknown,
@@ -921,9 +951,8 @@ export async function POST(request: Request) {
     // Maintain conversation history through tool-use loop
     let conversationMessages = [...messages]
 
-    // Initial call to Claude
-    let response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
+    // Initial call to Claude (with retry + fallback model on overload)
+    let response = await callClaudeWithFallback({
       max_tokens: 1024,
       system: systemPrompt,
       tools,
@@ -960,8 +989,7 @@ export async function POST(request: Request) {
       ]
 
       // Continue the conversation with full history
-      response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+      response = await callClaudeWithFallback({
         max_tokens: 1024,
         system: systemPrompt,
         tools,
