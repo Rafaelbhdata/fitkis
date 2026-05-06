@@ -130,17 +130,45 @@ ${templatesBlock}
 EJERCICIOS POR TEMPLATE (usa los ids tal cual):
 ${JSON.stringify(exercisesByTemplate, null, 2)}
 
-REGLAS DE CARGAS INICIALES:
-- Conservadoras siempre. Es mejor que la primera sesión se sienta ligera.
-- Para principiantes / nuevos: ~25-30% del peso corporal en compounds (banca, sentadilla, peso muerto), ~10-15% en accesorios.
-- Para retornantes: ~35-45% del peso corporal en compounds.
-- Para intermedios: ~50-60% del peso corporal en compounds.
-- Para mancuernas, divide entre 2 (es por mano).
-- Para máquinas/poleas, calcula similar al barbell pero un poco menos por la asistencia mecánica.
-- Si el peso corporal del usuario es null/desconocido, usa 70 kg como default razonable.
-- Las cargas son en LIBRAS (lbs). Convierte de kg si necesitas (kg × 2.2).
+REGLAS DE CARGAS INICIALES (CRÍTICO — los usuarios prueban la primera sesión y si las cargas están muy altas se desmotivan o se lesionan):
+
+Estas son cargas para la PRIMERA sesión. NO son las cargas reales del usuario, son un punto de partida deliberadamente cómodo. La meta es que la primera sesión se sienta ligera-a-moderada para que aprenda la técnica con margen, y que el sistema vaya subiendo carga sesión a sesión.
+
+PORCENTAJES SOBRE PESO CORPORAL TOTAL (bodyweight, no per-side):
+
+Compounds (banca con barra, sentadilla, peso muerto):
+- new (nuevo): 20-25% del bodyweight
+- returning (vuelve después de pausa): 30-35%
+- intermediate: 40-50%  ← NUNCA más
+- advanced: 55-65%      ← NUNCA más
+
+Press militar / overhead:
+- Aproximadamente 60% del valor de bench para esa misma persona.
+
+Accesorios / aislamiento (curl, elevaciones laterales, extensiones, etc.):
+- 8-15% del bodyweight, según el ejercicio. Curl bíceps puede ser 12%, elevaciones laterales 5-8%.
+
+EJEMPLOS para anclar tu cálculo (peso corporal 70 kg = 154 lbs):
+- nuevo: bench ~30-35 lbs total, sentadilla ~30-40 lbs total, curl bíceps ~15 lbs.
+- intermedio: bench ~65-75 lbs total, sentadilla ~70-90 lbs total, press militar ~40-50 lbs total.
+- advanced: bench ~90-100 lbs total, sentadilla ~100-120 lbs total.
+
+PESOS ABSURDOS QUE NO DEBES PROPONER:
+- Bench 185 lbs para alguien de 70 kg intermedio. Eso es 120% bodyweight, nivel competitivo.
+- Sentadilla > 1.5× bodyweight como inicio. Imposible para v1.
+- Curl bíceps > 30 lbs por mano. Eso solo lo hacen advanced muy fuertes.
+
+EQUIPO:
+- Si el ejercicio dice "Mancuernas" en el nombre o equipment, tu número es PESO POR MANCUERNA (cada mano). Aplica el porcentaje al total y divide entre 2.
+- Si dice "Barra" / "Smith" / "Press de Banca": peso TOTAL incluyendo la barra (40-45 lbs típicos).
+- Si dice "Máquina" / "Polea": calcula similar al equivalente con barra pero ~80% por la asistencia mecánica.
+
+OUTPUT:
+- Cargas en LIBRAS (lbs). Convierte de kg si necesitas (kg × 2.205).
 - Redondea a múltiplos de 5 lbs. Mínimo 5 lbs.
-- Solo da pesos para ejercicios CON peso (no plancha, no abdominales sin carga).
+- NO incluyas ejercicios sin peso (plancha, abdominales sin carga, sentadilla goblet sin peso, etc.) — omítelos del JSON.
+
+Si el peso corporal es desconocido, usa 70 kg (154 lbs) como default y aplica los rangos de "nuevo" para ser ultra-conservador.
 
 REGLAS DE TEMPLATE:
 - Solo recomienda templates marcados [AVAILABLE].
