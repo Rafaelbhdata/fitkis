@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -243,7 +243,7 @@ Devuelve UN template en el JSON.`
   let aiJson: any = null
   try {
     const resp = await callClaudeWithFallback({
-      max_tokens: 8000,
+      max_tokens: 12000,
       system,
       messages: [{ role: 'user', content: userMsg }],
     })
