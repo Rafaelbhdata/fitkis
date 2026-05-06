@@ -740,17 +740,24 @@ async function getPatientContext(
   }
 }
 
+// Manual Spanish date formatting — toLocaleDateString('es-MX') is unreliable
+// on Vercel's Node runtime (locale data may not be bundled).
+const DAYS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+const MONTHS_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+]
+
 function buildSystemPrompt(context: PatientContext): string {
   // Anchor "today" so Claude can compute "ayer", "el lunes", etc. when the
   // user logs food/weight after the fact. Without this, the model has no
   // ground truth for relative dates and defaults to its training cutoff.
   const today = getTodayInTimezone('America/Mexico_City')
-  const todayHumanLong = new Date(today + 'T12:00:00').toLocaleDateString('es-MX', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  const [yyyy, mm, dd] = today.split('-').map(Number)
+  // Construct date at noon UTC to avoid TZ flips on edge dates.
+  const anchorDate = new Date(Date.UTC(yyyy, mm - 1, dd, 12, 0, 0))
+  const todayHumanLong = `${DAYS_ES[anchorDate.getUTCDay()]} ${dd} de ${MONTHS_ES[mm - 1]} de ${yyyy}`
+
   const dateSection = `
 FECHA ACTUAL:
 - Hoy es ${todayHumanLong} (${today} en formato YYYY-MM-DD).
