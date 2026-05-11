@@ -3,8 +3,39 @@
 ## Estado general
 - Setup del proyecto ✅ COMPLETADO
 - Sistema de diseño UI ✅ COMPLETADO (Rediseño v5.0 - "Paper & Pulse")
-- **B2B Platform ✅ EN PROGRESO** (Sprint 22 abril 2026)
+- **Web = portal clínico exclusivo** ✅ EN PROGRESO (Fase 1 · 11 mayo 2026, rama `clinic/v5-paper-pulse`)
 - **App móvil ✅ PARIDAD FUNCIONAL** (4 mayo 2026 — pendiente polish + release)
+
+## 🔄 Pivote 11 mayo 2026 · web = solo nutriólogas
+
+**Decisión:** el repo web pasa a ser **únicamente el portal de nutriólogas**. La app del paciente vive en `fitkis-mobile`. Cutover hecho — no esperamos al post-launch.
+
+**Qué se movió a `legacy/`:**
+- Todas las rutas del paciente (`app/(app)/`: dashboard, gym, food, weight, habits, journal, coach, settings, equivalentes, admin)
+- Componentes del paciente (`components/{coach,food,gym,habits}/`, `MobileDock.tsx`, `ui/{Sidebar,Header,SideMenu}.tsx`)
+- Tests del paciente (`__tests__/components/gym/`)
+- Primera versión del clínico → `legacy/app/(clinic-v0)/` (referencia para la lógica de queries Supabase)
+
+**Qué se conservó intacto:**
+- BD Supabase (todas las migraciones, todas las tablas — incluyendo `practitioners`, `practitioner_patients`, `weight_logs`, `food_logs`, `diet_configs`, etc.)
+- `app/api/*` — siguen sirviendo al móvil vía bearer JWT
+- `app/(auth)/{login,register}`, `app/{privacy,terms,download}/`
+- `middleware.ts` (actualizado: usuarios sin rol practitioner van a `/download`, no `/dashboard`)
+- Primitivos v5 en `components/ui/` (PulseLine, Btn, Chip, Card, Fk, BigNum, Sparkline, Segments, …)
+
+**Stack del nuevo clínico v5 (Fase 1):**
+- Route group `app/(clinic)/` con sidebar 240px + topbar editorial + banner "Modo demo"
+- Páginas: `/clinic` (lista), `/clinic/pacientes/[id]` (detalle), `/clinic/pacientes/[id]/plan` (editor SMAE), stubs para `agenda`, `reportes`, `biblioteca`, `ajustes`
+- Datos: `lib/clinic/mock-data.ts` — **MOCK PURO**, no toca BD. Fase 2 cableará a Supabase reusando lógica de `legacy/app/(clinic-v0)/clinic/page.tsx`.
+- Iconos del clínico: `components/clinic/Ic.tsx` (matching prototipo `kit.jsx`)
+
+**Próximos pasos:**
+1. Validar diseño con usuario(a) real (Rocío) sobre el mock
+2. Fase 2: cablear queries reales (PATIENTS → `get_practitioner_patients`, detalle → `weight_logs` + `diet_configs`)
+3. Implementar Agenda (necesita tablas nuevas: `appointments`, `appointment_types`)
+4. Implementar Biblioteca (tablas nuevas: `diet_templates`, `message_templates`, `recipes`)
+5. Notas de consulta (tabla `consultation_notes`)
+6. Sistema de invitaciones email (lógica ya existe en legacy, sólo replumbing)
 
 ## App móvil
 
@@ -14,8 +45,6 @@ Repo: `https://github.com/Rafaelbhdata/fitkis-mobile`
 - Plans 1–6 completos: auth, dashboard, gym, food (con barcode + plate AI), habits, weight, coach AI, journal, settings con delete account.
 - API routes en Vercel aceptan bearer JWT via `lib/api-auth.ts` (Plan 1).
 - Plan 7 en curso: polish (safe-area, KAV, a11y, empty states) + smoke test consolidado. Fases 7b (assets), 7c (closed beta) y 8 (public release) gated en aprobación de Apple Developer.
-
-**Patient routes en web:** vivas pero frozen hasta que móvil se valide en producción 2–4 semanas. Cutover (eliminar/redirect) es decisión post-launch.
 
 **Archivos sincronizados manualmente entre repos:** `types/index.ts`, `lib/utils.ts`, `lib/constants.ts`, `lib/journal-questions.ts`. PRs deben listar los espejados.
 

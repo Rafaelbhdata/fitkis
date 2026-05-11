@@ -40,26 +40,17 @@ export async function middleware(request: NextRequest) {
   // getAuthedUser, which supports bearer tokens (mobile) AND cookies (web).
   // Listing them in middleware redirects bearer-only mobile requests to
   // /login (307) because the middleware can only see cookies.
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') ||
-                           request.nextUrl.pathname.startsWith('/gym') ||
-                           request.nextUrl.pathname.startsWith('/food') ||
-                           request.nextUrl.pathname.startsWith('/habits') ||
-                           request.nextUrl.pathname.startsWith('/weight') ||
-                           request.nextUrl.pathname.startsWith('/journal') ||
-                           request.nextUrl.pathname.startsWith('/coach') ||
-                           request.nextUrl.pathname.startsWith('/settings')
-
   const isClinicRoute = request.nextUrl.pathname.startsWith('/clinic')
 
   // Redirect to login if accessing protected route without auth
-  if (!user && (isProtectedRoute || isClinicRoute)) {
+  if (!user && isClinicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Logged-in user landing on auth pages: route by role.
-  // Practitioners go to /clinic, patients to /dashboard.
+  // Logged-in user landing on auth pages: practitioners -> /clinic,
+  // anyone else gets the download page (patient app lives elsewhere).
   if (user && isAuthPage) {
     const { data: practitioner } = await supabase
       .from('practitioners')
@@ -68,13 +59,11 @@ export async function middleware(request: NextRequest) {
       .maybeSingle()
 
     const url = request.nextUrl.clone()
-    url.pathname = practitioner ? '/clinic' : '/dashboard'
+    url.pathname = practitioner ? '/clinic' : '/download'
     return NextResponse.redirect(url)
   }
 
   // Enforce practitioner role for /clinic/*
-  // Clinic pages still do their own defense-in-depth check, but this blocks
-  // unauthenticated probing and makes the boundary explicit.
   if (user && isClinicRoute) {
     const { data: practitioner } = await supabase
       .from('practitioners')
@@ -84,7 +73,7 @@ export async function middleware(request: NextRequest) {
 
     if (!practitioner) {
       const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
+      url.pathname = '/download'
       return NextResponse.redirect(url)
     }
   }
