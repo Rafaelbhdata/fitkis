@@ -175,19 +175,17 @@ async function enrichPatient(
     alert,
     adherence: null,
     streak: 0,
-    // Stash the real patient_id so the detail route can fetch by it.
-    // Cast to keep the existing MockPatient type — we'll read this via a typed helper.
-    ...({ _patient_id: rel.patient_id, _relation_id: rel.relation_id } as object),
-  } as MockPatient
+    _patient_id: rel.patient_id,
+  }
 }
 
 /**
- * El MockPatient.id es un ordinal local, no el UUID real. Para encontrar el
- * paciente "por id" (UUID) usamos este accessor. La UI de lista guarda el
- * UUID en `_patient_id` (campo extendido — ver enrichPatient).
+ * Devuelve el UUID real del paciente en Supabase.
+ * Siempre presente en registros que vienen de `enrichPatient`; null solo si se
+ * usa un MockPatient de mock-data puro (desarrollo local sin BD).
  */
 export function patientRealId(p: MockPatient): string | null {
-  return (p as unknown as { _patient_id?: string })._patient_id ?? null
+  return p._patient_id ?? null
 }
 
 // =============================================================================
@@ -242,38 +240,36 @@ export async function loadPatientDetail(
 
   if (!relation) return null
 
-  const [{ data: profile }, { data: weights }, { data: diet }, { data: emailRow }] =
-    await Promise.all([
-      supabase
-        .from('user_profiles')
-        .select('height_cm, goal_weight_kg')
-        .eq('user_id', patientId)
-        .maybeSingle(),
-      supabase
-        .from('weight_logs')
-        .select('id, user_id, date, weight_kg, muscle_mass_kg, body_fat_mass_kg, body_fat_percentage, notes, created_at')
-        .eq('user_id', patientId)
-        .order('date', { ascending: false })
-        .limit(30),
-      supabase
-        .from('diet_configs')
-        .select('id, effective_date, version, verdura, fruta, carb, leguminosa, proteina, grasa, notes, active_meals')
-        .eq('user_id', patientId)
-        .eq('active', true)
-        .order('effective_date', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      // Look up the patient's email by id. Re-uses get_user_by_email by
-      // working backwards is not possible (it's email→id), so we hit
-      // get_practitioner_patients for this single row.
-      supabase
-        .rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never),
-    ])
+  const [{ data: profile }, { data: weights }, { data: diet }] = await Promise.all([
+    supabase
+      .from('user_profiles')
+      .select('height_cm, goal_weight_kg, display_name')
+      .eq('user_id', patientId)
+      .maybeSingle(),
+    supabase
+      .from('weight_logs')
+      .select('id, user_id, date, weight_kg, muscle_mass_kg, body_fat_mass_kg, body_fat_percentage, notes, created_at')
+      .eq('user_id', patientId)
+      .order('date', { ascending: false })
+      .limit(30),
+    supabase
+      .from('diet_configs')
+      .select('id, effective_date, version, verdura, fruta, carb, leguminosa, proteina, grasa, notes, active_meals')
+      .eq('user_id', patientId)
+      .eq('active', true)
+      .order('effective_date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
 
-  const emailRows = (emailRow ?? []) as GetPractitionerPatientsRow[]
-  const myRow = emailRows.find((r) => r.patient_id === patientId)
-  const email = myRow?.patient_email ?? ''
-  const displayName = myRow?.patient_name || email || `Paciente ${patientId.slice(0, 6)}`
+  // Email no está disponible sin una RPC server-side (auth.users no es accesible
+  // desde el cliente). Se obtiene display_name de user_profiles como nombre
+  // preferido. TODO Fase 3: agregar RPC get_patient_for_practitioner(p_uuid, pat_uuid)
+  // que devuelva email + name en un solo round-trip.
+  const displayName =
+    (profile as { display_name?: string } | null)?.display_name ||
+    `Paciente ${patientId.slice(0, 6)}`
+  const email = ''
 
   const weightHistory = ((weights ?? []) as WeightLog[]).slice().reverse()
   const weightArr = weightHistory.map((w) => w.weight_kg).filter((v): v is number => v != null)
@@ -386,6 +382,12 @@ export async function savePlanDraft(
   })
 
   if (insertErr) {
+    // Compensate: reactivate the old plan so the patient is never left without one.
+    // This is a best-effort rollback — if it also fails the inconsistency is logged
+    // but not surfaced as a second error to avoid confusing the UI.
+    if (current?.id) {
+      await supabase.from('diet_configs').update({ active: true }).eq('id', current.id)
+    }
     return { ok: false, error: `No se pudo guardar el plan: ${insertErr.message}` }
   }
   return { ok: true, version: nextVersion }
