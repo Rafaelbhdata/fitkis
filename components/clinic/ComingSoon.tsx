@@ -3,7 +3,9 @@
 import { ClinicTopbar } from './Topbar'
 
 /**
- * ComingSoon — placeholder editorial para pantallas no implementadas en Fase 1.
+ * ComingSoon — placeholder editorial para pantallas no implementadas en Fase 2.
+ * Reemplaza el MockBanner global ahora que los datos son reales en las
+ * pantallas principales.
  */
 export function ComingSoon({
   sub,
@@ -30,7 +32,7 @@ export function ComingSoon({
           }}
         >
           <div className="fk-eyebrow" style={{ marginBottom: 12, color: 'var(--signal)' }}>
-            Fase 2 · próximamente
+            Fase 3 · próximamente
           </div>
           <p
             className="fk-serif"

@@ -15,7 +15,8 @@
 
 export type AlertKind = 'inactividad' | 'estancamiento' | null
 
-export type PatientStatus = 'active' | 'pending' | 'archived'
+/** Espejo del enum en BD (`practitioner_patients.status`). */
+export type PatientStatus = 'active' | 'pending' | 'inactive'
 
 export type MockPatient = {
   id: number
