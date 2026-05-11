@@ -3,25 +3,61 @@
 ## Estado general
 - Setup del proyecto ✅ COMPLETADO
 - Sistema de diseño UI ✅ COMPLETADO (Rediseño v5.0 - "Paper & Pulse")
-- **B2B Platform ✅ EN PROGRESO** (Sprint 22 abril 2026)
+- **Plataforma web para profesionales 🔄 EN REDISEÑO** — módulos de paciente eliminados, handoff de diseño pendiente
 - **App móvil ✅ PARIDAD FUNCIONAL** (4 mayo 2026 — pendiente polish + release)
+
+## Arquitectura actual
+
+La web y la app móvil tienen responsabilidades separadas:
+
+| Plataforma | Audiencia | Estado |
+|---|---|---|
+| Web (este repo) | Nutriólogos / profesionales | Rediseño en curso — solo `/clinic/*` activo |
+| App móvil | Pacientes / usuarios | Paridad funcional, Plan 7 (polish) en curso |
+
+Ambas plataformas comparten el mismo backend Supabase y endpoints `/api/*`.
 
 ## App móvil
 
 Repo: `https://github.com/Rafaelbhdata/fitkis-mobile`
 
-- React Native + Expo SDK 54, comparte backend Supabase y endpoints `/api/*`.
+- React Native + Expo SDK 54.
 - Plans 1–6 completos: auth, dashboard, gym, food (con barcode + plate AI), habits, weight, coach AI, journal, settings con delete account.
-- API routes en Vercel aceptan bearer JWT via `lib/api-auth.ts` (Plan 1).
-- Plan 7 en curso: polish (safe-area, KAV, a11y, empty states) + smoke test consolidado. Fases 7b (assets), 7c (closed beta) y 8 (public release) gated en aprobación de Apple Developer.
-
-**Patient routes en web:** vivas pero frozen hasta que móvil se valide en producción 2–4 semanas. Cutover (eliminar/redirect) es decisión post-launch.
+- API routes en Vercel aceptan bearer JWT via `lib/api-auth.ts`.
+- Plan 7 en curso: polish (safe-area, KAV, a11y, empty states) + smoke test consolidado.
 
 **Archivos sincronizados manualmente entre repos:** `types/index.ts`, `lib/utils.ts`, `lib/constants.ts`, `lib/journal-questions.ts`. PRs deben listar los espejados.
 
 ---
 
 ## Ultimo agente
+Agente: Limpieza web + middleware profesional
+Fecha: 11 de mayo 2026
+Qué hizo:
+
+### Conversión web a plataforma exclusiva para profesionales (11 mayo) ✅
+
+**Decisión:** La web queda exclusiva para nutriólogos. Los pacientes usan únicamente la app móvil.
+
+**Cambios:**
+- **Eliminado `app/(app)/`** completo: dashboard, gym, food, habits, weight, journal, coach, settings, admin, equivalentes (16 archivos, ~8,355 líneas)
+- **Middleware reescrito** (`middleware.ts`):
+  - Sin sesión + ruta protegida → `/login`
+  - Autenticado + profesional + página de auth → `/clinic`
+  - Autenticado + no profesional + página de auth → `/download`
+  - Ruta `/clinic/*` + no profesional → `/download`
+  - `/onboarding` protegida (requiere sesión)
+  - Rutas `/api/*` excluidas del middleware (usan `lib/api-auth.ts` con bearer token)
+- **`UserRole`** en `types/index.ts`: `'practitioner'` → `'professional'`
+- **Commit:** `refactor(web): eliminar módulos de paciente — web queda exclusiva para profesionales`
+
+**Pendiente (bloqueado por handoff de diseño):**
+- Flujo de invitación de profesionales (`/api/invite-professional` + `/onboarding`)
+- Rediseño del dashboard `/clinic`
+
+---
+
+## Agente Anterior
 Agente: agent:fix — Timezone bug
 Fecha: 24 de abril 2026
 Que hizo:
@@ -943,7 +979,19 @@ URL Vercel: (configurar en Vercel con el repo de GitHub)
 - Login con `supabase.auth.signInWithPassword()`
 - Register con `supabase.auth.signUp()`
 - Logout con `supabase.auth.signOut()`
-- Middleware protege rutas /dashboard, /gym, /food, /habits, /weight
+- Middleware v2: routing por rol — profesional → `/clinic`, paciente → `/download`
+- Verificación de rol vía tabla `practitioners` (chequeo en middleware + defensa en profundidad en páginas)
+
+### Plataforma profesional (web): 🔄 En rediseño
+- `/clinic` existente: lista de pacientes, perfil, editor de plan, reportes, settings del profesional
+- Pendiente handoff de diseño para rediseño completo
+- Flujo de invitación aún no construido (admin crea cuenta → email → onboarding)
+- `UserRole`: `'user' | 'professional'`
+
+### Módulos de paciente (web): 🗑️ Eliminados (11 mayo 2026)
+- Toda la funcionalidad de paciente migrada a la app móvil
+- `app/(app)/` eliminado del repo
+- Pacientes que lleguen a la web ven `/download`
 
 ### UI: ✅ Completado (Rediseno v5.0 - "Paper & Pulse")
 **Sistema de Diseno:**
@@ -1134,53 +1182,67 @@ Para Vercel, configurar las mismas variables en Settings > Environment Variables
 fitkis/
 ├── app/
 │   ├── api/
-│   │   └── chat/route.ts (Coach AI - Anthropic integration)
-│   ├── (auth)/login, register
-│   ├── (app)/
-│   │   ├── layout.tsx (sidebar desktop + header mobile)
-│   │   ├── dashboard, gym/*, food/*, weight, habits/*
-│   │   ├── coach/page.tsx (NUEVO - Coach AI chat)
-│   │   ├── journal/page.tsx (reflexiones diarias)
-│   │   ├── settings/page.tsx (perfil y dieta)
-│   │   └── admin/seed/page.tsx (seed data page)
-│   ├── layout.tsx, page.tsx, globals.css
+│   │   ├── chat/route.ts          (Coach AI — Anthropic, tool-use)
+│   │   ├── coach/route.ts
+│   │   ├── plate-analysis/route.ts
+│   │   ├── barcode-lookup/route.ts
+│   │   ├── barcode-ai-estimate/route.ts
+│   │   ├── inbody-analysis/route.ts
+│   │   ├── suggested-prompts/route.ts
+│   │   ├── daily-quote/route.ts
+│   │   ├── exercises/route.ts
+│   │   └── delete-account/route.ts
+│   ├── (auth)/
+│   │   ├── login/page.tsx
+│   │   └── register/page.tsx
+│   ├── (clinic)/                  ← único grupo de rutas web activo
+│   │   ├── layout.tsx             (sidebar con navegación de clínica)
+│   │   └── clinic/
+│   │       ├── page.tsx           (dashboard — lista de pacientes, alertas)
+│   │       ├── patient/[id]/page.tsx
+│   │       ├── patient/[id]/plan/page.tsx
+│   │       ├── patient/[id]/report/page.tsx
+│   │       ├── reports/page.tsx
+│   │       └── settings/page.tsx
+│   ├── download/page.tsx          (página para pacientes — link a app móvil)
+│   ├── privacy/page.tsx
+│   ├── terms/page.tsx
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── globals.css
 ├── components/
-│   ├── ui/
-│   │   ├── Sidebar.tsx (desktop nav - con Journal, Settings y Coach)
-│   │   ├── Header.tsx (mobile nav)
-│   │   ├── SideMenu.tsx (mobile drawer - con Journal, Settings y Coach)
-│   │   └── Toast.tsx (notifications)
-│   ├── gym/
-│   │   ├── RestTimer.tsx, ExerciseInstructions.tsx
-│   │   ├── ProgressionBanner.tsx, SetRow.tsx
-│   │   └── index.ts (barrel export)
-│   └── coach/
-│       ├── ChatMessage.tsx (mensaje del chat con modo compact)
-│       └── CoachBubble.tsx (botón flotante + panel de chat)
+│   ├── ui/                        (primitivos v5: Btn, Card, Chip, PulseLine, etc.)
+│   ├── gym/                       (RestTimer, SetRow, ProgressionBanner, ExerciseInstructions)
+│   ├── food/                      (BarcodeScannerModal, PlatePhotoModal)
+│   └── coach/                     (CoachBubble, ChatMessage)
 ├── __tests__/
 │   ├── components/gym/*.test.tsx
 │   └── lib/utils.test.ts
+├── hooks/
+│   ├── useFocusTrap.ts
+│   └── useOnlineStatus.ts
 ├── lib/
+│   ├── api-auth.ts                (auth para API routes — bearer + cookies)
 │   ├── constants.ts, supabase.ts, hooks.ts, utils.ts
-│   ├── journal-questions.ts (200 preguntas reflexivas)
-│   └── smae-foods.json (2,637 alimentos parseados)
+│   ├── journal-questions.ts
+│   ├── routine-templates.ts
+│   ├── image-utils.ts
+│   └── smae-foods.json
 ├── public/
-│   ├── favicon.svg (icono dumbbell)
-│   └── manifest.json (PWA manifest)
+│   ├── favicon.svg
+│   ├── manifest.json
+│   └── equivalentes.xlsm
 ├── scripts/
-│   ├── parse-excel.js (parseo Excel SMAE)
-│   └── seed-food-equivalents.js (seed de alimentos)
-├── supabase/migrations/
-│   ├── 003_journal.sql
-│   ├── 004_progress_photos.sql
-│   ├── 005_user_settings.sql (profiles + diet_configs)
-│   └── 007_food_equivalents.sql (BD SMAE)
+│   ├── parse-excel.js
+│   ├── seed-food-equivalents.js
+│   └── seed-practitioner-demo.js
+├── supabase/migrations/           (001–024 + schedule_overrides.sql)
 ├── types/index.ts
-├── middleware.ts
+├── middleware.ts                  (routing por rol: professional/user)
 ├── tailwind.config.ts
 ├── jest.config.js, jest.setup.js
-├── CLAUDE.md (spec completa)
-└── context.md (este archivo)
+├── CLAUDE.md
+└── context.md
 ```
 
 ---
@@ -1199,25 +1261,20 @@ npx tsc --noEmit   # Verificar TypeScript
 
 ## Próximos pasos recomendados
 
-### ✅ COMPLETADOS
-1. ~~Configurar Vercel~~ - Importar repo de GitHub, agregar env vars ✅
-2. ~~Probar la app desplegada en producción~~ ✅
-3. ~~Implementar gráfica de peso con recharts~~ ✅
-4. ~~Implementar favoritos de comidas~~ ✅
-5. ~~Implementar gráficas de hábitos (racha, %)~~ ✅
-6. ~~Mostrar banner de progresión (+5 lbs)~~ ✅
-7. ~~Timer de descanso entre series~~ ✅
-8. ~~CRUD completo de hábitos~~ ✅
-9. ~~Extraer componentes reutilizables~~ ✅ (components/gym/)
-10. ~~Agregar tests~~ ✅ (58 tests con Jest)
-11. ~~Diseño responsive para tablet~~ ✅
+### Plataforma web (profesionales) — bloqueado por handoff de diseño
+1. Flujo de invitación: `/api/invite-professional` + página `/onboarding` para nutriólogos
+2. Rediseño del dashboard `/clinic` (lista de pacientes, métricas clave)
+3. Mejoras a vista de paciente: dieta (cumplimiento diario, tendencias), peso (composición corporal), gym (progresión por ejercicio)
 
-### Pendiente (Mejoras futuras)
-1. E2E tests con Playwright
-2. Skeleton loaders para mejor UX de carga
-3. PWA: offline support, install prompt (manifest.json ya existe)
-4. Notificaciones push para recordatorios
-5. Exportar datos a CSV/PDF
+### App móvil
+1. Plan 7: polish (safe-area, KAV, a11y, empty states)
+2. Smoke test consolidado
+3. Fases 7b (assets), 7c (closed beta), 8 (public release) — gated en Apple Developer
+
+### Deuda técnica
+- Remover `as any` en operaciones Supabase (usar `supabase gen types`)
+- Skeleton loaders en lugar de spinner genérico
+- E2E tests con Playwright
 
 ### Migraciones ejecutadas ✅
 - `003_journal.sql` - journal_entries, journal_used_questions
