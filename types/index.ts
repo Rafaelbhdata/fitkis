@@ -4,7 +4,7 @@ export type Feeling = 'muy_pesado' | 'dificil' | 'perfecto' | 'ligero' | 'quiero
 
 export type MealType = 'desayuno' | 'snack1' | 'comida' | 'snack2' | 'cena' | 'snack3'
 
-export type UserRole = 'user' | 'practitioner'
+export type UserRole = 'user' | 'professional'
 
 export type PatientStatus = 'pending' | 'active' | 'inactive'
 
