@@ -485,3 +485,92 @@ function pickInitial(name: string | null | undefined, email: string | null | und
   const source = (name || email || '?').trim()
   return source.charAt(0).toUpperCase() || '?'
 }
+
+// =============================================================================
+// ADMIN
+// =============================================================================
+
+/**
+ * Verifica si el usuario tiene rol 'admin' en user_profiles.
+ * Usado por middleware y API routes para proteger rutas de administración.
+ */
+export async function isAdminUser(supabase: SB, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('role')
+    .eq('user_id', userId)
+    .maybeSingle()
+  return data?.role === 'admin'
+}
+
+export type ProfessionalRow = {
+  id: string
+  user_id: string
+  display_name: string
+  license_number: string | null
+  specialty: string | null
+  clinic_name: string | null
+  active: boolean
+  created_at: string
+  patient_count: number
+}
+
+/**
+ * Lista todos los profesionales registrados en la plataforma.
+ * Solo accesible para admins (RLS lo garantiza + se verifica en la UI/API).
+ */
+export async function loadAllProfessionals(supabase: SB): Promise<ProfessionalRow[]> {
+  const { data, error } = await supabase
+    .from('practitioners')
+    .select('id, user_id, display_name, license_number, specialty, clinic_name, active, created_at')
+    .order('created_at', { ascending: false })
+
+  if (error || !data) return []
+
+  // Enriquecer con conteo de pacientes activos
+  const enriched = await Promise.all(
+    (data as ProfessionalRow[]).map(async (p) => {
+      const { count } = await supabase
+        .from('practitioner_patients')
+        .select('id', { count: 'exact', head: true })
+        .eq('practitioner_id', p.id)
+        .eq('status', 'active')
+      return { ...p, patient_count: count ?? 0 }
+    })
+  )
+
+  return enriched
+}
+
+/**
+ * Desactiva un profesional (soft-delete: active = false).
+ * Sus pacientes vinculados y datos históricos se conservan.
+ */
+export async function deactivateProfessional(
+  supabase: SB,
+  practitionerId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await supabase
+    .from('practitioners')
+    .update({ active: false })
+    .eq('id', practitionerId)
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
+/**
+ * Reactiva un profesional previamente desactivado.
+ */
+export async function reactivateProfessional(
+  supabase: SB,
+  practitionerId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await supabase
+    .from('practitioners')
+    .update({ active: true })
+    .eq('id', practitionerId)
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
