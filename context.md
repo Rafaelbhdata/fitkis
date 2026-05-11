@@ -3,39 +3,104 @@
 ## Estado general
 - Setup del proyecto ✅ COMPLETADO
 - Sistema de diseño UI ✅ COMPLETADO (Rediseño v5.0 - "Paper & Pulse")
-- **Web = portal clínico exclusivo** ✅ EN PROGRESO (Fase 1 · 11 mayo 2026, rama `clinic/v5-paper-pulse`)
+- **Web = portal clínico exclusivo** 🔄 EN PROGRESO (Fase 2 cerrada · 11 mayo 2026, rama `clinic/v5-paper-pulse`)
 - **App móvil ✅ PARIDAD FUNCIONAL** (4 mayo 2026 — pendiente polish + release)
 
 ## 🔄 Pivote 11 mayo 2026 · web = solo nutriólogas
 
 **Decisión:** el repo web pasa a ser **únicamente el portal de nutriólogas**. La app del paciente vive en `fitkis-mobile`. Cutover hecho — no esperamos al post-launch.
 
-**Qué se movió a `legacy/`:**
-- Todas las rutas del paciente (`app/(app)/`: dashboard, gym, food, weight, habits, journal, coach, settings, equivalentes, admin)
-- Componentes del paciente (`components/{coach,food,gym,habits}/`, `MobileDock.tsx`, `ui/{Sidebar,Header,SideMenu}.tsx`)
-- Tests del paciente (`__tests__/components/gym/`)
-- Primera versión del clínico → `legacy/app/(clinic-v0)/` (referencia para la lógica de queries Supabase)
+### Estructura final del repo
 
-**Qué se conservó intacto:**
-- BD Supabase (todas las migraciones, todas las tablas — incluyendo `practitioners`, `practitioner_patients`, `weight_logs`, `food_logs`, `diet_configs`, etc.)
-- `app/api/*` — siguen sirviendo al móvil vía bearer JWT
+**`app/(clinic)/`** — portal v5 Paper & Pulse, cableado a Supabase real (Fase 2):
+- `/clinic` — lista de pacientes (stat strip, filtros, sparklines, modal invitación)
+- `/clinic/pacientes/[id]` — detalle (hero composición, big chart, plan vigente, right rail)
+- `/clinic/pacientes/[id]/plan` — editor SMAE interactivo (presupuesto, comidas, notas, phone preview, save action)
+- `/clinic/{agenda,reportes,biblioteca,ajustes}` — stubs "Fase 3 próximamente"
+
+**`components/clinic/`** — UI específica del clínico (Sidebar, Topbar, Ic, MiniSpark, InviteModal, ComingSoon, MockBanner).
+
+**`components/ui/`** — primitivos v5 reusables (PulseLine, Fk, Btn, Chip, Card, Segments, Sparkline, BigNum, etc).
+
+**`lib/clinic/`**:
+- `queries.ts` — TODOS los loaders/mutaciones contra Supabase (`loadPractitionerByUser`, `loadPatientsForPractitioner`, `loadPatientDetail`, `savePlanDraft`, `invitePatientByEmail`). Tipo `SB = SupabaseClient<any,any,any>` para tolerar RPCs no tipadas.
+- `mock-data.ts` — kept como referencia visual; ya no se usa en las pantallas principales.
+
+**`legacy/`** — congelado, excluido del build (`tsconfig.json` excluye):
+- `app/(app)/*` — rutas del paciente (gym/food/weight/habits/journal/coach/dashboard/equivalentes/admin)
+- `app/(clinic-v0)/*` — primera versión clínica (úsala como referencia para wiring de datos)
+- `app/test/` — rutas de prueba
+- `components/{coach,food,gym,habits}/`, `MobileDock.tsx`, `ui/{Sidebar,Header,SideMenu}.tsx`
+- `__tests__/components/gym/`
+
+**Conservado intacto:**
+- BD Supabase: migraciones 001–024 + `schedule_overrides.sql`. NO tocar.
+- `app/api/*` — la app móvil las consume via bearer JWT (`lib/api-auth.ts`).
 - `app/(auth)/{login,register}`, `app/{privacy,terms,download}/`
-- `middleware.ts` (actualizado: usuarios sin rol practitioner van a `/download`, no `/dashboard`)
-- Primitivos v5 en `components/ui/` (PulseLine, Btn, Chip, Card, Fk, BigNum, Sparkline, Segments, …)
+- `middleware.ts` — sin rol practitioner → `/download`; practitioner → `/clinic`.
 
-**Stack del nuevo clínico v5 (Fase 1):**
-- Route group `app/(clinic)/` con sidebar 240px + topbar editorial + banner "Modo demo"
-- Páginas: `/clinic` (lista), `/clinic/pacientes/[id]` (detalle), `/clinic/pacientes/[id]/plan` (editor SMAE), stubs para `agenda`, `reportes`, `biblioteca`, `ajustes`
-- Datos: `lib/clinic/mock-data.ts` — **MOCK PURO**, no toca BD. Fase 2 cableará a Supabase reusando lógica de `legacy/app/(clinic-v0)/clinic/page.tsx`.
-- Iconos del clínico: `components/clinic/Ic.tsx` (matching prototipo `kit.jsx`)
+### Fase 2 cerrada (commit `02058a3`)
 
-**Próximos pasos:**
-1. Validar diseño con usuario(a) real (Rocío) sobre el mock
-2. Fase 2: cablear queries reales (PATIENTS → `get_practitioner_patients`, detalle → `weight_logs` + `diet_configs`)
-3. Implementar Agenda (necesita tablas nuevas: `appointments`, `appointment_types`)
-4. Implementar Biblioteca (tablas nuevas: `diet_templates`, `message_templates`, `recipes`)
-5. Notas de consulta (tabla `consultation_notes`)
-6. Sistema de invitaciones email (lógica ya existe en legacy, sólo replumbing)
+Todo el clínico v5 corre contra datos reales:
+- **Lista**: RPC `get_practitioner_patients` + enrich con `weight_logs`, `user_profiles`, `diet_configs`. Loading/empty/error states.
+- **Detalle**: defense-in-depth (verifica relación `practitioner_patients` antes de fetch). Composición corporal, big chart, plan vigente con grupos SMAE.
+- **Editor de plan**: pre-fill desde plan activo, "Guardar y enviar" desactiva el anterior e inserta v+1 con `prescribed_by=practitioner.id`.
+- **Invitación**: modal v5 (`InviteModal.tsx`) usa `get_user_by_email` RPC + insert en `practitioner_patients` con `status=pending`.
+
+### Pendiente · Fase 3 (priorizado)
+
+1. **Cálculo de adherencia real** — heatmap 30d del paciente. Lógica: días con cualquier registro (`weight_logs` ∪ `food_logs` ∪ `habit_logs`). Requiere agregar `loadAdherence(supabase, patientId)` en `queries.ts`.
+2. **Notas de consulta** — nueva migración `025_consultation_notes.sql`:
+   ```sql
+   CREATE TABLE consultation_notes (
+     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+     practitioner_id UUID REFERENCES practitioners ON DELETE CASCADE,
+     patient_id UUID REFERENCES auth.users ON DELETE CASCADE,
+     consulted_at TIMESTAMPTZ NOT NULL,
+     body TEXT NOT NULL,
+     action_chips JSONB,  -- [{tone:'leaf', label:'+1 fruta'}, ...]
+     created_at TIMESTAMPTZ DEFAULT now()
+   );
+   ```
+   Card cream en el detalle (ya pintada como placeholder), Btn "Notas de consulta" en el header (ya deshabilitado).
+3. **Agenda** — nueva tabla `appointments` + ventana `/clinic/agenda` (calendario semanal estilo prototipo `clinic-more.jsx` Agenda). El JSX prototipo está en `legacy/...` o el zip de design.
+4. **Reportes globales** — `/clinic/reportes` (gráficas de altas/bajas trimestre, distribución de objetivos, top resultados). Reusa lógica de `legacy/app/(clinic-v0)/clinic/reports/page.tsx`.
+5. **Biblioteca** — `/clinic/biblioteca`. Tablas nuevas:
+   - `diet_templates` (plantillas reutilizables: déficit, mantenimiento, bariátrico)
+   - `message_templates` (mensajes guardados con auto-fill `{nombre}`, `{kg}`)
+   - `recipes` (recetario con macros)
+6. **Ajustes** — `/clinic/ajustes`. CRUD del perfil del practitioner + alertas configurables (umbrales de inactividad / adherencia mínima).
+7. **Tabs del detalle aún no implementadas**: Antropometría, Alimentación, Entrenamiento, Conversación. Hoy muestran "Próximamente". Datos disponibles en `weight_logs`, `food_logs`, `gym_sessions` (RLS ya permite a practitioner via `is_practitioner_of`).
+8. **Estancamiento como alert** — `computeAlert` en `queries.ts` solo marca inactividad. Agregar lógica de peso estancado vs goal.
+9. **Reporte PDF** del paciente — Btn ya pintado en el header. Stack: `@react-pdf/renderer` o server-side puppeteer.
+
+### Cómo arrancar la rama localmente
+
+```bash
+git checkout clinic/v5-paper-pulse
+git pull
+npm install   # solo si cambió package.json
+npm run dev   # http://localhost:3000 (o 3001 si está ocupado)
+```
+
+Asegúrate de tener `.env.local` con las claves Supabase del proyecto (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
+
+Para probar el clínico necesitas una cuenta con registro en `practitioners`. Si no tienes, créala con:
+```sql
+-- en Supabase SQL editor (sustituye <USER_ID>)
+INSERT INTO practitioners (user_id, display_name, license_number, specialty)
+VALUES ('<USER_ID>', 'Tu Nombre', '12345', 'Nutrición clínica · SMAE');
+```
+
+### Notas para retomar trabajo
+
+- **Pantalla a pantalla**: cada vista en `app/(clinic)/clinic/*/page.tsx` es un Client Component que carga sus propios datos en `useEffect`. Patrón consistente: loading state con PulseLine, error state, empty state, content. Replica este patrón al hacer nuevas vistas.
+- **Diseño tokens**: nunca codificar colores en hex inline — usar las CSS vars (`var(--ink)`, `var(--signal)`, `var(--leaf-soft)`, …) definidas en `app/globals.css`.
+- **Tipografía**: títulos grandes serif italic Fraunces 300; números grandes Fraunces 300 con `letter-spacing: -0.03em`; metadata mono `JetBrains Mono` `.fk-mono` con tabular-nums.
+- **PulseLine** es la firma visual — úsala en loading states, sidebar activo, items destacados.
+- **Mock data** (`lib/clinic/mock-data.ts`) sigue ahí intencionalmente — la dejé como referencia del shape esperado, no se importa en producción. Si necesitas ver el diseño con data populada y la BD está vacía, puedes:
+  1. Vincularte a ti misma como paciente mock (registrar email tipo `test@ejemplo.com` en la app móvil, luego invitarte desde el portal)
+  2. O temporalmente reusar `MOCK_PATIENTS` cambiando el `useEffect` de la lista. **NO commitear ese cambio**.
 
 ## App móvil
 
