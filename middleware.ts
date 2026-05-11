@@ -2,9 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,9 +16,7 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
-          supabaseResponse = NextResponse.next({
-            request,
-          })
+          supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -29,52 +25,56 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const isAuthPage = request.nextUrl.pathname.startsWith('/login') ||
-                     request.nextUrl.pathname.startsWith('/register')
+  const path = request.nextUrl.pathname
 
-  // NOTE: don't list `/api/*` here. API routes do their own auth via
-  // getAuthedUser, which supports bearer tokens (mobile) AND cookies (web).
-  // Listing them in middleware redirects bearer-only mobile requests to
-  // /login (307) because the middleware can only see cookies.
-  const isClinicRoute = request.nextUrl.pathname.startsWith('/clinic')
+  const isAuthPage    = path.startsWith('/login') || path.startsWith('/register')
+  const isClinicRoute = path.startsWith('/clinic')
+  const isOnboarding  = path.startsWith('/onboarding')
+  const isAdminRoute  = path.startsWith('/admin')
+  // NOTE: /api/* y /auth/callback se excluyen intencionalmente.
+  //  - /api/* hace su propia auth con bearer tokens (app móvil) + cookies (web).
+  //  - /auth/callback necesita correr sin sesión para intercambiar el magic link code.
 
-  // Redirect to login if accessing protected route without auth
-  if (!user && isClinicRoute) {
+  // ── Rutas protegidas sin sesión → login ─────────────────────────────────
+  if (!user && (isClinicRoute || isOnboarding || isAdminRoute)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Logged-in user landing on auth pages: practitioners -> /clinic,
-  // anyone else gets the download page (patient app lives elsewhere).
-  if (user && isAuthPage) {
-    const { data: practitioner } = await supabase
-      .from('practitioners')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
+  if (user) {
+    // ── Páginas de auth con sesión activa → redirigir según rol ───────────
+    if (isAuthPage) {
+      const { data: practitioner } = await supabase
+        .from('practitioners')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
 
-    const url = request.nextUrl.clone()
-    url.pathname = practitioner ? '/clinic' : '/download'
-    return NextResponse.redirect(url)
-  }
-
-  // Enforce practitioner role for /clinic/*
-  if (user && isClinicRoute) {
-    const { data: practitioner } = await supabase
-      .from('practitioners')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (!practitioner) {
       const url = request.nextUrl.clone()
-      url.pathname = '/download'
+      // Practitioner sin perfil completo → onboarding
+      // (el propio onboarding verifica y evita bucles si ya existe el registro)
+      url.pathname = practitioner ? '/clinic' : '/download'
       return NextResponse.redirect(url)
+    }
+
+    // ── /clinic/* solo para practitioners ────────────────────────────────
+    if (isClinicRoute) {
+      const { data: practitioner } = await supabase
+        .from('practitioners')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!practitioner) {
+        const url = request.nextUrl.clone()
+        // Si acaban de completar el onboarding y aún no tiene registro activo
+        // en la sesión, los mandamos a onboarding para que no vean un error.
+        url.pathname = '/onboarding'
+        return NextResponse.redirect(url)
+      }
     }
   }
 
