@@ -41,7 +41,7 @@ function avatarColors(seed: number, status: MockPatient['status']) {
 function adherenceColor(value: number): string {
   if (value > 80) return 'var(--leaf)'
   if (value > 60) return 'var(--honey)'
-  return 'var(--berry)'
+  return 'var(--signal)'
 }
 
 export default function ClinicPatientsPage() {
