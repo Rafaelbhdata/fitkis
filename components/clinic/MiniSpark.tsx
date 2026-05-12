@@ -65,7 +65,7 @@ export function MiniSpark({
         strokeWidth="1.5"
         fill="none"
         strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeLinejoin="miter"
       />
       <circle cx={first[0]} cy={first[1]} r="1.6" fill="var(--ink-6)" />
       <circle cx={last[0]} cy={last[1]} r="2.4" fill={trendCol} />

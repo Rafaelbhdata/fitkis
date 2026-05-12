@@ -87,7 +87,7 @@ function BigSpark({
         strokeWidth="1.8"
         fill="none"
         strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeLinejoin="miter"
       />
       {pts.map((pt, i) => (
         <circle

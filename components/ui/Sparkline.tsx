@@ -59,7 +59,7 @@ export default function Sparkline({
         stroke={color}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeLinejoin="miter"
         strokeDasharray={dotted ? '3 3' : '0'}
       />
       {showEndDot && lastPoint && (
