@@ -57,7 +57,7 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
   // Campos comunes
   const [date, setDate]         = useState(todayISO())
   const [time, setTime]         = useState(nextRoundHour())
-  const [duration, setDuration] = useState(50)
+  const [duration, setDuration] = useState(60)
   const [notes, setNotes]       = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]       = useState<string | null>(null)
@@ -112,8 +112,8 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
       style={{
         flex: 1, padding: '8px 0', border: 'none', borderRadius: 8, cursor: 'pointer',
         fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500,
-        background: mode === m ? 'var(--ink)' : 'transparent',
-        color: mode === m ? 'var(--paper)' : 'var(--ink-4)',
+        background: mode === m ? 'var(--signal)' : 'transparent',
+        color: mode === m ? '#fff' : 'var(--ink-4)',
         transition: 'background 0.12s, color 0.12s',
       }}
     >
@@ -224,10 +224,10 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
           <div style={{ marginBottom:18 }}>
             <label style={labelStyle}>Duración</label>
             <select style={{ ...inputStyle, cursor:'pointer' }} value={duration} onChange={e => setDuration(Number(e.target.value))}>
+              <option value={15}>15 min</option>
               <option value={30}>30 min</option>
-              <option value={50}>50 min</option>
+              <option value={45}>45 min</option>
               <option value={60}>60 min</option>
-              <option value={90}>90 min</option>
             </select>
           </div>
 
