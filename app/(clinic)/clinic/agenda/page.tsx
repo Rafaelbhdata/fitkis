@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import Link from 'next/link'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
 import { Btn } from '@/components/ui/Btn'
 import { PulseLine } from '@/components/ui/PulseLine'
@@ -207,12 +206,6 @@ export default function AgendaPage() {
         sub="Agenda"
         title={<><span style={{ fontStyle:'italic', fontWeight:300 }}>Agenda </span>de consultas</>}
         right={<>
-          {practitioner && (
-            <Link href={`/agendar/${practitioner.id}`} target="_blank"
-              style={{ fontSize:12, color:'var(--signal)', fontFamily:'var(--f-sans)', textDecoration:'none' }}>
-              Compartir agenda →
-            </Link>
-          )}
           <Btn variant="signal" size="md" onClick={() => setNewApptOpen(true)}>
             <Ic.plus width={12} height={12} /> Nueva cita
           </Btn>
