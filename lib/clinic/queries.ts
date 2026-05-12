@@ -46,6 +46,7 @@ export type PractitionerRecord = {
   display_name: string
   license_number: string | null
   specialty: string | null
+  clinic_name: string | null
 }
 
 /**
@@ -58,7 +59,7 @@ export async function loadPractitionerByUser(
 ): Promise<PractitionerRecord | null> {
   const { data, error } = await supabase
     .from('practitioners')
-    .select('id, display_name, license_number, specialty')
+    .select('id, display_name, license_number, specialty, clinic_name')
     .eq('user_id', userId)
     .eq('active', true)
     .maybeSingle()
@@ -70,7 +71,29 @@ export async function loadPractitionerByUser(
     display_name: data.display_name,
     license_number: data.license_number ?? null,
     specialty: data.specialty ?? null,
+    clinic_name: data.clinic_name ?? null,
   }
+}
+
+export type PractitionerUpdate = {
+  display_name?: string
+  license_number?: string | null
+  specialty?: string | null
+  clinic_name?: string | null
+}
+
+export async function updatePractitioner(
+  supabase: SB,
+  practitionerId: string,
+  patch: PractitionerUpdate
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await supabase
+    .from('practitioners')
+    .update(patch as never)
+    .eq('id', practitionerId)
+
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
 }
 
 // =============================================================================
