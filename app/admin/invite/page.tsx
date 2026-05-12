@@ -93,8 +93,8 @@ export default function AdminInvitePage() {
             Invitar a la <span className="italic">plataforma</span>
           </h1>
           <p className="text-ink-4 text-sm leading-relaxed mb-10">
-            Recibirá un correo con un magic link. Al abrirlo creará su contraseña y
-            completará su perfil antes de entrar al portal.
+            Recibirá un correo con un enlace de acceso directo. Al hacer clic quedará
+            autenticada y completará su perfil antes de entrar al portal.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -142,8 +142,8 @@ export default function AdminInvitePage() {
           <div className="mt-10 p-4 rounded-xl border border-ink-7 bg-white">
             <div className="fk-eyebrow mb-2">Qué pasa después</div>
             <ol className="text-[13px] text-ink-3 space-y-2 list-decimal list-inside leading-relaxed">
-              <li>El nutriólogo recibe un email con un enlace de un solo uso.</li>
-              <li>Al hacer clic queda autenticado automáticamente y llega a la pantalla de perfil.</li>
+              <li>El nutriólogo recibe un email con un enlace de acceso directo.</li>
+              <li>Al hacer clic queda autenticado y llega al formulario de perfil.</li>
               <li>Completa nombre, cédula y especialidad.</li>
               <li>Queda activo en el portal y puede vincular pacientes.</li>
             </ol>

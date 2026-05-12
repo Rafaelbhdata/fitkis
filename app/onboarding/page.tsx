@@ -77,9 +77,8 @@ export default function OnboardingPage() {
       return
     }
 
-    // Mantener user_profiles.role sincronizado con la realidad.
-    // No es bloqueante: si falla, el middleware ya usa la tabla practitioners
-    // como fuente de verdad, así que el acceso funciona igual.
+    // Sincronizar role en user_profiles para mantener consistencia con el modelo de roles.
+    // No bloqueamos el flujo si falla — el middleware verifica la tabla practitioners directamente.
     await supabase
       .from('user_profiles')
       .update({ role: 'practitioner' })

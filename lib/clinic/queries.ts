@@ -532,32 +532,32 @@ export type ProfessionalRow = {
  * Solo accesible para admins (RLS lo garantiza + se verifica en la UI/API).
  */
 export async function loadAllProfessionals(supabase: SB): Promise<ProfessionalRow[]> {
-  // Un solo query: practitioners + count de pacientes activos via join embebido.
-  // Supabase traduce `practitioner_patients(count)` a un LEFT JOIN con agregación,
-  // eliminando el N+1 previo (un COUNT por practitioner).
-  const { data, error } = await supabase
-    .from('practitioners')
-    .select(`
-      id, user_id, display_name, license_number, specialty, clinic_name, active, created_at,
-      practitioner_patients!left(count)
-    `)
-    .eq('practitioner_patients.status', 'active')
-    .order('created_at', { ascending: false })
+  // 2 queries en lugar de N+1: una para practitioners, otra para todos los conteos.
+  const [{ data, error }, { data: relations }] = await Promise.all([
+    supabase
+      .from('practitioners')
+      .select('id, user_id, display_name, license_number, specialty, clinic_name, active, created_at')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('practitioner_patients')
+      .select('practitioner_id')
+      .eq('status', 'active'),
+  ])
 
   if (error || !data) return []
 
-  return (data as Array<Record<string, unknown>>).map((p) => ({
-    id:             p.id as string,
-    user_id:        p.user_id as string,
-    display_name:   p.display_name as string,
-    license_number: (p.license_number as string | null) ?? null,
-    specialty:      (p.specialty as string | null) ?? null,
-    clinic_name:    (p.clinic_name as string | null) ?? null,
-    active:         p.active as boolean,
-    created_at:     p.created_at as string,
-    patient_count:  Array.isArray(p.practitioner_patients)
-      ? (p.practitioner_patients as Array<{ count: number }>)[0]?.count ?? 0
-      : 0,
+  // Agrupar conteos en JS — evita un round-trip por practitioner
+  const countMap = ((relations ?? []) as { practitioner_id: string }[]).reduce<Record<string, number>>(
+    (acc, row) => {
+      acc[row.practitioner_id] = (acc[row.practitioner_id] ?? 0) + 1
+      return acc
+    },
+    {}
+  )
+
+  return (data as Omit<ProfessionalRow, 'patient_count'>[]).map((p) => ({
+    ...p,
+    patient_count: countMap[p.id] ?? 0,
   }))
 }
 
