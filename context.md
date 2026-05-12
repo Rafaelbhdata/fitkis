@@ -105,13 +105,7 @@ practitioners:
 
 ## Migraciones (acumulado)
 
-**Aplicadas:** 001–027 + `schedule_overrides.sql`
-
-**Pendientes de aplicar en Supabase SQL editor:**
-- `028_appointments.sql`
-- `029_appointments_rescheduling.sql`
-- `030_practitioners_address.sql` — columna `address TEXT`
-- `031_practitioners_schedule.sql` — columnas `schedule JSONB`, `default_duration INTEGER DEFAULT 60`
+**Aplicadas:** 001–031 + `schedule_overrides.sql` — todas aplicadas.
 
 ---
 
