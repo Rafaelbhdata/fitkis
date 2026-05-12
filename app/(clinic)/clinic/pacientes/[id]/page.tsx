@@ -859,7 +859,7 @@ function TabGym({
         {sessions.map((s) => {
           const meta    = ROUTINE_META[s.routine_type] ?? { label: s.routine_type, color: 'var(--ink-3)', bg: 'var(--paper-3)' }
           const isOpen  = expanded === s.id
-          const exIds   = [...new Set(s.sets.map((st) => st.exercise_id))]
+          const exIds   = Array.from(new Set(s.sets.map((st) => st.exercise_id)))
           const exCount = exIds.length
 
           return (

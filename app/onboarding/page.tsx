@@ -81,7 +81,7 @@ export default function OnboardingPage() {
     // No bloqueamos el flujo si falla — el middleware verifica la tabla practitioners directamente.
     await supabase
       .from('user_profiles')
-      .update({ role: 'practitioner' })
+      .update({ role: 'practitioner' } as never)
       .eq('user_id', user.id)
 
     setStep('done')
