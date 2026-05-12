@@ -599,6 +599,144 @@ function pickInitial(name: string | null | undefined, email: string | null | und
 }
 
 // =============================================================================
+// APPOINTMENTS
+// =============================================================================
+
+export type AppointmentStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
+
+export type Appointment = {
+  id: string
+  practitioner_id: string
+  patient_id: string | null
+  patient_name: string
+  patient_email: string | null
+  starts_at: string          // ISO string, UTC
+  duration_minutes: number
+  status: AppointmentStatus
+  notes: string | null
+  created_at: string
+}
+
+/** Citas de la semana que empieza en weekStart (ISO date string 'YYYY-MM-DD') */
+export async function loadAppointmentsForWeek(
+  supabase: SB,
+  practitionerId: string,
+  weekStart: string,   // 'YYYY-MM-DD'
+): Promise<Appointment[]> {
+  const end = new Date(weekStart + 'T00:00:00')
+  end.setDate(end.getDate() + 7)
+  const { data } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('practitioner_id', practitionerId)
+    .gte('starts_at', weekStart + 'T00:00:00')
+    .lt('starts_at', end.toISOString())
+    .order('starts_at', { ascending: true })
+  return (data ?? []) as Appointment[]
+}
+
+export async function createAppointment(
+  supabase: SB,
+  payload: {
+    practitioner_id: string
+    patient_name: string
+    patient_email?: string
+    patient_id?: string
+    starts_at: string    // ISO string
+    duration_minutes?: number
+    notes?: string
+  }
+): Promise<{ data: Appointment | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('appointments')
+    .insert({ ...payload, duration_minutes: payload.duration_minutes ?? 50 } as never)
+    .select()
+    .single()
+  return { data: data as Appointment | null, error: error?.message ?? null }
+}
+
+export async function updateAppointmentStatus(
+  supabase: SB,
+  id: string,
+  status: AppointmentStatus,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('appointments')
+    .update({ status } as never)
+    .eq('id', id)
+  return { error: error?.message ?? null }
+}
+
+/** Última cita completada de un paciente con un practitioner específico */
+export async function loadLastCompletedAppointment(
+  supabase: SB,
+  practitionerId: string,
+  patientId: string,
+): Promise<Appointment | null> {
+  const { data } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('practitioner_id', practitionerId)
+    .eq('patient_id', patientId)
+    .eq('status', 'completed')
+    .order('starts_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data as Appointment | null
+}
+
+/** Practitioner público (para la página de reservas) */
+export async function loadPractitionerPublic(
+  supabase: SB,
+  practitionerId: string,
+): Promise<{ id: string; display_name: string; specialty: string; clinic_name: string | null } | null> {
+  const { data } = await supabase
+    .from('practitioners')
+    .select('id, display_name, specialty, clinic_name')
+    .eq('id', practitionerId)
+    .eq('active', true)
+    .maybeSingle()
+  return data as { id: string; display_name: string; specialty: string; clinic_name: string | null } | null
+}
+
+/** Reservar cita (usado desde la API pública — sin sesión de usuario) */
+export async function bookAppointmentPublic(
+  supabase: SB,
+  payload: {
+    practitioner_id: string
+    patient_name: string
+    patient_email: string
+    starts_at: string
+    duration_minutes?: number
+    notes?: string
+  }
+): Promise<{ data: Appointment | null; error: string | null }> {
+  // Verificar conflicto de horario.
+  // Nota: esta lógica asume que todas las citas tienen la misma duración para la
+  // detección de solapamiento con citas que empiezan antes de la nueva pero terminan
+  // dentro de ella. Por ahora es aceptable con la duración por defecto de 50 min.
+  const startDt = new Date(payload.starts_at)
+  const endDt = new Date(startDt.getTime() + (payload.duration_minutes ?? 50) * 60_000)
+  const { data: conflicts } = await supabase
+    .from('appointments')
+    .select('id')
+    .eq('practitioner_id', payload.practitioner_id)
+    .not('status', 'in', '("cancelled","no_show")')
+    .lt('starts_at', endDt.toISOString())
+    .gte('starts_at', startDt.toISOString())
+    .limit(1)
+  if (conflicts && conflicts.length > 0) {
+    return { data: null, error: 'Este horario ya está ocupado.' }
+  }
+  const { data, error } = await supabase
+    .from('appointments')
+    .insert({ ...payload, duration_minutes: payload.duration_minutes ?? 50 } as never)
+    .select()
+    .single()
+  return { data: data as Appointment | null, error: error?.message ?? null }
+}
+
+// =============================================================================
 // ADMIN
 // =============================================================================
 
