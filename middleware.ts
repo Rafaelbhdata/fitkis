@@ -25,45 +25,78 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
 
-  const isAuthPage = path.startsWith('/login') || path.startsWith('/register')
+  const isAuthPage    = path.startsWith('/login') || path.startsWith('/register')
   const isClinicRoute = path.startsWith('/clinic')
-  const isOnboarding = path.startsWith('/onboarding')
+  const isOnboarding  = path.startsWith('/onboarding')
+  const isAdminRoute  = path.startsWith('/admin')
+  // NOTE: /api/* y /auth/callback se excluyen intencionalmente.
+  //  - /api/* hace su propia auth con bearer tokens (app móvil) + cookies (web).
+  //  - /auth/callback necesita correr sin sesión para intercambiar el magic link code.
 
-  // NOTE: /api/* rutas no están aquí intencionalmente — hacen su propia auth
-  // via lib/api-auth.ts con soporte para bearer tokens (móvil) y cookies (web).
-
-  // Rutas de clínica y onboarding requieren sesión
-  if (!user && (isClinicRoute || isOnboarding)) {
+  // ── Sin sesión → login ───────────────────────────────────────────────────
+  if (!user && (isClinicRoute || isOnboarding || isAdminRoute)) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
   if (user) {
-    const { data: professional } = await supabase
-      .from('practitioners')
-      .select('id')
+    // Cargamos el perfil una sola vez para todas las verificaciones de rol.
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
       .eq('user_id', user.id)
       .maybeSingle()
 
-    // Usuario autenticado en páginas de auth: redirigir según rol
+    const role = profile?.role as string | undefined
+
+    // ── Páginas de auth con sesión → redirigir según rol ──────────────────
     if (isAuthPage) {
+      if (role === 'admin') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/admin'
+        return NextResponse.redirect(url)
+      }
+      // Verificar si tiene registro en practitioners (puede tener rol 'user' aún
+      // si el onboarding no actualizó el campo role, así que chequeamos la tabla)
+      const { data: practitioner } = await supabase
+        .from('practitioners')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('active', true)
+        .maybeSingle()
+
       const url = request.nextUrl.clone()
-      url.pathname = professional ? '/clinic' : '/download'
+      url.pathname = practitioner ? '/clinic' : '/download'
       return NextResponse.redirect(url)
     }
 
-    // Rutas de clínica: solo profesionales
-    if (isClinicRoute && !professional) {
+    // ── /admin/* solo para admins ─────────────────────────────────────────
+    if (isAdminRoute && role !== 'admin') {
       const url = request.nextUrl.clone()
-      url.pathname = '/download'
+      url.pathname = '/clinic'
       return NextResponse.redirect(url)
+    }
+
+    // ── /clinic/* solo para practitioners activos ─────────────────────────
+    if (isClinicRoute) {
+      const { data: practitioner } = await supabase
+        .from('practitioners')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('active', true)
+        .maybeSingle()
+
+      if (!practitioner) {
+        const url = request.nextUrl.clone()
+        // Sin practitioner activo → onboarding (puede que acaben de ser invitados)
+        url.pathname = '/onboarding'
+        return NextResponse.redirect(url)
+      }
     }
   }
 

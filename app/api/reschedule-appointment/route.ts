@@ -1,0 +1,108 @@
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+import { Resend } from 'resend'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.app'
+
+const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  const time = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${d.getDate()} de ${MONTHS_ES[d.getMonth()]} a las ${time}`
+}
+
+/**
+ * POST /api/reschedule-appointment
+ *
+ * - reason 'no_show':  marca la cita como 'no_show' + envía email de reagendamiento
+ * - reason 'custom':   marca la cita como 'rescheduling' + envía email con mensaje personalizado
+ */
+export async function POST(req: Request) {
+  const {
+    appointmentId,
+    practitionerId,
+    practitionerName,
+    patientName,
+    patientEmail,
+    originalDate,
+    reason,
+    customMessage,
+  } = await req.json() as {
+    appointmentId:    string
+    practitionerId:   string
+    practitionerName: string
+    patientName:      string
+    patientEmail:     string
+    originalDate:     string
+    reason:           'no_show' | 'custom'
+    customMessage?:   string
+  }
+
+  if (!appointmentId || !practitionerId || !patientEmail || !reason) {
+    return NextResponse.json({ error: 'Faltan campos requeridos.' }, { status: 400 })
+  }
+
+  const newStatus = reason === 'no_show' ? 'no_show' : 'rescheduling'
+
+  const { error: updateError } = await supabaseAdmin
+    .from('appointments')
+    .update({ status: newStatus } as never)
+    .eq('id', appointmentId)
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 })
+  }
+
+  const bookingLink = `${SITE_URL}/agendar/${practitionerId}?reschedule=${appointmentId}`
+
+  if (resend) {
+    const formattedDate = formatDate(originalDate)
+    const firstName = patientName.split(' ')[0]
+
+    const bodyParagraph = reason === 'no_show'
+      ? `Notamos que no pudiste asistir a tu consulta del <strong>${formattedDate}</strong>. No te preocupes, aquí puedes elegir un nuevo horario.`
+      : customMessage
+        ? `Tu nutrióloga <strong>${practitionerName}</strong> ha solicitado reagendar tu consulta del <strong>${formattedDate}</strong> y te dejó este mensaje:<br/><br/>
+           <blockquote style="border-left:3px solid #ff5a1f;margin:0;padding:10px 16px;color:#404040;font-style:italic;">${customMessage}</blockquote>`
+        : `Tu nutrióloga <strong>${practitionerName}</strong> ha solicitado reagendar tu consulta del <strong>${formattedDate}</strong>.`
+
+    await resend.emails.send({
+      from: 'Fitkis <noreply@fitkis.app>',
+      to: patientEmail,
+      subject: reason === 'no_show'
+        ? `Agenda tu nueva consulta con ${practitionerName}`
+        : `${practitionerName} quiere reagendar tu consulta`,
+      html: `
+        <div style="font-family: Georgia, serif; max-width: 560px; margin: 0 auto; padding: 40px 24px; color: #0a0a0a;">
+          <h1 style="font-size: 28px; font-weight: 300; margin: 0 0 8px;">Hola, ${firstName}</h1>
+          <p style="font-size: 15px; color: #737373; margin: 0 0 28px; font-family: system-ui, sans-serif; line-height: 1.6;">
+            ${bodyParagraph}
+          </p>
+          <a href="${bookingLink}"
+            style="display: inline-block; background: #ff5a1f; color: #fff; text-decoration: none;
+                   padding: 14px 28px; border-radius: 999px; font-family: system-ui, sans-serif;
+                   font-size: 14px; font-weight: 600; margin-bottom: 32px;">
+            Elegir nuevo horario →
+          </a>
+          <p style="font-size: 13px; color: #a3a3a3; font-family: system-ui, sans-serif; margin: 0;">
+            Si no puedes hacer clic en el botón, copia este enlace:<br/>
+            <a href="${bookingLink}" style="color: #ff5a1f;">${bookingLink}</a>
+          </p>
+          <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0;" />
+          <p style="font-size: 12px; color: #a3a3a3; font-family: system-ui, sans-serif; margin: 0;">
+            Enviado desde el portal Fitkis en nombre de ${practitionerName}.
+          </p>
+        </div>
+      `,
+    })
+  }
+
+  return NextResponse.json({ ok: true, bookingLink })
+}

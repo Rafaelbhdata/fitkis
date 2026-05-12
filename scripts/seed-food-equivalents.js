@@ -34,7 +34,11 @@ async function seedFoodEquivalents() {
   const records = validFoods.map(f => ({
     name: f.name,
     portion: f.portion,
-    weight_g: f.weight_g || null,
+    weight_g: typeof f.weight_g === 'number'
+      ? f.weight_g
+      : (typeof f.weight_g === 'string' && /^\d+$/.test(f.weight_g.trim())
+          ? parseInt(f.weight_g.trim(), 10)
+          : null),
     category_smae: f.category_smae,
     verdura: f.verdura || 0,
     fruta: f.fruta || 0,

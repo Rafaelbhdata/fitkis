@@ -35,7 +35,7 @@ export default function LoginPage() {
     }
 
     const userId = signInData.user?.id
-    let destination = '/dashboard'
+    let destination = '/download'
     if (userId) {
       const { data: practitioner } = await supabase
         .from('practitioners')

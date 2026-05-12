@@ -36,3 +36,5 @@ next-env.d.ts
 
 # Design files
 /Handoff
+/fitkis
+Fitkis-handoff*.zip

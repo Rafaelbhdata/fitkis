@@ -14154,10 +14154,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Alubia cruda (chica o grande)",
@@ -14166,10 +14166,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Alubia enlatada guisada",
@@ -14178,10 +14178,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Alubia germinada",
@@ -14190,10 +14190,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Alverjón o chícharo seco crudo",
@@ -14202,10 +14202,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Alverjón o chícharo seco cocido",
@@ -14214,10 +14214,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Bebida vegetal Silk Soya sin azúcar, sin endulzar",
@@ -14226,10 +14226,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Chícharo germinado cocido",
@@ -14238,10 +14238,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Frijol germinado cocido",
@@ -14250,10 +14250,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Frijol germinado crudo",
@@ -14262,10 +14262,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Frijol molido",
@@ -14274,10 +14274,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Frijol promedio cocido",
@@ -14286,10 +14286,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Frijol promedio crudo",
@@ -14298,10 +14298,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Frijoles enteros enlatados",
@@ -14310,10 +14310,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Frijoles refritos, caseros o enlatados",
@@ -14322,10 +14322,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Gandul",
@@ -14334,10 +14334,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Garbanzo cocido",
@@ -14346,10 +14346,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Garbanzo crudo",
@@ -14358,10 +14358,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Garbanzo enlatado",
@@ -14370,10 +14370,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Haba seca cocida",
@@ -14382,10 +14382,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Haba seca cruda",
@@ -14394,10 +14394,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Harina de frijol",
@@ -14406,10 +14406,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Harina de garbanzo",
@@ -14418,10 +14418,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Harina de haba",
@@ -14430,10 +14430,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Harina de lenteja",
@@ -14442,10 +14442,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Harina de soya",
@@ -14454,10 +14454,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Harina de soya baja en grasa",
@@ -14466,10 +14466,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Harina de soya sin grasa",
@@ -14478,10 +14478,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Hummus",
@@ -14490,10 +14490,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Ibes o haba de lima cocido",
@@ -14502,10 +14502,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Ibes o haba de lima crudo",
@@ -14514,10 +14514,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Lenteja cocida",
@@ -14526,10 +14526,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Lenteja cruda",
@@ -14538,10 +14538,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Miso (soybean paste)",
@@ -14550,10 +14550,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Soya cocida",
@@ -14562,10 +14562,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Soya texturizada",
@@ -14574,10 +14574,10 @@
     "category_smae": "Leguminosas",
     "verdura": 0,
     "fruta": 0,
-    "carb": 1,
+    "carb": 0,
     "proteina": 0,
     "grasa": 0,
-    "leguminosa": 0
+    "leguminosa": 1
   },
   {
     "name": "Abulón fresco",
