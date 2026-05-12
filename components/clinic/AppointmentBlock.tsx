@@ -4,6 +4,27 @@ import { useState } from 'react'
 import Link from 'next/link'
 import type { Appointment, AppointmentStatus } from '@/lib/clinic/queries'
 
+function NameLink({ patientId, name, cancelled }: { patientId: string; name: string; cancelled: boolean }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <Link
+      href={`/clinic/pacientes/${patientId}`}
+      onClick={e => e.stopPropagation()}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'block', fontFamily: 'var(--f-sans)', fontSize: 11, fontWeight: 500,
+        color: hov ? 'var(--signal)' : 'var(--ink)',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        textDecoration: cancelled ? 'line-through' : 'none',
+        marginTop: 1, cursor: 'pointer', transition: 'color 0.1s',
+      }}
+    >
+      {name}
+    </Link>
+  )
+}
+
 const STATUS_CFG: Record<AppointmentStatus, { bg: string; border: string; color: string }> = {
   scheduled:    { bg: 'var(--paper-2)',    border: 'var(--ink-4)', color: 'var(--ink-3)'  },
   confirmed:    { bg: 'var(--sky-soft)',   border: 'var(--sky)',   color: 'var(--sky)'    },
@@ -78,19 +99,7 @@ export function AppointmentBlock({ appt, top, height, onStatusChange, onReschedu
 
       {/* Patient name — clickeable si tiene patient_id en el sistema */}
       {appt.patient_id ? (
-        <Link
-          href={`/clinic/pacientes/${appt.patient_id}`}
-          onClick={e => e.stopPropagation()}
-          style={{
-            display: 'block', fontFamily: 'var(--f-sans)', fontSize: 11, fontWeight: 500,
-            color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            textDecoration: appt.status === 'cancelled' ? 'line-through' : 'underline',
-            textDecorationColor: 'var(--ink-6)', textUnderlineOffset: 2,
-            marginTop: 1, cursor: 'pointer',
-          }}
-        >
-          {appt.patient_name}
-        </Link>
+        <NameLink patientId={appt.patient_id!} name={appt.patient_name} cancelled={appt.status === 'cancelled'} />
       ) : (
         <div style={{
           fontFamily: 'var(--f-sans)', fontSize: 11, fontWeight: 500, color: 'var(--ink)',
