@@ -47,6 +47,7 @@ export type PractitionerRecord = {
   license_number: string | null
   specialty: string | null
   clinic_name: string | null
+  address: string | null
 }
 
 /**
@@ -59,7 +60,7 @@ export async function loadPractitionerByUser(
 ): Promise<PractitionerRecord | null> {
   const { data, error } = await supabase
     .from('practitioners')
-    .select('id, display_name, license_number, specialty, clinic_name')
+    .select('id, display_name, license_number, specialty, clinic_name, address')
     .eq('user_id', userId)
     .eq('active', true)
     .maybeSingle()
@@ -72,6 +73,7 @@ export async function loadPractitionerByUser(
     license_number: data.license_number ?? null,
     specialty: data.specialty ?? null,
     clinic_name: data.clinic_name ?? null,
+    address: data.address ?? null,
   }
 }
 
@@ -80,6 +82,7 @@ export type PractitionerUpdate = {
   license_number?: string | null
   specialty?: string | null
   clinic_name?: string | null
+  address?: string | null
 }
 
 export async function updatePractitioner(

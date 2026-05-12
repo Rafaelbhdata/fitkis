@@ -468,6 +468,7 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
   const bookingUrl = `${siteUrl}/agendar/${practitioner.id}`
 
   const [clinicName, setClinicName] = useState(practitioner.clinic_name ?? '')
+  const [address,    setAddress]    = useState(practitioner.address ?? '')
   const [loading, setLoading] = useState(false)
   const [saved,   setSaved]   = useState(false)
   const [error,   setError]   = useState<string | null>(null)
@@ -475,7 +476,10 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
 
   async function handleSave() {
     setLoading(true); setError(null); setSaved(false)
-    const res = await updatePractitioner(supabase, practitioner.id, { clinic_name: clinicName.trim() || null })
+    const res = await updatePractitioner(supabase, practitioner.id, {
+      clinic_name: clinicName.trim() || null,
+      address:     address.trim() || null,
+    })
     setLoading(false)
     if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500) }
     else setError(res.error)
@@ -500,6 +504,12 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
         value={clinicName}
         onChange={setClinicName}
         placeholder="Consultorio Nutrición Integral"
+      />
+      <Field
+        label="Dirección"
+        value={address}
+        onChange={setAddress}
+        placeholder="Av. Insurgentes Sur 1234, Col. Del Valle, CDMX"
       />
 
       {/* Booking share card */}
