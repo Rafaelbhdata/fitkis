@@ -508,7 +508,10 @@ function fmtDuration(s: number): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TabAntropometria({ patient }: { patient: PatientDetail }) {
-  const history = [...patient.weight_history].reverse() // más reciente primero
+  // history[0] = más reciente, history[last] = más antiguo
+  const history = [...patient.weight_history].reverse()
+  // baseIndex apunta a history[] — default al más antiguo (último elemento)
+  const [baseIndex, setBaseIndex] = useState(history.length - 1)
 
   if (history.length === 0) {
     return (
@@ -524,20 +527,37 @@ function TabAntropometria({ patient }: { patient: PatientDetail }) {
     )
   }
 
-  const oldest = patient.weight_history[0]
-  const latest = patient.weight_history[patient.weight_history.length - 1]
+  const base   = history[Math.min(baseIndex, history.length - 1)]
+  const latest = history[0]
 
   const comparisons = [
-    { label: 'Peso',          first: oldest.weight_kg,          last: latest.weight_kg,          unit: 'kg', invert: false, color: 'var(--ink)'   },
-    { label: '% Grasa',       first: oldest.body_fat_percentage, last: latest.body_fat_percentage, unit: '%',  invert: false, color: 'var(--berry)' },
-    { label: 'Masa muscular', first: oldest.muscle_mass_kg,      last: latest.muscle_mass_kg,      unit: 'kg', invert: true,  color: 'var(--leaf)'  },
+    { label: 'Peso',          first: base.weight_kg,          last: latest.weight_kg,          unit: 'kg', invert: false, color: 'var(--ink)'   },
+    { label: '% Grasa',       first: base.body_fat_percentage, last: latest.body_fat_percentage, unit: '%',  invert: false, color: 'var(--berry)' },
+    { label: 'Masa muscular', first: base.muscle_mass_kg,      last: latest.muscle_mass_kg,      unit: 'kg', invert: true,  color: 'var(--leaf)'  },
   ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Comparativa inicio vs hoy */}
+      {/* Comparativa con selector de registro base */}
       <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '24px 28px' }}>
-        <div className="fk-eyebrow" style={{ marginBottom: 20 }}>Comparativa · inicio vs. hoy</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div className="fk-eyebrow">Comparativa · vs. hoy</div>
+          {/* Selector de registro histórico */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Comparar con</span>
+            <select
+              value={baseIndex}
+              onChange={(e) => setBaseIndex(Number(e.target.value))}
+              style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--ink-7)', background: 'var(--paper-2)', fontSize: 11, fontFamily: 'var(--f-mono)', color: 'var(--ink-2)', cursor: 'pointer', outline: 'none' }}
+            >
+              {history.map((row, i) => (
+                <option key={i} value={i}>
+                  {formatDateShort(row.date)}{i === 0 ? ' (hoy)' : i === history.length - 1 ? ' (inicio)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 28 }}>
           {comparisons.map((s) => {
             const delta = s.first != null && s.last != null ? s.last - s.first : null
@@ -548,7 +568,7 @@ function TabAntropometria({ patient }: { patient: PatientDetail }) {
                 <div className="fk-eyebrow" style={{ marginBottom: 10 }}>{s.label}</div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
                   <div>
-                    <div style={{ fontSize: 9, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Inicio</div>
+                    <div style={{ fontSize: 9, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>{formatDateShort(base.date)}</div>
                     <span className="fk-serif" style={{ fontSize: 28, fontWeight: 300, color: 'var(--ink-5)', letterSpacing: '-0.02em', lineHeight: 1 }}>
                       {s.first != null ? s.first.toFixed(1) : '—'}
                     </span>
@@ -565,7 +585,7 @@ function TabAntropometria({ patient }: { patient: PatientDetail }) {
                 </div>
                 {delta != null && (
                   <div className="fk-mono" style={{ fontSize: 11, color: dCol, fontWeight: 500, marginTop: 8 }}>
-                    {delta > 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}{s.unit} total · {history.length} mediciones
+                    {delta > 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}{s.unit}
                   </div>
                 )}
               </div>
@@ -577,7 +597,7 @@ function TabAntropometria({ patient }: { patient: PatientDetail }) {
       {/* Tabla de historial */}
       <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--ink-7)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-          <div className="fk-eyebrow">Historial · {history.length} medición{history.length === 1 ? '' : 'es'}</div>
+          <div className="fk-eyebrow">Historial</div>
           <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>más reciente primero</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr 1fr', gap: 12, padding: '9px 24px', background: 'var(--paper-2)', borderBottom: '1px solid var(--ink-7)' }}>
