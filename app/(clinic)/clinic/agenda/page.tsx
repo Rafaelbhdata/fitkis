@@ -213,7 +213,7 @@ export default function AgendaPage() {
               Compartir agenda →
             </Link>
           )}
-          <Btn variant="signal" size="sm" onClick={() => setNewApptOpen(true)}>
+          <Btn variant="signal" size="md" onClick={() => setNewApptOpen(true)}>
             <Ic.plus width={12} height={12} /> Nueva cita
           </Btn>
         </>}
