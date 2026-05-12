@@ -264,7 +264,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                           background:isSel?'var(--signal)':occ?'var(--paper)':'#fff',
                           cursor:occ?'not-allowed':'pointer',transition:'all 0.1s',
                           display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                        <span style={{fontFamily:'var(--f-mono)',fontSize:18,fontWeight:600,
+                        <span style={{fontFamily:'var(--f-mono)',fontSize:14,fontWeight:400,
                           color:isSel?'#fff':occ?'var(--ink-6)':'var(--ink)',
                           textDecoration:occ?'line-through':'none'}}>
                           {fmtTime(s)}
