@@ -76,8 +76,11 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
     )
   }, [patients, search])
 
-  const cells: (number|null)[] = [...Array(firstDayOfMonth(calY,calM)).fill(null), ...Array.from({length:daysInMonth(calY,calM)},(_,i)=>i+1)]
-  const slots = date ? generateSlots(date, duration) : []
+  const cells = useMemo<(number|null)[]>(
+    () => [...Array(firstDayOfMonth(calY,calM)).fill(null), ...Array.from({length:daysInMonth(calY,calM)},(_,i)=>i+1)],
+    [calY, calM]
+  )
+  const slots = useMemo(() => date ? generateSlots(date, duration) : [], [date, duration])
 
   const patientName  = mode==='linked' ? (selected?.patient_name??'') : extName.trim()
   const patientEmail = mode==='linked' ? (selected?.patient_email??undefined) : (extEmail.trim()||undefined)
@@ -116,8 +119,9 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(10,10,10,0.45)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:999,padding:20}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:'#fff',border:'1px solid var(--ink-7)',borderRadius:16,width:'100%',maxWidth:720,
-          boxShadow:'0 8px 40px rgba(10,10,10,0.12)',maxHeight:'90vh',overflowY:'auto',display:'flex',flexDirection:'column'}}>
+      <div style={{background:'#fff',border:'1px solid var(--ink-7)',borderRadius:16,width:'100%',maxWidth:date?920:720,
+          boxShadow:'0 8px 40px rgba(10,10,10,0.12)',maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column',
+          transition:'max-width 0.25s ease'}}>
 
         {/* Header */}
         <div style={{padding:'28px 32px 20px',borderBottom:'1px solid var(--ink-7)'}}>
@@ -128,7 +132,7 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
         <div style={{display:'flex',flex:1,minHeight:0}}>
 
           {/* ─ Left: paciente + notas ─ */}
-          <div style={{width:280,flexShrink:0,padding:'24px 28px',borderRight:'1px solid var(--ink-7)',display:'flex',flexDirection:'column',gap:16}}>
+          <div style={{width:280,flexShrink:0,padding:'24px 28px',borderRight:'1px solid var(--ink-7)',display:'flex',flexDirection:'column',gap:16,overflowY:'auto'}}>
 
             {/* Toggle modo */}
             <div style={{display:'flex',background:'var(--paper-2)',borderRadius:10,padding:3,gap:2}}>
@@ -220,62 +224,67 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
           </div>
 
           {/* ─ Right: calendario + slots ─ */}
-          <div style={{flex:1,padding:'24px 28px',display:'flex',flexDirection:'column',gap:20}}>
+          <div style={{flex:1,padding:'24px 28px',display:'flex',flexDirection:'column',gap:20,minHeight:0,alignSelf:'stretch'}}>
 
-            {/* Calendario */}
-            <div>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
-                <button type="button" onClick={()=>{if(calM===0){setCalY(y=>y-1);setCalM(11)}else setCalM(m=>m-1)}}
-                  style={{width:28,height:28,borderRadius:8,border:'1px solid var(--ink-7)',background:'#fff',cursor:'pointer',fontSize:13,color:'var(--ink-3)',display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
-                <span className="fk-serif" style={{flex:1,fontSize:16,fontWeight:300}}>{MONTHS_CAP[calM]} {calY}</span>
-                <button type="button" onClick={()=>{if(calM===11){setCalY(y=>y+1);setCalM(0)}else setCalM(m=>m+1)}}
-                  style={{width:28,height:28,borderRadius:8,border:'1px solid var(--ink-7)',background:'#fff',cursor:'pointer',fontSize:13,color:'var(--ink-3)',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:6}}>
-                {WEEK_LABELS.map(l=><div key={l} className="fk-eyebrow" style={{textAlign:'center',fontSize:8}}>{l}</div>)}
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3}}>
-                {cells.map((day,i)=>{
-                  if(!day) return <div key={`e${i}`}/>
-                  const d = isoDate(calY,calM,day)
-                  const isPast=d<today, isTday=d===today, isSel=d===date
-                  return (
-                    <button key={d} type="button" disabled={isPast} onClick={()=>{setDate(d);setSlot(null)}}
-                      style={{padding:'7px 2px',borderRadius:999,border:isTday&&!isSel?'1px solid var(--signal)':'1px solid transparent',
-                        background:isSel?'var(--signal)':'transparent',
-                        color:isSel?'#fff':isPast?'var(--ink-6)':isTday?'var(--signal)':'var(--ink)',
-                        fontSize:13,fontFamily:'var(--f-sans)',cursor:isPast?'default':'pointer',
-                        fontWeight:isSel||isTday?600:400,transition:'all 0.1s'}}>
-                      {day}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+            <div style={{display:'flex',gap:16,flex:1,minHeight:0,overflow:'hidden'}}>
 
-            {/* Slots */}
-            {date && (
-              <div style={{flex:1}}>
-                <label style={{...lbl,marginBottom:10}}>
-                  Horario — {new Date(date+'T00:00:00').toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})}
-                </label>
-                <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6,maxHeight:200,overflowY:'auto'}}>
-                  {slots.map(s=>{
-                    const isSel=s===slot
+              {/* Calendario */}
+              <div style={{flex:'0 0 auto',width:340,alignSelf:'flex-start'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+                  <button type="button" onClick={()=>{if(calM===0){setCalY(y=>y-1);setCalM(11)}else setCalM(m=>m-1)}}
+                    style={{width:28,height:28,borderRadius:8,border:'1px solid var(--ink-7)',background:'#fff',cursor:'pointer',fontSize:13,color:'var(--ink-3)',display:'flex',alignItems:'center',justifyContent:'center'}}>‹</button>
+                  <span className="fk-serif" style={{flex:1,fontSize:16,fontWeight:300,textAlign:'center'}}>{MONTHS_CAP[calM]} {calY}</span>
+                  <button type="button" onClick={()=>{if(calM===11){setCalY(y=>y+1);setCalM(0)}else setCalM(m=>m+1)}}
+                    style={{width:28,height:28,borderRadius:8,border:'1px solid var(--ink-7)',background:'#fff',cursor:'pointer',fontSize:13,color:'var(--ink-3)',display:'flex',alignItems:'center',justifyContent:'center'}}>›</button>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:6}}>
+                  {WEEK_LABELS.map(l=><div key={l} className="fk-eyebrow" style={{textAlign:'center',fontSize:8}}>{l}</div>)}
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3}}>
+                  {cells.map((day,i)=>{
+                    if(!day) return <div key={`e${i}`}/>
+                    const d = isoDate(calY,calM,day)
+                    const isPast=d<today, isTday=d===today, isSel=d===date
                     return (
-                      <button key={s} type="button" onClick={()=>setSlot(s)}
-                        style={{padding:'9px 4px',borderRadius:8,
-                          border:`1.5px solid ${isSel?'var(--signal)':'var(--ink-7)'}`,
-                          background:isSel?'var(--signal)':'#fff',
-                          color:isSel?'#fff':'var(--ink)',
-                          fontFamily:'var(--f-mono)',fontSize:12,cursor:'pointer',fontWeight:isSel?600:400,transition:'all 0.1s'}}>
-                        {fmtTime(s)}
+                      <button key={d} type="button" disabled={isPast} onClick={()=>{setDate(d);setSlot(null)}}
+                        style={{padding:'7px 2px',borderRadius:999,border:isTday&&!isSel?'1px solid var(--signal)':'1px solid transparent',
+                          background:isSel?'var(--signal)':'transparent',
+                          color:isSel?'#fff':isPast?'var(--ink-6)':isTday?'var(--signal)':'var(--ink)',
+                          fontSize:13,fontFamily:'var(--f-sans)',cursor:isPast?'default':'pointer',
+                          fontWeight:isSel||isTday?600:400,transition:'all 0.1s'}}>
+                        {day}
                       </button>
                     )
                   })}
                 </div>
               </div>
-            )}
+
+              {/* Slots — columna única a la derecha del calendario */}
+              {date && (
+                <div style={{flex:1,borderLeft:'1px solid var(--ink-7)',paddingLeft:16,display:'flex',flexDirection:'column',minHeight:0}}>
+                  <label style={{...lbl,marginBottom:10,display:'block',flexShrink:0}}>
+                    {new Date(date+'T00:00:00').toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})}
+                  </label>
+                  <div style={{display:'flex',flexDirection:'column',gap:6,flex:1,overflowY:'auto',minHeight:0}}>
+                    {slots.map(s=>{
+                      const isSel=s===slot
+                      return (
+                        <button key={s} type="button" onClick={()=>setSlot(s)}
+                          style={{padding:'9px 12px',borderRadius:8,
+                            border:`1.5px solid ${isSel?'var(--signal)':'var(--ink-7)'}`,
+                            background:isSel?'var(--signal)':'#fff',
+                            color:isSel?'#fff':'var(--ink)',
+                            fontFamily:'var(--f-mono)',fontSize:12,cursor:'pointer',fontWeight:isSel?600:400,
+                            transition:'all 0.1s',textAlign:'center'}}>
+                          {fmtTime(s)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
 
           </div>
         </div>

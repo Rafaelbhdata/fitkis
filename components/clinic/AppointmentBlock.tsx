@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import type { Appointment, AppointmentStatus } from '@/lib/clinic/queries'
 
@@ -28,47 +28,73 @@ function NameLink({ patientId, name, cancelled }: { patientId: string; name: str
 const STATUS_CFG: Record<AppointmentStatus, { bg: string; border: string; color: string }> = {
   scheduled:    { bg: 'rgba(178,255,153,0.18)', border: 'rgba(74,124,58,0.55)', color: 'var(--ink)' },
   confirmed:    { bg: 'rgba(178,255,153,0.18)', border: 'rgba(74,124,58,0.55)', color: 'var(--ink)' },
-  completed:    { bg: 'var(--leaf-soft)',      border: 'var(--leaf)',          color: 'var(--leaf)'  },
-  cancelled:    { bg: 'var(--paper-3)',        border: 'transparent',          color: 'var(--ink-5)' },
-  no_show:      { bg: 'var(--honey-soft)',     border: 'var(--honey)',         color: '#8a6411'      },
-  rescheduling: { bg: '#fff3e0',               border: '#e65100',              color: '#e65100'      },
+  completed:    { bg: 'var(--leaf-soft)',       border: 'var(--leaf)',          color: 'var(--leaf)' },
+  cancelled:    { bg: 'rgba(200,30,30,0.07)',    border: 'rgba(200,30,30,0.3)',   color: 'rgba(180,30,30,0.5)' },
+  no_show:      { bg: 'var(--honey-soft)',      border: 'var(--honey)',         color: '#8a6411' },
+  rescheduling: { bg: '#fff3e0',                border: '#e65100',              color: '#e65100' },
 }
 
 type Props = {
   appt: Appointment
   top: number
   height: number
+  col?: number
+  totalCols?: number
   onStatusChange: (id: string, status: AppointmentStatus) => void
   onReschedule:   (appt: Appointment) => void
 }
 
-export function AppointmentBlock({ appt, top, height, onStatusChange, onReschedule }: Props) {
-  const [hover, setHover] = useState(false)
-  const cfg    = STATUS_CFG[appt.status]
-  const active = appt.status === 'scheduled' || appt.status === 'confirmed'
-  const tall   = height >= 48
+export function AppointmentBlock({ appt, top, height, col = 0, totalCols = 1, onStatusChange, onReschedule }: Props) {
+  const [open, setOpen] = useState(false)
+  const ref             = useRef<HTMLDivElement>(null)
+  const cfg             = STATUS_CFG[appt.status]
+  const active          = appt.status === 'scheduled' || appt.status === 'confirmed'
+  const tall            = height >= 48
 
   const timeStr = new Date(appt.starts_at).toLocaleTimeString('es-MX', {
     hour: '2-digit', minute: '2-digit', hour12: false,
   })
 
+  // Cerrar al hacer click fuera
+  useEffect(() => {
+    if (!open) return
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  function handleCardClick(e: React.MouseEvent) {
+    if (!active) return
+    e.stopPropagation()
+    setOpen(o => !o)
+  }
+
+  const colW    = 100 / totalCols
+  const leftPct = col * colW
+  const widthPct = colW
+
   return (
     <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      ref={ref}
+      onClick={handleCardClick}
       style={{
         position: 'absolute',
-        left: 3, right: 3, top, height,
+        left: `calc(${leftPct}% + 3px)`,
+        width: `calc(${widthPct}% - ${totalCols > 1 ? 4 : 6}px)`,
+        top, height,
         borderRadius: 6,
         padding: '4px 7px',
         background: cfg.bg,
         borderLeft: `3px solid ${cfg.border}`,
-        overflow: 'hidden',
-        cursor: 'default',
-        zIndex: 1,
-        opacity: appt.status === 'cancelled' ? 0.5 : 1,
-        boxShadow: hover && (active || appt.status === 'rescheduling') ? '0 2px 8px rgba(0,0,0,0.09)' : 'none',
-        transition: 'box-shadow 0.12s',
+        overflow: open ? 'visible' : 'hidden',
+        cursor: active ? 'pointer' : 'default',
+        zIndex: open ? 20 : 1,
+        opacity: 1,
+        boxShadow: open ? '0 2px 10px rgba(0,0,0,0.1)' : 'none',
+        transition: 'box-shadow 0.12s, z-index 0s',
+        userSelect: 'none',
       }}
     >
       {/* Hora + badge reagendando */}
@@ -115,28 +141,68 @@ export function AppointmentBlock({ appt, top, height, onStatusChange, onReschedu
         </div>
       )}
 
-      {/* Acciones en hover — solo citas activas */}
-      {hover && active && tall && (
-        <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+      {/* Esperando reagendamiento */}
+      {appt.status === 'rescheduling' && tall && (
+        <div style={{ marginTop: 4, fontFamily: 'var(--f-mono)', fontSize: 9, color: '#e65100', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          Esperando nueva cita…
+        </div>
+      )}
+
+      {/* Panel de acciones — aparece al hacer click */}
+      {open && active && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            marginTop: 3,
+            background: '#fff',
+            border: '1px solid var(--ink-7)',
+            borderRadius: 7,
+            padding: '6px 8px',
+            display: 'flex',
+            gap: 6,
+            zIndex: 30,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.09)',
+            minWidth: 130,
+            whiteSpace: 'nowrap',
+          }}
+        >
           <button
-            onClick={e => { e.stopPropagation(); onReschedule(appt) }}
-            style={{ border: 'none', background: 'var(--signal)', color: '#fff', borderRadius: 4, padding: '2px 7px', fontSize: 9, fontFamily: 'var(--f-mono)', cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' }}
+            onClick={() => { setOpen(false); onReschedule(appt) }}
+            style={{
+              flex: 1,
+              border: '1px solid var(--ink-7)',
+              background: 'var(--paper)',
+              color: 'var(--ink)',
+              borderRadius: 5,
+              padding: '5px 10px',
+              fontSize: 11,
+              fontFamily: 'var(--f-sans)',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
           >
             Reagendar
           </button>
           <button
-            onClick={e => { e.stopPropagation(); onStatusChange(appt.id, 'cancelled') }}
-            style={{ border: 'none', background: 'transparent', color: 'var(--berry)', borderRadius: 4, padding: '2px 4px', fontSize: 9, fontFamily: 'var(--f-mono)', cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' }}
+            onClick={() => { setOpen(false); onStatusChange(appt.id, 'cancelled') }}
+            style={{
+              flex: 1,
+              border: '1px solid rgba(180,30,30,0.25)',
+              background: 'rgba(180,30,30,0.05)',
+              color: 'var(--berry)',
+              borderRadius: 5,
+              padding: '5px 10px',
+              fontSize: 11,
+              fontFamily: 'var(--f-sans)',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
           >
             Cancelar
           </button>
-        </div>
-      )}
-
-      {/* Esperando reagendamiento */}
-      {hover && appt.status === 'rescheduling' && tall && (
-        <div style={{ marginTop: 4, fontFamily: 'var(--f-mono)', fontSize: 9, color: '#e65100', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-          Esperando nueva cita…
         </div>
       )}
     </div>

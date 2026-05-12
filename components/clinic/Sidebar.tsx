@@ -2,12 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { FkWord } from '@/components/ui/Fk'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from './Ic'
 import { useSupabase, useUser } from '@/lib/hooks'
-import { loadPractitionerByUser, type PractitionerRecord } from '@/lib/clinic/queries'
+import {
+  loadPractitionerByUser,
+  loadAppointmentsForDay,
+  type PractitionerRecord,
+  type Appointment,
+} from '@/lib/clinic/queries'
 
 type Item = {
   key: string
@@ -23,6 +28,279 @@ const ITEMS: Item[] = [
   { key: 'biblio',    href: '/clinic/biblioteca',label: 'Biblioteca', icon: Ic.apple    },
   { key: 'ajustes',   href: '/clinic/ajustes',   label: 'Ajustes',    icon: Ic.settings },
 ]
+
+const STATUS_BORDER: Record<string, string> = {
+  scheduled:    'var(--leaf)',
+  confirmed:    'var(--leaf)',
+  completed:    'var(--leaf)',
+  cancelled:    'var(--ink-6)',
+  no_show:      'var(--honey)',
+  rescheduling: '#e65100',
+}
+
+const STATUS_LABEL: Record<string, string | undefined> = {
+  completed:    'completada',
+  rescheduling: 'reagendando',
+  no_show:      'no asistió',
+}
+
+const STATUS_LABEL_COLOR: Record<string, string> = {
+  completed:    'var(--leaf)',
+  rescheduling: '#e65100',
+  no_show:      'var(--honey)',
+}
+
+function TodayApptCard({ appt }: { appt: Appointment }) {
+  const [hover, setHover] = useState(false)
+  const router = useRouter()
+
+  const timeStr = new Date(appt.starts_at).toLocaleTimeString('es-MX', {
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+
+  const borderColor = STATUS_BORDER[appt.status] ?? 'var(--ink-6)'
+  const statusLabel = STATUS_LABEL[appt.status]
+  const statusColor = STATUS_LABEL_COLOR[appt.status]
+  const dimmed      = appt.status === 'cancelled'
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={() => router.push('/clinic/agenda')}
+      style={{
+        borderRadius: 7,
+        borderLeft: `3px solid ${borderColor}`,
+        padding: '7px 9px',
+        background: hover ? 'var(--paper-2)' : 'var(--paper-3)',
+        transition: 'background 0.12s',
+        opacity: dimmed ? 0.6 : 1,
+        cursor: 'pointer',
+      }}
+    >
+      {/* Fila 1: hora + nombre */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+        <span
+          className="fk-mono"
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: borderColor,
+            letterSpacing: '0.04em',
+            flexShrink: 0,
+          }}
+        >
+          {timeStr}
+        </span>
+
+        {appt.patient_id ? (
+          <Link
+            href={`/clinic/pacientes/${appt.patient_id}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              fontFamily: 'var(--f-sans)',
+              fontSize: 12,
+              fontWeight: 600,
+              color: 'var(--ink-2)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              textDecoration: appt.status === 'cancelled' ? 'line-through' : 'none',
+              minWidth: 0,
+            }}
+            onMouseEnter={(e) => { e.stopPropagation(); (e.currentTarget as HTMLElement).style.color = 'var(--signal)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'var(--ink-2)' }}
+          >
+            {appt.patient_name}
+          </Link>
+        ) : (
+          <span
+            style={{
+              fontFamily: 'var(--f-sans)',
+              fontSize: 12,
+              fontWeight: 600,
+              color: 'var(--ink-2)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              textDecoration: appt.status === 'cancelled' ? 'line-through' : 'none',
+            }}
+          >
+            {appt.patient_name}
+          </span>
+        )}
+      </div>
+
+      {/* Fila 2: duración + badge de estado */}
+      <div style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span className="fk-mono" style={{ fontSize: 9, color: 'var(--ink-3)' }}>
+          {appt.duration_minutes} min
+        </span>
+        {statusLabel && (
+          <span
+            className="fk-mono"
+            style={{
+              fontSize: 8,
+              color: statusColor,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}
+          >
+            {statusLabel}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TodayApptsSection({ appts }: { appts: Appointment[] | null }) {
+  const count = appts?.length ?? null
+
+  return (
+    <>
+      {/* Cabecera con contador */}
+      <div
+        className="fk-eyebrow"
+        style={{
+          marginTop: 24,
+          marginBottom: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <span>Consultas hoy</span>
+        {count !== null && count > 0 && (
+          <span
+            style={{
+              background: 'var(--signal)',
+              color: '#fff',
+              borderRadius: 999,
+              minWidth: 16,
+              height: 16,
+              fontSize: 9,
+              fontFamily: 'var(--f-mono)',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 4px',
+              letterSpacing: 0,
+            }}
+          >
+            {count}
+          </span>
+        )}
+      </div>
+
+      {/* Lista scrollable */}
+      <div
+        style={{
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+          flex: '1 1 0',
+          minHeight: 0,
+        }}
+      >
+        {appts === null ? (
+          /* Skeleton mientras carga */
+          [0.55, 0.40, 0.65].map((w, i) => (
+            <div
+              key={i}
+              style={{
+                borderRadius: 7,
+                borderLeft: '3px solid var(--ink-7)',
+                padding: '7px 9px',
+                background: 'var(--paper-3)',
+              }}
+            >
+              <div
+                style={{
+                  height: 10,
+                  background: 'var(--ink-7)',
+                  borderRadius: 3,
+                  width: `${w * 100}%`,
+                  marginBottom: 5,
+                }}
+              />
+              <div
+                style={{
+                  height: 8,
+                  background: 'var(--ink-7)',
+                  borderRadius: 3,
+                  width: '30%',
+                }}
+              />
+            </div>
+          ))
+        ) : appts.length === 0 ? (
+          /* Estado vacío */
+          <div
+            style={{
+              padding: '18px 4px',
+              textAlign: 'center',
+            }}
+          >
+            <div
+              className="fk-serif"
+              style={{
+                fontStyle: 'italic',
+                fontWeight: 300,
+                fontSize: 13,
+                color: 'var(--ink-4)',
+                lineHeight: 1.4,
+              }}
+            >
+              Sin consultas
+              <br />
+              programadas hoy
+            </div>
+            <Link
+              href="/clinic/agenda"
+              className="fk-mono"
+              style={{
+                display: 'inline-block',
+                marginTop: 10,
+                fontSize: 9,
+                color: 'var(--signal)',
+                textDecoration: 'none',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+              }}
+            >
+              Abrir agenda →
+            </Link>
+          </div>
+        ) : (
+          <>
+            {appts.map(appt => <TodayApptCard key={appt.id} appt={appt} />)}
+            <Link
+              href="/clinic/agenda"
+              className="fk-mono"
+              style={{
+                display: 'block',
+                marginTop: 4,
+                fontSize: 9,
+                color: 'var(--signal)',
+                textDecoration: 'none',
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                textAlign: 'center',
+              }}
+              onMouseOver={e => (e.currentTarget.style.textDecoration = 'underline')}
+              onMouseOut={e  => (e.currentTarget.style.textDecoration = 'none')}
+            >
+              Ver agenda completa →
+            </Link>
+          </>
+        )}
+      </div>
+    </>
+  )
+}
 
 function isActive(pathname: string, href: string): boolean {
   if (href === '/clinic') return pathname === '/clinic' || pathname.startsWith('/clinic/pacientes')
@@ -44,7 +322,7 @@ function PractitionerFooter({ practitioner }: { practitioner: PractitionerRecord
   return (
     <div
       style={{
-        marginTop: 'auto',
+        flexShrink: 0,
         borderTop: '1px solid var(--ink-7)',
         paddingTop: 14,
         display: 'flex',
@@ -99,14 +377,21 @@ function PractitionerFooter({ practitioner }: { practitioner: PractitionerRecord
 }
 
 export function ClinicSidebar() {
-  const pathname     = usePathname() ?? '/clinic'
-  const supabase     = useSupabase()
-  const { user }     = useUser()
+  const pathname = usePathname() ?? '/clinic'
+  const supabase = useSupabase()
+  const { user } = useUser()
+
   const [practitioner, setPractitioner] = useState<PractitionerRecord | null>(null)
+  const [todayAppts, setTodayAppts]     = useState<Appointment[] | null>(null)
 
   useEffect(() => {
     if (!user) return
-    loadPractitionerByUser(supabase, user.id).then(setPractitioner)
+    loadPractitionerByUser(supabase, user.id).then((p) => {
+      setPractitioner(p)
+      if (!p) return
+      const today = new Date().toISOString().slice(0, 10)
+      loadAppointmentsForDay(supabase, p.id, today).then(setTodayAppts)
+    })
   }, [user, supabase])
 
   return (
@@ -116,20 +401,23 @@ export function ClinicSidebar() {
         borderRight: '1px solid var(--ink-7)',
         padding: '24px 16px 20px',
         background: 'var(--paper)',
+        overflow: 'hidden',
       }}
     >
+      {/* Logo */}
       <FkWord size={22} />
       <div
         className="fk-eyebrow"
-        style={{ marginTop: 6, color: 'var(--signal)', letterSpacing: '0.18em' }}
+        style={{ marginTop: 6, color: 'var(--signal)', letterSpacing: '0.18em', flexShrink: 0 }}
       >
         Clínica
       </div>
 
-      <div className="fk-eyebrow" style={{ marginTop: 28, marginBottom: 8 }}>
+      {/* Navegación */}
+      <div className="fk-eyebrow" style={{ marginTop: 28, marginBottom: 8, flexShrink: 0 }}>
         Práctica
       </div>
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
         {ITEMS.map((it) => {
           const active = isActive(pathname, it.href)
           const IconC  = it.icon
@@ -163,29 +451,10 @@ export function ClinicSidebar() {
         })}
       </nav>
 
-      <div className="fk-eyebrow" style={{ marginTop: 24, marginBottom: 8 }}>
-        Atención hoy
-      </div>
-      <div style={{ background: 'var(--honey-soft)', borderRadius: 12, padding: '12px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-          <span
-            className="fk-serif"
-            style={{ fontSize: 30, fontStyle: 'italic', fontWeight: 300, lineHeight: 1, color: '#8a6411' }}
-          >
-            —
-          </span>
-          <span
-            className="fk-mono"
-            style={{ fontSize: 10, color: '#8a6411', textTransform: 'uppercase', letterSpacing: '0.1em' }}
-          >
-            consultas hoy
-          </span>
-        </div>
-        <div style={{ fontSize: 11, color: '#8a6411', opacity: 0.8, marginTop: 6, fontFamily: 'var(--f-sans)' }}>
-          Agenda disponible en Fase 3
-        </div>
-      </div>
+      {/* Atención hoy — lista de citas */}
+      <TodayApptsSection appts={todayAppts} />
 
+      {/* Footer del practitioner */}
       <PractitionerFooter practitioner={practitioner} />
     </aside>
   )

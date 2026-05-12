@@ -707,6 +707,25 @@ export async function loadLastCompletedAppointment(
   return data as Appointment | null
 }
 
+/** Citas de hoy para un practitioner (usado en el sidebar) */
+export async function loadAppointmentsForDay(
+  supabase: SB,
+  practitionerId: string,
+  date: string,   // 'YYYY-MM-DD' en la zona local
+): Promise<Appointment[]> {
+  const next = new Date(date + 'T00:00:00')
+  next.setDate(next.getDate() + 1)
+  const { data } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('practitioner_id', practitionerId)
+    .gte('starts_at', date + 'T00:00:00')
+    .lt('starts_at', next.toISOString())
+    .not('status', 'in', '("cancelled","no_show")')
+    .order('starts_at', { ascending: true })
+  return (data ?? []) as Appointment[]
+}
+
 /** Practitioner público (para la página de reservas) */
 export async function loadPractitionerPublic(
   supabase: SB,

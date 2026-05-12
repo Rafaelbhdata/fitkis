@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
 import { Btn } from '@/components/ui/Btn'
 import { PulseLine } from '@/components/ui/PulseLine'
@@ -18,9 +18,9 @@ import {
   type Appointment,
   type AppointmentStatus,
 } from '@/lib/clinic/queries'
+import { MONTHS_SHORT, todayISO } from '@/lib/clinic/calendar-utils'
 
-const DAYS_ES   = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-const MONTHS_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+const DAYS_ES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 // Zoom levels: row height per hour + whether to show 30-min sub-rows
 const ZOOM_LEVELS = [
@@ -45,13 +45,12 @@ function getDays(weekStart: string): Date[] {
 }
 
 function isoDate(d: Date): string { return d.toISOString().split('T')[0] }
-function todayISO(): string       { return new Date().toISOString().split('T')[0] }
 
 function formatWeekRange(weekStart: string): string {
   const s = new Date(weekStart + 'T00:00:00')
   const e = new Date(weekStart + 'T00:00:00')
   e.setDate(e.getDate() + 6)
-  return `${s.getDate()} – ${e.getDate()} ${MONTHS_ES[e.getMonth()]} ${e.getFullYear()}`
+  return `${s.getDate()} – ${e.getDate()} ${MONTHS_SHORT[e.getMonth()]} ${e.getFullYear()}`
 }
 
 function apptTop(appt: Appointment, startHour: number, rowH: number): number {
@@ -139,10 +138,9 @@ export default function AgendaPage() {
 
   async function handleCreate(payload: {
     practitioner_id: string; patient_name: string; patient_email?: string
-    starts_at: string; duration_minutes: number; notes?: string
+    patient_id?: string; starts_at: string; duration_minutes: number; notes?: string
   }) {
     const { error } = await createAppointment(supabase, payload)
-    if (!error) { setNewApptOpen(false); await fetchAppts() }
     return { error }
   }
 
@@ -178,12 +176,38 @@ export default function AgendaPage() {
     setStartHour(sh); setEndHour(eh)
   }
 
-  const apptsByDay: Record<string, Appointment[]> = {}
-  for (const day of days) apptsByDay[isoDate(day)] = []
-  for (const appt of appointments) {
-    const key = appt.starts_at.slice(0, 10)
-    if (apptsByDay[key]) apptsByDay[key].push(appt)
-  }
+  const apptsByDay = useMemo(() => {
+    const map: Record<string, Appointment[]> = {}
+    for (const day of days) map[isoDate(day)] = []
+    for (const appt of appointments) {
+      const key = appt.starts_at.slice(0, 10)
+      if (map[key]) map[key].push(appt)
+    }
+    return map
+  }, [days, appointments])
+
+  const layoutsByDay = useMemo(() => {
+    const result: Record<string, Array<{ appt: Appointment; col: number; totalCols: number }>> = {}
+    for (const [key, appts] of Object.entries(apptsByDay)) {
+      if (appts.length === 0) { result[key] = []; continue }
+      const sorted = [...appts].sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+      const colEnds: number[] = []
+      const assigned: Array<{ appt: Appointment; col: number; startMs: number; endMs: number }> = []
+      for (const appt of sorted) {
+        const startMs = new Date(appt.starts_at).getTime()
+        const endMs   = startMs + appt.duration_minutes * 60_000
+        let col = colEnds.findIndex(t => t <= startMs)
+        if (col === -1) { col = colEnds.length; colEnds.push(0) }
+        colEnds[col] = endMs
+        assigned.push({ appt, col, startMs, endMs })
+      }
+      result[key] = assigned.map(item => {
+        const overlapping = assigned.filter(o => item.startMs < o.endMs && item.endMs > o.startMs)
+        return { appt: item.appt, col: item.col, totalCols: Math.max(...overlapping.map(o => o.col)) + 1 }
+      })
+    }
+    return result
+  }, [apptsByDay])
 
   const spinner = (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:400, gap:16 }}>
@@ -218,8 +242,8 @@ export default function AgendaPage() {
         <span className="fk-serif" style={{ flex:1, textAlign:'center', fontSize:17, fontWeight:300 }}>
           {formatWeekRange(weekStart)}
         </span>
-        {navBtn(() => setWeekOffset(o => o+1), <>Siguiente <Ic.chevR width={12} height={12} /></>)}
         {weekOffset !== 0 && navBtn(() => setWeekOffset(0), 'Hoy')}
+        {navBtn(() => setWeekOffset(o => o+1), <>Siguiente <Ic.chevR width={12} height={12} /></>)}
         <span className="fk-mono" style={{ fontSize:11, color:'var(--ink-5)', minWidth:52, textAlign:'right' }}>
           {appointments.length > 0 ? `${appointments.length} cita${appointments.length !== 1 ? 's' : ''}` : ''}
         </span>
@@ -303,7 +327,7 @@ export default function AgendaPage() {
               <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)', flex:1 }}>
                 {days.map((day) => {
                   const key = isoDate(day); const isToday = key === today
-                  const visible = (apptsByDay[key] ?? []).filter(a => {
+                  const layout = (layoutsByDay[key] ?? []).filter(({ appt: a }) => {
                     const h = new Date(a.starts_at).getHours()
                     return h >= startHour && h < endHour
                   })
@@ -323,9 +347,10 @@ export default function AgendaPage() {
                           <div style={{ position:'absolute', left:-4, top:-3, width:8, height:8, borderRadius:999, background:'var(--signal)' }} />
                         </div>
                       )}
-                      {visible.map(appt => (
+                      {layout.map(({ appt, col, totalCols }) => (
                         <AppointmentBlock key={appt.id} appt={appt}
                           top={apptTop(appt, startHour, rowH)} height={apptHeight(appt, rowH)}
+                          col={col} totalCols={totalCols}
                           onStatusChange={handleStatusChange}
                           onReschedule={handleReschedule} />
                       ))}

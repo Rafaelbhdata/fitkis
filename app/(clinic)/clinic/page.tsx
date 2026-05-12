@@ -1,30 +1,22 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Btn } from '@/components/ui/Btn'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from '@/components/clinic/Ic'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
 import { MiniSpark, Delta } from '@/components/clinic/MiniSpark'
+import { PatientFilterBar, type FilterKey, type SortKey } from '@/components/clinic/PatientFilterBar'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
   loadPatientsForPractitioner,
-  loadAppointmentsForWeek,
   patientRealId,
   type PractitionerRecord,
 } from '@/lib/clinic/queries'
 import type { MockPatient } from '@/lib/clinic/mock-data'
 import { InviteModal } from '@/components/clinic/InviteModal'
-
-type FilterKey = 'todos' | 'atencion' | 'pending' | 'archivo'
-type SortKey   = 'last_seen' | 'name'
-
-const SORT_LABELS: Record<SortKey, string> = {
-  last_seen: 'Últ. registro',
-  name:      'Nombre A–Z',
-}
 
 const AVATAR_PALETTE: Array<{ bg: string; fg: string }> = [
   { bg: 'var(--leaf-soft)', fg: 'var(--leaf)' },
@@ -52,15 +44,10 @@ export default function ClinicPatientsPage() {
   const [patients, setPatients] = useState<MockPatient[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter]       = useState<FilterKey>('todos')
-  const [sortKey, setSortKey]     = useState<SortKey>('last_seen')
-  const [sortOpen, setSortOpen]   = useState(false)
-  const [searchQuery, setSearch]  = useState('')
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [filter, setFilter]      = useState<FilterKey>('todos')
+  const [sortKey, setSortKey]    = useState<SortKey>('last_seen')
+  const [searchQuery, setSearch] = useState('')
   const [inviteOpen, setInviteOpen] = useState(false)
-  const [todayCount, setTodayCount] = useState<number | null>(null)
-  const sortRef   = useRef<HTMLDivElement>(null)
-  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (userLoading) return
@@ -79,14 +66,9 @@ export default function ClinicPatientsPage() {
           return
         }
         setPractitioner(p)
-        const todayISO = new Date().toISOString().split('T')[0]
-        const [list, appts] = await Promise.all([
-          loadPatientsForPractitioner(supabase, p.id),
-          loadAppointmentsForWeek(supabase, p.id, todayISO),
-        ])
+        const list = await loadPatientsForPractitioner(supabase, p.id)
         if (cancelled) return
         setPatients(list)
-        setTodayCount(appts.filter(a => a.starts_at.startsWith(todayISO) && a.status !== 'cancelled' && a.status !== 'no_show').length)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Error desconocido')
       } finally {
@@ -98,34 +80,6 @@ export default function ClinicPatientsPage() {
     }
   }, [user, userLoading, supabase])
 
-  // ⌘K abre el buscador
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setSearchOpen(true)
-        setTimeout(() => searchRef.current?.focus(), 50)
-      }
-      if (e.key === 'Escape') {
-        setSearchOpen(false)
-        setSearch('')
-        setSortOpen(false)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
-  // Click fuera cierra el dropdown de sort
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
-        setSortOpen(false)
-      }
-    }
-    if (sortOpen) document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [sortOpen])
 
   async function refreshPatients() {
     if (!practitioner) return
@@ -157,7 +111,6 @@ export default function ClinicPatientsPage() {
   }, [filter, patients, searchQuery, sortKey])
 
   // Stats
-  const activeCount = patients.filter((p) => p.status === 'active').length
   const attentionCount = patients.filter((p) => p.alert).length
   const pendingCount = patients.filter((p) => p.status === 'pending').length
 
@@ -181,62 +134,9 @@ export default function ClinicPatientsPage() {
           </>
         }
         right={
-          <>
-            {searchOpen ? (
-              <div style={{ position: 'relative' }}>
-                <Ic.search width={14} height={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-4)', pointerEvents: 'none' }} />
-                <input
-                  ref={searchRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar paciente…"
-                  autoFocus
-                  style={{
-                    paddingLeft: 34,
-                    paddingRight: 12,
-                    paddingTop: 10,
-                    paddingBottom: 10,
-                    borderRadius: 999,
-                    border: '1px solid var(--ink-5)',
-                    background: '#fff',
-                    fontSize: 13,
-                    fontFamily: 'var(--f-sans)',
-                    color: 'var(--ink)',
-                    width: 220,
-                    outline: 'none',
-                  }}
-                  onBlur={() => { if (!searchQuery) { setSearchOpen(false) } }}
-                />
-              </div>
-            ) : (
-              <button
-                onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 50) }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '10px 14px',
-                  borderRadius: 999,
-                  border: '1px solid var(--ink-7)',
-                  background: '#fff',
-                  fontSize: 13,
-                  fontFamily: 'var(--f-sans)',
-                  color: 'var(--ink-2)',
-                  cursor: 'pointer',
-                }}
-              >
-                <Ic.search width={14} height={14} />
-                Buscar
-                <span className="fk-mono" style={{ fontSize: 10, padding: '2px 6px', background: 'var(--paper-3)', borderRadius: 4, color: 'var(--ink-4)' }}>
-                  ⌘K
-                </span>
-              </button>
-            )}
-            <Btn variant="signal" icon={<Ic.plus />} onClick={() => setInviteOpen(true)}>
-              Vincular paciente
-            </Btn>
-          </>
+          <Btn variant="signal" icon={<Ic.plus />} onClick={() => setInviteOpen(true)}>
+            Vincular paciente
+          </Btn>
         }
       />
 
@@ -245,176 +145,20 @@ export default function ClinicPatientsPage() {
         <EmptyState onInvite={() => setInviteOpen(true)} />
       ) : (
         <>
-          {/* Stat strip */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 1,
-              background: 'var(--ink-7)',
-              borderBottom: '1px solid var(--ink-7)',
+          <PatientFilterBar
+            filter={filter}
+            onFilterChange={setFilter}
+            searchQuery={searchQuery}
+            onSearchChange={setSearch}
+            sortKey={sortKey}
+            onSortChange={setSortKey}
+            counts={{
+              todos:    patients.length,
+              atencion: attentionCount,
+              pending:  pendingCount,
+              archivo:  patients.filter((p) => p.status === 'inactive').length,
             }}
-          >
-            {[
-              { label: 'Total activos', n: activeCount, sub: '', col: 'var(--ink)' },
-              {
-                label: 'Requieren atención',
-                n: attentionCount,
-                sub: attentionCount ? 'sin registros recientes' : 'todo en orden',
-                col: 'var(--honey)',
-              },
-              {
-                label: 'Pendientes',
-                n: pendingCount,
-                sub: pendingCount ? 'invitaciones sin aceptar' : 'ninguna',
-                col: 'var(--signal)',
-              },
-              { label: 'Consultas hoy', n: todayCount ?? '—', sub: todayCount === null ? 'cargando…' : todayCount === 0 ? 'sin citas hoy' : todayCount === 1 ? '1 cita programada' : `${todayCount} citas programadas`, col: todayCount ? 'var(--sky)' : 'var(--ink-4)', href: '/clinic/agenda' },
-            ].map((s) => (
-              <div key={s.label} style={{ background: '#fff', padding: '20px 28px', position: 'relative', cursor: 'href' in s && s.href ? 'pointer' : 'default', transition: 'background 0.15s' }}
-                onMouseEnter={e => { if ('href' in s && s.href) (e.currentTarget as HTMLElement).style.background = 'var(--paper)' }}
-                onMouseLeave={e => { if ('href' in s && s.href) (e.currentTarget as HTMLElement).style.background = '#fff' }}
-              >
-                {'href' in s && s.href && (
-                  <Link href={s.href} style={{ position: 'absolute', inset: 0 }} aria-label={s.label} />
-                )}
-                <div className="fk-eyebrow">{s.label}</div>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
-                  <span
-                    className="fk-serif"
-                    style={{
-                      fontSize: 42,
-                      fontWeight: 300,
-                      lineHeight: 1,
-                      color: s.col,
-                      letterSpacing: '-0.03em',
-                    }}
-                  >
-                    {s.n}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: 'var(--ink-4)',
-                    marginTop: 4,
-                    fontFamily: 'var(--f-sans)',
-                  }}
-                >
-                  {s.sub}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Filter tabs */}
-          <div
-            style={{
-              padding: '18px 40px 0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div style={{ display: 'flex', gap: 4 }}>
-              {(
-                [
-                  { k: 'todos', n: 'Todos', c: patients.length },
-                  { k: 'atencion', n: 'Requieren atención', c: attentionCount },
-                  { k: 'pending', n: 'Pendientes', c: pendingCount },
-                  {
-                    k: 'archivo',
-                    n: 'Archivo',
-                    c: patients.filter((p) => p.status === 'inactive').length,
-                  },
-                ] as { k: FilterKey; n: string; c: number }[]
-              ).map((t) => {
-                const active = filter === t.k
-                return (
-                  <button
-                    key={t.k}
-                    onClick={() => setFilter(t.k)}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: 8,
-                      border: 'none',
-                      background: active ? 'var(--ink)' : 'transparent',
-                      color: active ? 'var(--paper)' : 'var(--ink-3)',
-                      fontSize: 12,
-                      fontFamily: 'var(--f-sans)',
-                      fontWeight: 500,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
-                  >
-                    {t.n}
-                    <span className="fk-mono" style={{ fontSize: 10, opacity: 0.6 }}>
-                      {t.c}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-            <div ref={sortRef} style={{ position: 'relative' }}>
-              <button
-                onClick={() => setSortOpen((o) => !o)}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  border: `1px solid ${sortOpen ? 'var(--ink-4)' : 'var(--ink-7)'}`,
-                  background: '#fff',
-                  fontSize: 12,
-                  color: 'var(--ink-2)',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--f-sans)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                Ordenar: {SORT_LABELS[sortKey]} ▾
-              </button>
-              {sortOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 6px)',
-                  right: 0,
-                  background: '#fff',
-                  border: '1px solid var(--ink-7)',
-                  borderRadius: 10,
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                  minWidth: 180,
-                  zIndex: 50,
-                  overflow: 'hidden',
-                }}>
-                  {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([k, label]) => (
-                    <button
-                      key={k}
-                      onClick={() => { setSortKey(k); setSortOpen(false) }}
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        textAlign: 'left',
-                        padding: '10px 14px',
-                        border: 'none',
-                        background: sortKey === k ? 'var(--paper-2)' : 'transparent',
-                        fontSize: 13,
-                        fontFamily: 'var(--f-sans)',
-                        color: sortKey === k ? 'var(--ink)' : 'var(--ink-3)',
-                        cursor: 'pointer',
-                        fontWeight: sortKey === k ? 500 : 400,
-                      }}
-                    >
-                      {label}
-                      {sortKey === k && <span style={{ float: 'right', color: 'var(--signal)' }}>✓</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          />
 
           {/* Table */}
           <div style={{ padding: '14px 40px 40px' }}>
