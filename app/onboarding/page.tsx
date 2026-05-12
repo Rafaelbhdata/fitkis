@@ -77,6 +77,14 @@ export default function OnboardingPage() {
       return
     }
 
+    // Mantener user_profiles.role sincronizado con la realidad.
+    // No es bloqueante: si falla, el middleware ya usa la tabla practitioners
+    // como fuente de verdad, así que el acceso funciona igual.
+    await supabase
+      .from('user_profiles')
+      .update({ role: 'practitioner' })
+      .eq('user_id', user.id)
+
     setStep('done')
     // Pequeña pausa para que el usuario vea el estado de éxito
     setTimeout(() => router.replace('/clinic'), 1200)

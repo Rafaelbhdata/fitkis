@@ -57,6 +57,7 @@ export async function loadPractitionerByUser(
     .from('practitioners')
     .select('id, display_name, license_number, specialty')
     .eq('user_id', userId)
+    .eq('active', true)
     .maybeSingle()
 
   if (error || !data) return null
@@ -531,26 +532,33 @@ export type ProfessionalRow = {
  * Solo accesible para admins (RLS lo garantiza + se verifica en la UI/API).
  */
 export async function loadAllProfessionals(supabase: SB): Promise<ProfessionalRow[]> {
+  // Un solo query: practitioners + count de pacientes activos via join embebido.
+  // Supabase traduce `practitioner_patients(count)` a un LEFT JOIN con agregación,
+  // eliminando el N+1 previo (un COUNT por practitioner).
   const { data, error } = await supabase
     .from('practitioners')
-    .select('id, user_id, display_name, license_number, specialty, clinic_name, active, created_at')
+    .select(`
+      id, user_id, display_name, license_number, specialty, clinic_name, active, created_at,
+      practitioner_patients!left(count)
+    `)
+    .eq('practitioner_patients.status', 'active')
     .order('created_at', { ascending: false })
 
   if (error || !data) return []
 
-  // Enriquecer con conteo de pacientes activos
-  const enriched = await Promise.all(
-    (data as ProfessionalRow[]).map(async (p) => {
-      const { count } = await supabase
-        .from('practitioner_patients')
-        .select('id', { count: 'exact', head: true })
-        .eq('practitioner_id', p.id)
-        .eq('status', 'active')
-      return { ...p, patient_count: count ?? 0 }
-    })
-  )
-
-  return enriched
+  return (data as Array<Record<string, unknown>>).map((p) => ({
+    id:             p.id as string,
+    user_id:        p.user_id as string,
+    display_name:   p.display_name as string,
+    license_number: (p.license_number as string | null) ?? null,
+    specialty:      (p.specialty as string | null) ?? null,
+    clinic_name:    (p.clinic_name as string | null) ?? null,
+    active:         p.active as boolean,
+    created_at:     p.created_at as string,
+    patient_count:  Array.isArray(p.practitioner_patients)
+      ? (p.practitioner_patients as Array<{ count: number }>)[0]?.count ?? 0
+      : 0,
+  }))
 }
 
 /**

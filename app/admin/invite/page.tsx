@@ -142,8 +142,8 @@ export default function AdminInvitePage() {
           <div className="mt-10 p-4 rounded-xl border border-ink-7 bg-white">
             <div className="fk-eyebrow mb-2">Qué pasa después</div>
             <ol className="text-[13px] text-ink-3 space-y-2 list-decimal list-inside leading-relaxed">
-              <li>El nutriólogo recibe un email con un enlace de acceso.</li>
-              <li>Al hacer clic establece su contraseña y llega al perfil.</li>
+              <li>El nutriólogo recibe un email con un enlace de un solo uso.</li>
+              <li>Al hacer clic queda autenticado automáticamente y llega a la pantalla de perfil.</li>
               <li>Completa nombre, cédula y especialidad.</li>
               <li>Queda activo en el portal y puede vincular pacientes.</li>
             </ol>
