@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
 import { PulseLine } from '@/components/ui/PulseLine'
+import { Ic } from '@/components/clinic/Ic'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
@@ -27,11 +28,29 @@ function lsNum(key: string, fallback: number): number {
 // ─── Nav sections ─────────────────────────────────────────────────────────────
 type SectionKey = 'perfil' | 'consultorio' | 'agenda' | 'umbrales'
 
-const NAV: { key: SectionKey; label: string }[] = [
-  { key: 'perfil',       label: 'Perfil' },
-  { key: 'consultorio',  label: 'Consultorio' },
-  { key: 'agenda',       label: 'Agenda' },
-  { key: 'umbrales',     label: 'Alertas' },
+function IcUser(p: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  )
+}
+
+function IcBuilding(p: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  )
+}
+
+const NAV: { key: SectionKey; label: string; icon: (p: React.SVGProps<SVGSVGElement>) => React.ReactElement }[] = [
+  { key: 'perfil',      label: 'Perfil',        icon: IcUser      },
+  { key: 'consultorio', label: 'Consultorio',    icon: IcBuilding  },
+  { key: 'agenda',      label: 'Agenda',         icon: Ic.cal      },
+  { key: 'umbrales',    label: 'Alertas',        icon: Ic.alert    },
 ]
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -969,37 +988,40 @@ export default function AjustesPage() {
       {!loading && !error && practitioner && (
         <div>
           {/* Tab bar */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 4,
-              padding: '0 40px',
-              borderBottom: '1px solid var(--ink-7)',
-            }}
-          >
-            {NAV.map(item => {
-              const isActive = active === item.key
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => setActive(item.key)}
-                  style={{
-                    padding: '10px 16px',
-                    background: 'transparent',
-                    border: 'none',
-                    borderBottom: isActive ? '2px solid var(--ink)' : '2px solid transparent',
-                    color: isActive ? 'var(--ink)' : 'var(--ink-4)',
-                    fontFamily: 'var(--f-sans)',
-                    fontSize: 13,
-                    fontWeight: isActive ? 500 : 400,
-                    cursor: 'pointer',
-                    marginBottom: -1,
-                  }}
-                >
-                  {item.label}
-                </button>
-              )
-            })}
+          <div style={{ padding: '18px 40px 0' }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--ink-7)' }}>
+              {NAV.map((item, i) => {
+                const isActive = active === item.key
+                const Icon = item.icon
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setActive(item.key)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 16px',
+                      border: 'none',
+                      borderRight: i < NAV.length - 1 ? '1px solid var(--ink-7)' : 'none',
+                      borderBottom: isActive ? '2px solid var(--signal)' : '2px solid transparent',
+                      marginBottom: -1,
+                      background: 'transparent',
+                      color: isActive ? 'var(--ink)' : 'var(--ink-4)',
+                      fontSize: 12,
+                      fontFamily: 'var(--f-sans)',
+                      fontWeight: isActive ? 500 : 400,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'color 0.12s',
+                    }}
+                  >
+                    <Icon width={12} height={12} />
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           {/* Panel content */}
