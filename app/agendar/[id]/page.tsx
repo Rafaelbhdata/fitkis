@@ -70,9 +70,23 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       .eq('id', practitionerId)
       .eq('active', true)
       .maybeSingle()
-      .then(({ data }) => {
-        setPrac(data as PractitionerPublic | null)
-        setStep('calendar')
+      .then(({ data, error }) => {
+        if (error) {
+          // Fallback: columnas schedule/default_duration aún no migradas en producción
+          supabase
+            .from('practitioners')
+            .select('id, display_name, specialty, clinic_name')
+            .eq('id', practitionerId)
+            .eq('active', true)
+            .maybeSingle()
+            .then(({ data: d2 }) => {
+              setPrac(d2 ? { ...(d2 as Omit<PractitionerPublic, 'schedule' | 'default_duration'>), schedule: null, default_duration: 60 } : null)
+              setStep('calendar')
+            })
+        } else {
+          setPrac(data as PractitionerPublic | null)
+          setStep('calendar')
+        }
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practitionerId])
