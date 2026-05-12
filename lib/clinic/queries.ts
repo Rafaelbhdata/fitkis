@@ -599,6 +599,28 @@ function pickInitial(name: string | null | undefined, email: string | null | und
 }
 
 // =============================================================================
+// PATIENTS — BASIC (para selects/dropdowns, sin enrich pesado)
+// =============================================================================
+
+export type PatientBasic = {
+  patient_id: string
+  patient_name: string | null
+  patient_email: string | null
+}
+
+/** Lista mínima de pacientes vinculados al practitioner — solo id, nombre y email. */
+export async function loadPatientsBasic(
+  supabase: SB,
+  practitionerId: string,
+): Promise<PatientBasic[]> {
+  const { data } = await supabase
+    .rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never)
+  return ((data ?? []) as GetPractitionerPatientsRow[])
+    .filter(r => r.status === 'active')
+    .map(r => ({ patient_id: r.patient_id, patient_name: r.patient_name, patient_email: r.patient_email }))
+}
+
+// =============================================================================
 // APPOINTMENTS
 // =============================================================================
 
