@@ -593,3 +593,90 @@ export async function reactivateProfessional(
   if (error) return { ok: false, error: error.message }
   return { ok: true }
 }
+
+// =============================================================================
+// PATIENT DATA — para tabs del detalle clínico
+// =============================================================================
+
+export type FoodLogEntry = {
+  date: string
+  meal: string
+  group_type: string
+  quantity: number
+  food_name: string | null
+}
+
+export type GymSetEntry = {
+  exercise_id: string
+  set_number: number
+  lbs: number | null
+  reps: number | null
+  feeling: string | null
+}
+
+export type GymSessionEntry = {
+  id: string
+  date: string
+  routine_type: string
+  cardio_minutes: number | null
+  cardio_speed: number | null
+  duration_seconds: number | null
+  sets: GymSetEntry[]
+}
+
+/**
+ * Food logs del paciente para los últimos N días.
+ * Usado en la tab Alimentación del detalle clínico.
+ */
+export async function loadPatientFoodLogs(
+  supabase: SB,
+  patientId: string,
+  days = 30
+): Promise<FoodLogEntry[]> {
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - days)
+  const cutoffStr = cutoff.toISOString().split('T')[0]
+
+  const { data, error } = await supabase
+    .from('food_logs')
+    .select('date, meal, group_type, quantity, food_name')
+    .eq('user_id', patientId)
+    .gte('date', cutoffStr)
+    .order('date', { ascending: false })
+
+  if (error || !data) return []
+  return data as FoodLogEntry[]
+}
+
+/**
+ * Últimas 20 sesiones de gym del paciente, incluyendo series.
+ * Usado en la tab Entrenamiento del detalle clínico.
+ */
+export async function loadPatientGymSessions(
+  supabase: SB,
+  patientId: string
+): Promise<GymSessionEntry[]> {
+  const { data, error } = await supabase
+    .from('gym_sessions')
+    .select(`
+      id, date, routine_type, cardio_minutes, cardio_speed, duration_seconds,
+      session_sets(exercise_id, set_number, lbs, reps, feeling)
+    `)
+    .eq('user_id', patientId)
+    .order('date', { ascending: false })
+    .limit(20)
+
+  if (error || !data) return []
+
+  return (data as Record<string, unknown>[]).map((s) => ({
+    id: s.id as string,
+    date: s.date as string,
+    routine_type: s.routine_type as string,
+    cardio_minutes: (s.cardio_minutes as number | null) ?? null,
+    cardio_speed: (s.cardio_speed as number | null) ?? null,
+    duration_seconds: (s.duration_seconds as number | null) ?? null,
+    sets: ((s.session_sets as GymSetEntry[]) ?? []).sort(
+      (a, b) => a.set_number - b.set_number
+    ),
+  }))
+}
