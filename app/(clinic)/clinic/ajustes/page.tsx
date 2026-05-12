@@ -644,8 +644,6 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
   )
 }
 
-// ─── Panel: Agenda ────────────────────────────────────────────────────────────
-
 // ─── TimeSelect ───────────────────────────────────────────────────────────────
 
 function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -681,6 +679,11 @@ function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) 
 }
 
 // ─── Panel: Agenda ─────────────────────────────────────────────────────────────
+
+const agendaLabelStyle: React.CSSProperties = {
+  display: 'block', fontFamily: 'var(--f-mono)', fontSize: 10, fontWeight: 600,
+  letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 10,
+}
 
 function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
   const supabase = useSupabase()
@@ -745,12 +748,7 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
 
       {/* Duración */}
       <div style={{ marginBottom: 28 }}>
-        <label
-          style={{
-            display: 'block', fontFamily: 'var(--f-mono)', fontSize: 10, fontWeight: 600,
-            letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 10,
-          }}
-        >
+        <label style={agendaLabelStyle}>
           Duración por defecto de citas
         </label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -777,12 +775,7 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
 
       {/* Horario semanal */}
       <div style={{ marginBottom: 24 }}>
-        <label
-          style={{
-            display: 'block', fontFamily: 'var(--f-mono)', fontSize: 10, fontWeight: 600,
-            letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 10,
-          }}
-        >
+        <label style={agendaLabelStyle}>
           Horario semanal
         </label>
 

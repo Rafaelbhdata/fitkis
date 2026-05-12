@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import {
-  DEFAULT_WEEK_SCHEDULE, dateToDayKey, timeToMin, generateSlots,
+  DEFAULT_WEEK_SCHEDULE, dateToDayKey, minToTime, generateSlots,
 } from '@/lib/clinic/calendar-utils'
 import type { WeekSchedule } from '@/lib/clinic/calendar-utils'
 
@@ -58,13 +58,8 @@ export async function POST(req: Request) {
   }
 
   const validSlots = generateSlots(dateISO, duration_minutes, daySchedule)
-  const slotISO    = startDt.toISOString().replace(/\.\d{3}Z$/, 'Z')
-  const slotLocal  = `${dateISO}T${String(startDt.getHours()).padStart(2,'0')}:${String(startDt.getMinutes()).padStart(2,'0')}:00`
-
-  const isValidSlot = validSlots.some(s => {
-    // Comparar hora local: el slot generado usa hora local sin offset
-    return s === slotLocal || new Date(s).getTime() === startDt.getTime()
-  })
+  const slotLocal  = `${dateISO}T${minToTime(startDt.getHours() * 60 + startDt.getMinutes())}:00`
+  const isValidSlot = validSlots.includes(slotLocal)
 
   if (!isValidSlot) {
     return NextResponse.json({ error: 'El horario seleccionado no está disponible.' }, { status: 400 })

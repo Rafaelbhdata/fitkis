@@ -11,7 +11,7 @@ import {
   fmtTime, fmtDateShort, generateSlots,
   dateToDayKey,
 } from '@/lib/clinic/calendar-utils'
-import type { WeekSchedule, DaySchedule } from '@/lib/clinic/calendar-utils'
+import type { WeekSchedule } from '@/lib/clinic/calendar-utils'
 
 type PractitionerPublic = {
   id: string
@@ -48,7 +48,6 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   const [step,         setStep]         = useState<Step>('loading')
   const [prac,         setPrac]         = useState<PractitionerPublic | null>(null)
-  const [daySchedule,  setDaySchedule]  = useState<DaySchedule | null>(null)
   const today = todayISO()
   const now = new Date()
   const [calY,         setCalY]         = useState(now.getFullYear())
@@ -86,10 +85,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       const r    = await fetch(`/api/available-slots/${practitionerId}/${d}`)
       const data = await r.json()
       setOccupied(Array.isArray(data.occupied) ? data.occupied : [])
-      setDaySchedule(data.schedule ?? null)
     } catch {
       setOccupied([])
-      setDaySchedule(null)
     }
     setSlotsLoading(false)
     setStep('slots')
@@ -223,10 +220,11 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       ...Array.from({ length: daysInMonth(calY, calM) }, (_, i) => i + 1),
     ]
 
-    const slots = date && step === 'slots' && daySchedule
+    const daySchedule = date
+      ? prac?.schedule?.[dateToDayKey(new Date(date + 'T00:00:00'))]
+      : undefined
+    const slots = date && step === 'slots'
       ? generateSlots(date, duration, daySchedule)
-      : date && step === 'slots'
-      ? generateSlots(date, duration)
       : []
 
     return (
