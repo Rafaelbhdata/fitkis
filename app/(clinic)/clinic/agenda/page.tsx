@@ -8,6 +8,7 @@ import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from '@/components/clinic/Ic'
 import { NewAppointmentModal } from '@/components/clinic/NewAppointmentModal'
 import { AppointmentBlock } from '@/components/clinic/AppointmentBlock'
+import { RescheduleModal } from '@/components/clinic/RescheduleModal'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
@@ -71,7 +72,8 @@ export default function AgendaPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading]           = useState(true)
   const [weekOffset, setWeekOffset]     = useState(0)
-  const [newApptOpen, setNewApptOpen]   = useState(false)
+  const [newApptOpen, setNewApptOpen]         = useState(false)
+  const [rescheduleAppt, setRescheduleAppt]   = useState<Appointment | null>(null)
   const [startHour, setStartHour]       = useState(9)
   const [endHour, setEndHour]           = useState(17)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -145,20 +147,28 @@ export default function AgendaPage() {
     return { error }
   }
 
-  async function handleReschedule(appt: Appointment) {
-    if (!practitioner) return
-    // Actualiza status local inmediatamente para feedback visual
-    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: 'rescheduling' } : a))
+  function handleReschedule(appt: Appointment) {
+    setRescheduleAppt(appt)
+  }
+
+  async function handleRescheduleConfirm(reason: 'no_show' | 'custom', customMessage?: string) {
+    if (!rescheduleAppt || !practitioner) return
+    const newStatus = reason === 'no_show' ? 'no_show' : 'rescheduling'
+    // Feedback visual inmediato
+    setAppointments(prev => prev.map(a => a.id === rescheduleAppt.id ? { ...a, status: newStatus } : a))
+    setRescheduleAppt(null)
     await fetch('/api/reschedule-appointment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        appointmentId:    appt.id,
+        appointmentId:    rescheduleAppt.id,
         practitionerId:   practitioner.id,
         practitionerName: practitioner.display_name,
-        patientName:      appt.patient_name,
-        patientEmail:     appt.patient_email ?? '',
-        originalDate:     appt.starts_at,
+        patientName:      rescheduleAppt.patient_name,
+        patientEmail:     rescheduleAppt.patient_email ?? '',
+        originalDate:     rescheduleAppt.starts_at,
+        reason,
+        customMessage,
       }),
     })
   }
@@ -342,6 +352,15 @@ export default function AgendaPage() {
           onClose={() => setNewApptOpen(false)}
           onCreated={() => { setNewApptOpen(false); fetchAppts() }}
           createAppointment={handleCreate}
+        />
+      )}
+
+      {rescheduleAppt && practitioner && (
+        <RescheduleModal
+          appt={rescheduleAppt}
+          practitionerName={practitioner.display_name}
+          onConfirm={handleRescheduleConfirm}
+          onClose={() => setRescheduleAppt(null)}
         />
       )}
     </div>
