@@ -26,8 +26,8 @@ function NameLink({ patientId, name, cancelled }: { patientId: string; name: str
 }
 
 const STATUS_CFG: Record<AppointmentStatus, { bg: string; border: string; color: string }> = {
-  scheduled:    { bg: 'rgba(74,124,58,0.09)', border: 'rgba(74,124,58,0.35)', color: '#4a7c3a' },
-  confirmed:    { bg: 'rgba(74,124,58,0.09)', border: 'rgba(74,124,58,0.35)', color: '#4a7c3a' },
+  scheduled:    { bg: 'rgba(74,124,58,0.18)', border: 'rgba(74,124,58,0.55)', color: '#3a6b2c' },
+  confirmed:    { bg: 'rgba(74,124,58,0.18)', border: 'rgba(74,124,58,0.55)', color: '#3a6b2c' },
   completed:    { bg: 'var(--leaf-soft)',      border: 'var(--leaf)',          color: 'var(--leaf)'  },
   cancelled:    { bg: 'var(--paper-3)',        border: 'transparent',          color: 'var(--ink-5)' },
   no_show:      { bg: 'var(--honey-soft)',     border: 'var(--honey)',         color: '#8a6411'      },
