@@ -109,33 +109,47 @@ export async function loadPatientsForPractitioner(
 
   const patientIds = relations.map((r) => r.patient_id)
 
-  // Bulk-fetch latest food/gym date per patient — 2 queries total regardless of list size
+  const cutoff30 = new Date()
+  cutoff30.setDate(cutoff30.getDate() - 30)
+  const cutoffISO = cutoff30.toISOString().split('T')[0]
+
+  // Bulk-fetch food/gym dates for last 30 days — 2 queries total regardless of list size
   const [{ data: foodRows }, { data: gymRows }] = await Promise.all([
     supabase
       .from('food_logs')
       .select('user_id, date')
       .in('user_id', patientIds)
+      .gte('date', cutoffISO)
       .order('date', { ascending: false }),
     supabase
       .from('gym_sessions')
       .select('user_id, date')
       .in('user_id', patientIds)
+      .gte('date', cutoffISO)
       .order('date', { ascending: false }),
   ])
 
-  // Keep only the most recent date per patient (rows are DESC so first hit wins)
   const lastFoodByPatient: Record<string, string> = {}
+  const lastGymByPatient:  Record<string, string> = {}
+  const activityDatesByPatient: Record<string, Set<string>> = {}
+
   for (const row of (foodRows ?? []) as { user_id: string; date: string }[]) {
     if (!lastFoodByPatient[row.user_id]) lastFoodByPatient[row.user_id] = row.date
+    ;(activityDatesByPatient[row.user_id] ??= new Set()).add(row.date)
   }
-  const lastGymByPatient: Record<string, string> = {}
   for (const row of (gymRows ?? []) as { user_id: string; date: string }[]) {
     if (!lastGymByPatient[row.user_id]) lastGymByPatient[row.user_id] = row.date
+    ;(activityDatesByPatient[row.user_id] ??= new Set()).add(row.date)
   }
 
   const enriched = await Promise.all(
     relations.map((rel, index) =>
-      enrichPatient(supabase, rel, index, lastFoodByPatient[rel.patient_id], lastGymByPatient[rel.patient_id])
+      enrichPatient(
+        supabase, rel, index,
+        lastFoodByPatient[rel.patient_id],
+        lastGymByPatient[rel.patient_id],
+        activityDatesByPatient[rel.patient_id],
+      )
     )
   )
 
@@ -148,6 +162,7 @@ async function enrichPatient(
   index: number,
   lastFoodDate?: string,
   lastGymDate?: string,
+  activityDates?: Set<string>,
 ): Promise<MockPatient> {
   const [{ data: profile }, { data: weights }, { data: diet }] = await Promise.all([
     supabase
@@ -183,14 +198,23 @@ async function enrichPatient(
     .filter((v): v is number => v != null)
 
   const daysSinceActivity = computeLastActivityDays(weightHistory, lastFoodDate, lastGymDate)
-  const goal = formatGoal(weightArr, profile?.goal_weight_kg)
-  const alert = computeAlert(daysSinceActivity, weightHistory)
+  const goal     = formatGoal(weightArr, profile?.goal_weight_kg)
+  const alert    = computeAlert(daysSinceActivity, weightHistory)
   const lastSeen = formatLastSeen(rel, daysSinceActivity)
-  const initial = pickInitial(rel.patient_name, rel.patient_email)
+  const initial  = pickInitial(rel.patient_name, rel.patient_email)
   const displayName = rel.patient_name || rel.patient_email || `Paciente ${rel.patient_id.slice(0, 6)}`
 
+  // Merge weight dates (last 30 days) with food/gym dates for adherence + streak
+  const cutoffISO = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0] })()
+  const allDates = new Set(activityDates)
+  for (const w of weightHistory) {
+    if (w.date >= cutoffISO) allDates.add(w.date)
+  }
+  const adherence = allDates.size > 0 ? Math.round((allDates.size / 30) * 100) : null
+  const streak    = computeStreak(allDates)
+
   return {
-    id: index + 1, // local ordinal id for the route param (real id is patient_id)
+    id: index + 1,
     name: displayName,
     email: rel.patient_email ?? '',
     initial,
@@ -205,8 +229,8 @@ async function enrichPatient(
     muscle: muscleArr,
     lastSeen,
     alert,
-    adherence: null,
-    streak: 0,
+    adherence,
+    streak,
     days_since_activity: daysSinceActivity,
     _patient_id: rel.patient_id,
   }
@@ -526,6 +550,18 @@ function isStagnant(weightHistory: WeightLog[]): boolean {
   if (spanDays < STAGNATION_MIN_DAYS) return false
   const delta = Math.abs((recent[recent.length - 1].weight_kg ?? 0) - (recent[0].weight_kg ?? 0))
   return delta < STAGNATION_MAX_DELTA_KG
+}
+
+function computeStreak(dates: Set<string>): number {
+  let streak = 0
+  const today = new Date()
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    if (dates.has(d.toISOString().split('T')[0])) streak++
+    else break
+  }
+  return streak
 }
 
 function computeAlert(daysSinceActivity: number | undefined, weightHistory: WeightLog[]): AlertKind {
