@@ -32,7 +32,10 @@ type SB = SupabaseClient<any, any, any>
  * Día sin registros a partir del cual marcamos al paciente como "inactivo".
  * Ajustable por practitioner en Fase 3 (tabla settings).
  */
-const INACTIVITY_THRESHOLD_DAYS = 7
+const INACTIVITY_THRESHOLD_DAYS  = 7   // días sin ningún registro → inactividad
+const STAGNATION_MIN_DAYS        = 21  // ventana mínima entre primera y última medición
+const STAGNATION_MIN_LOGS        = 3   // mediciones necesarias para detectar estancamiento
+const STAGNATION_MAX_DELTA_KG    = 1.0 // cambio total < 1 kg → peso estancado
 
 // =============================================================================
 // PRACTITIONER
@@ -118,7 +121,7 @@ async function enrichPatient(
   rel: GetPractitionerPatientsRow,
   index: number
 ): Promise<MockPatient> {
-  const [{ data: profile }, { data: weights }, { data: diet }] = await Promise.all([
+  const [{ data: profile }, { data: weights }, { data: diet }, { data: lastFood }, { data: lastGym }] = await Promise.all([
     supabase
       .from('user_profiles')
       .select('height_cm, goal_weight_kg')
@@ -138,6 +141,20 @@ async function enrichPatient(
       .order('effective_date', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('food_logs')
+      .select('date')
+      .eq('user_id', rel.patient_id)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('gym_sessions')
+      .select('date')
+      .eq('user_id', rel.patient_id)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   // Oldest-to-newest for the sparkline
@@ -151,9 +168,13 @@ async function enrichPatient(
     .map((w) => w.muscle_mass_kg)
     .filter((v): v is number => v != null)
 
-  const daysSinceActivity = computeDaysSinceLatest(weightHistory)
+  const daysSinceActivity = computeLastActivityDays(
+    weightHistory,
+    (lastFood as { date: string } | null)?.date ?? null,
+    (lastGym  as { date: string } | null)?.date ?? null,
+  )
   const goal = formatGoal(weightArr, profile?.goal_weight_kg)
-  const alert = computeAlert(daysSinceActivity)
+  const alert = computeAlert(daysSinceActivity, weightHistory)
   const lastSeen = formatLastSeen(rel, daysSinceActivity)
   const initial = pickInitial(rel.patient_name, rel.patient_email)
   const displayName = rel.patient_name || rel.patient_email || `Paciente ${rel.patient_id.slice(0, 6)}`
@@ -285,7 +306,7 @@ export async function loadPatientDetail(
 
   const weightHistory = ((weights ?? []) as WeightLog[]).slice().reverse()
   const weightArr = weightHistory.map((w) => w.weight_kg).filter((v): v is number => v != null)
-  const daysSinceActivity = computeDaysSinceLatest(weightHistory)
+  const daysSinceActivity = computeLastActivityDays(weightHistory, null, null)
 
   return {
     patient_id: patientId,
@@ -458,18 +479,50 @@ export async function invitePatientByEmail(
 // HELPERS
 // =============================================================================
 
-function computeDaysSinceLatest(weightHistory: WeightLog[]): number | undefined {
-  if (!weightHistory.length) return undefined
-  const latest = weightHistory[weightHistory.length - 1]
-  const lastDate = new Date(latest.date + 'T00:00:00')
-  const now = new Date()
-  return Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
+function daysBetween(isoDate: string): number {
+  const d = new Date(isoDate + 'T00:00:00')
+  return Math.floor((Date.now() - d.getTime()) / 86_400_000)
 }
 
-function computeAlert(daysSinceActivity: number | undefined): AlertKind {
-  if (daysSinceActivity != null && daysSinceActivity >= INACTIVITY_THRESHOLD_DAYS) {
+/**
+ * Días desde el último registro considerando peso, comida y gym.
+ * Devuelve undefined si no hay ningún registro en ninguna fuente.
+ */
+function computeLastActivityDays(
+  weightHistory: WeightLog[],
+  lastFoodDate: string | null,
+  lastGymDate:  string | null,
+): number | undefined {
+  const candidates: number[] = []
+  if (weightHistory.length) {
+    candidates.push(daysBetween(weightHistory[weightHistory.length - 1].date))
+  }
+  if (lastFoodDate) candidates.push(daysBetween(lastFoodDate))
+  if (lastGymDate)  candidates.push(daysBetween(lastGymDate))
+  if (!candidates.length) return undefined
+  return Math.min(...candidates) // más reciente = menor número de días
+}
+
+/**
+ * Detecta estancamiento: paciente activo cuyo peso no ha cambiado
+ * significativamente en al menos STAGNATION_MIN_DAYS con 3+ mediciones.
+ */
+function isStagnant(weightHistory: WeightLog[]): boolean {
+  const ws = weightHistory.filter((w) => w.weight_kg != null)
+  if (ws.length < STAGNATION_MIN_LOGS) return false
+  const recent = ws.slice(-STAGNATION_MIN_LOGS) // últimas N mediciones
+  const spanDays = daysBetween(recent[0].date) - daysBetween(recent[recent.length - 1].date)
+  if (spanDays < STAGNATION_MIN_DAYS) return false
+  const delta = Math.abs((recent[recent.length - 1].weight_kg ?? 0) - (recent[0].weight_kg ?? 0))
+  return delta < STAGNATION_MAX_DELTA_KG
+}
+
+function computeAlert(daysSinceActivity: number | undefined, weightHistory: WeightLog[]): AlertKind {
+  // Inactividad tiene prioridad sobre estancamiento
+  if (daysSinceActivity == null || daysSinceActivity >= INACTIVITY_THRESHOLD_DAYS) {
     return 'inactividad'
   }
+  if (isStagnant(weightHistory)) return 'estancamiento'
   return null
 }
 
