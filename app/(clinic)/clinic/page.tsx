@@ -11,6 +11,7 @@ import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
   loadPatientsForPractitioner,
+  loadAppointmentsForWeek,
   patientRealId,
   type PractitionerRecord,
 } from '@/lib/clinic/queries'
@@ -57,6 +58,7 @@ export default function ClinicPatientsPage() {
   const [searchQuery, setSearch]  = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [todayCount, setTodayCount] = useState<number | null>(null)
   const sortRef   = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -77,9 +79,14 @@ export default function ClinicPatientsPage() {
           return
         }
         setPractitioner(p)
-        const list = await loadPatientsForPractitioner(supabase, p.id)
+        const todayISO = new Date().toISOString().split('T')[0]
+        const [list, appts] = await Promise.all([
+          loadPatientsForPractitioner(supabase, p.id),
+          loadAppointmentsForWeek(supabase, p.id, todayISO),
+        ])
         if (cancelled) return
         setPatients(list)
+        setTodayCount(appts.filter(a => a.starts_at.startsWith(todayISO) && a.status !== 'cancelled' && a.status !== 'no_show').length)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Error desconocido')
       } finally {
@@ -262,7 +269,7 @@ export default function ClinicPatientsPage() {
                 sub: pendingCount ? 'invitaciones sin aceptar' : 'ninguna',
                 col: 'var(--signal)',
               },
-              { label: 'Consultas hoy', n: '—', sub: 'agenda · fase 2', col: 'var(--ink-4)' },
+              { label: 'Consultas hoy', n: todayCount ?? '—', sub: todayCount === null ? 'cargando…' : todayCount === 0 ? 'sin citas hoy' : todayCount === 1 ? '1 cita programada' : `${todayCount} citas programadas`, col: todayCount ? 'var(--sky)' : 'var(--ink-4)' },
             ].map((s) => (
               <div key={s.label} style={{ background: '#fff', padding: '20px 28px' }}>
                 <div className="fk-eyebrow">{s.label}</div>
