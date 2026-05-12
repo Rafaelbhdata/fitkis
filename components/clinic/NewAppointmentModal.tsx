@@ -1,10 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Btn } from '@/components/ui/Btn'
-import { PulseLine } from '@/components/ui/PulseLine'
 import { useSupabase } from '@/lib/hooks'
 import { loadPatientsBasic, type PatientBasic } from '@/lib/clinic/queries'
+import {
+  MONTHS_CAP, WEEK_LABELS, DURATIONS,
+  todayISO, isoDate, firstDayOfMonth, daysInMonth,
+  fmtTime, generateSlots,
+} from '@/lib/clinic/calendar-utils'
 
 type PatientMode = 'linked' | 'external'
 
@@ -21,32 +25,6 @@ type Props = {
     duration_minutes: number
     notes?:           string
   }) => Promise<{ error: string | null }>
-}
-
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-const MONTHS_CAP = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const WEEK_LABELS = ['Lu','Ma','Mi','Ju','Vi','Sá','Do']
-const DURATIONS = [15, 30, 45, 60]
-
-function todayISO() { return new Date().toISOString().split('T')[0] }
-function isoDate(y: number, m: number, d: number) {
-  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-}
-function firstDay(y: number, m: number) { const r = new Date(y,m,1).getDay(); return r===0?6:r-1 }
-function daysInMonth(y: number, m: number) { return new Date(y,m+1,0).getDate() }
-
-function generateSlots(dateISO: string, durationMin: number): string[] {
-  const slots: string[] = []
-  for (let m = 9*60; m + durationMin <= 19*60; m += durationMin) {
-    const h = Math.floor(m/60), mm = m%60
-    slots.push(`${dateISO}T${String(h).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00`)
-  }
-  return slots
-}
-
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false})
 }
 
 // ─── component ───────────────────────────────────────────────────────────────
@@ -91,12 +69,14 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
     return () => document.removeEventListener('mousedown', handler)
   }, [dropOpen])
 
-  const filtered = patients.filter(p => {
+  const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return (p.patient_name??'').toLowerCase().includes(q)||(p.patient_email??'').toLowerCase().includes(q)
-  })
+    return patients.filter(p =>
+      (p.patient_name??'').toLowerCase().includes(q)||(p.patient_email??'').toLowerCase().includes(q)
+    )
+  }, [patients, search])
 
-  const cells: (number|null)[] = [...Array(firstDay(calY,calM)).fill(null), ...Array.from({length:daysInMonth(calY,calM)},(_,i)=>i+1)]
+  const cells: (number|null)[] = [...Array(firstDayOfMonth(calY,calM)).fill(null), ...Array.from({length:daysInMonth(calY,calM)},(_,i)=>i+1)]
   const slots = date ? generateSlots(date, duration) : []
 
   const patientName  = mode==='linked' ? (selected?.patient_name??'') : extName.trim()
@@ -104,8 +84,7 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
   const patientId    = mode==='linked' ? (selected?.patient_id??undefined) : undefined
   const canSubmit    = !!patientName && !!date && !!slot && (mode==='linked'?!!selected:!!extName.trim())
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit() {
     if (!canSubmit||!date||!slot) return
     setSubmitting(true); setError(null)
     const starts_at = new Date(slot).toISOString()
@@ -304,7 +283,7 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
         {/* Footer */}
         <div style={{padding:'16px 32px',borderTop:'1px solid var(--ink-7)',display:'flex',justifyContent:'flex-end',gap:10}}>
           <Btn type="button" variant="ghost" onClick={onClose} disabled={submitting}>Cancelar</Btn>
-          <Btn type="button" variant="signal" disabled={!canSubmit||submitting} onClick={handleSubmit as never}>
+          <Btn type="button" variant="signal" disabled={!canSubmit||submitting} onClick={handleSubmit}>
             {submitting?'Agendando…':'Agendar cita'}
           </Btn>
         </div>

@@ -1,42 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { AddToCalendar } from '@/components/clinic/AddToCalendar'
 import { FkWord } from '@/components/ui/Fk'
+import {
+  MONTHS_CAP, WEEK_LABELS, DURATIONS,
+  todayISO, isoDate, firstDayOfMonth, daysInMonth,
+  fmtTime, fmtDateShort, generateSlots,
+} from '@/lib/clinic/calendar-utils'
 
 type PractitionerPublic = { id: string; display_name: string; specialty: string | null; clinic_name: string | null }
 type OccupiedSlot = { starts_at: string; duration_minutes: number }
 type Step = 'loading' | 'calendar' | 'slots' | 'form' | 'confirmed'
-
-const MONTHS_CAP = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const MONTHS_SHORT = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-const DAYS_LONG = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
-const WEEK_LABELS = ['Lu','Ma','Mi','Ju','Vi','Sá','Do']
-const DURATIONS = [15, 30, 45, 60]
-
-function todayISO() { return new Date().toISOString().split('T')[0] }
-function isoDate(y: number, m: number, d: number) {
-  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-}
-function firstDayOfMonth(y: number, m: number) { const r = new Date(y,m,1).getDay(); return r===0?6:r-1 }
-function daysInMonth(y: number, m: number)     { return new Date(y,m+1,0).getDate() }
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false})
-}
-function fmtDateShort(iso: string) {
-  const d = new Date(iso+'T00:00:00')
-  return `${DAYS_LONG[d.getDay()]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
-}
-function generateSlots(dateISO: string, durationMin: number): string[] {
-  const slots: string[] = []
-  for (let m = 9*60; m + durationMin <= 19*60; m += durationMin) {
-    const h = Math.floor(m/60), mm = m%60
-    slots.push(`${dateISO}T${String(h).padStart(2,'0')}:${String(mm).padStart(2,'0')}:00`)
-  }
-  return slots
-}
 function isOccupied(slotISO: string, occupied: OccupiedSlot[], durMin: number) {
   const s = new Date(slotISO).getTime(), e = s + durMin*60_000
   return occupied.some(o => { const os = new Date(o.starts_at).getTime(); return s < os + o.duration_minutes*60_000 && e > os })
@@ -44,11 +21,12 @@ function isOccupied(slotISO: string, occupied: OccupiedSlot[], durMin: number) {
 
 export default function BookingPage({ params }: { params: { id: string } }) {
   const practitionerId = params.id
-  const rescheduleId = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('reschedule') ?? undefined
-    : undefined
+  const [rescheduleId] = useState<string | undefined>(() =>
+    typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('reschedule') ?? undefined : undefined
+  )
 
-  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  const supabaseRef = useRef(createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!))
+  const supabase = supabaseRef.current
 
   const [step, setStep]         = useState<Step>('loading')
   const [prac, setPrac]         = useState<PractitionerPublic|null>(null)
