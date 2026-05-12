@@ -8,56 +8,61 @@
 
 ---
 
-## Pivote 11 mayo 2026
-
-Web pasa a ser **únicamente el portal de nutriólogas**. Rutas `app/(app)/*` congeladas en `legacy/` (excluidas del build vía `tsconfig.json`). El paciente usa `fitkis-mobile`.
-
----
-
 ## Estructura activa del repo
 
 ```
 app/
   (auth)/login, register       — Auth
   (clinic)/                    — Portal clínico (gateado por practitioners.active)
-    clinic/page.tsx            — Lista de pacientes
-    clinic/pacientes/[id]/     — Detalle del paciente
-    clinic/pacientes/[id]/plan — Editor SMAE
-    clinic/agenda/             — Agenda semanal ✅ (grilla horaria, AppointmentBlock, zoom, settings)
+    clinic/page.tsx            — Lista de pacientes + filtros + InviteModal
+    clinic/pacientes/[id]/     — Detalle del paciente (tabs; Antropometría/Alim/Gym/Msg son stub)
+    clinic/pacientes/[id]/plan — Editor SMAE ✅
+    clinic/agenda/             — Agenda semanal ✅ (grilla horaria 8 col, zoom, AppointmentBlock)
+    clinic/ajustes/            — Ajustes ✅ (perfil, consultorio, agenda semanal, alertas)
     clinic/reportes/           — Stub "Próximamente"
     clinic/biblioteca/         — Stub "Próximamente"
-    clinic/ajustes/            — Stub "Próximamente"
-  agendar/[id]/                — Página pública de booking (mobile-first, Calendly-style)
+  agendar/[id]/                — Página pública de booking mobile-first (Calendly-style)
   onboarding/                  — Formulario para nutrióloga invitada
   admin/, admin/invite/        — Panel admin (gateado por user_profiles.role='admin')
   api/
     admin/professional         — PATCH desactivar/reactivar nutriólogo
-    available-slots/[id]/[d]   — GET slots disponibles para booking
-    book-appointment           — POST crear cita (soporta reschedule_id)
+    available-slots/[id]/[d]   — GET { occupied } — slots ocupados del día
+    book-appointment           — POST crear cita; usa default_duration del practitioner (cliente no elige)
     invite-professional        — POST invitar nutrióloga vía magic link
     reschedule-appointment     — POST reagendar cita (no_show | custom + email Resend)
   auth/callback/               — Intercambia code → sesión, redirige a /onboarding o /clinic
   download/, privacy/, terms/  — Páginas públicas
-  not-found.tsx                — Página 404 (evita bug ENOENT en build traces)
+  not-found.tsx                — Página 404
 
 components/
   clinic/  Sidebar, Topbar, Ic, MiniSpark, InviteModal, ComingSoon,
-           NewAppointmentModal, AppointmentBlock, RescheduleModal, AddToCalendar
-  ui/      PulseLine, Fk, Btn, Chip, Card, Segments, Sparkline,
-           BigNum, StatCard, LogoMark, Toast
+           NewAppointmentModal, AppointmentBlock, RescheduleModal, AddToCalendar,
+           PatientFilterBar
+  ui/      PulseLine, Fk, Btn, Card, Segments, Toast
 
 lib/
-  clinic/calendar-utils.ts    — Constantes y helpers de fecha/slot compartidos
-  clinic/queries.ts            — Todos los loaders/mutaciones Supabase + tipos
-  clinic/mock-data.ts          — Referencia visual (no se importa en producción)
-  api-auth.ts                  — Verifica bearer JWT para endpoints consumidos por la app móvil
-  constants.ts                 — Equivalentes SMAE, rutinas (importado por lib/utils.ts)
+  clinic/calendar-utils.ts    — Tipos (WeekSchedule, DaySchedule, Break, DayKey),
+                                 generateSlots (respeta horario+breaks), TIME_OPTIONS,
+                                 DAY_ORDER/DAY_LABELS, dateToDayKey, timeToMin/minToTime
+  clinic/queries.ts            — Loaders/mutaciones Supabase + tipos; incluye updatePractitioner
+  clinic/mock-data.ts          — Referencia visual (no importado en producción)
+  api-auth.ts                  — Verifica bearer JWT para endpoints de la app móvil
+  constants.ts                 — Equivalentes SMAE, rutinas
   hooks.ts                     — useSupabase, useUser
   supabase.ts                  — Cliente Supabase browser/server
-  utils.ts                     — Helpers generales (formatDateISO, getToday — timezone-safe)
+  utils.ts                     — Helpers generales (formatDateISO, getToday)
+```
 
-hooks/
-  (vacío — los hooks de la app móvil viven en legacy/ o fitkis-mobile)
+---
+
+## Modelo de datos — practitioners (campos relevantes)
+
+```
+practitioners:
+  display_name, license_number, specialty, clinic_name, address
+  schedule        JSONB   — WeekSchedule (horario por día + breaks); NULL → DEFAULT_WEEK_SCHEDULE
+  default_duration INTEGER — Duración fija de citas (15/30/45/60 min); default 60
+  active          BOOLEAN
 ```
 
 ---
@@ -67,52 +72,70 @@ hooks/
 - `user_profiles.role`: `user | practitioner | professional | admin`
 - Portal `/clinic` gatea por **`practitioners.active = true`** (no por `role`) — diseño intencional
 - `/admin` y `/admin/invite` gatean por `role = 'admin'`
-- Admin actual: `rafael.blangah@gmail.com` (asignado 11 mayo 2026)
+- Admin actual: `rafael.blangah@gmail.com`
 
 ---
 
-## Módulo de agenda ✅ (12 mayo 2026)
+## Módulo de agenda ✅
 
 - Grilla CSS 8 columnas (hora + 7 días), filas de `ROW_H` px con zoom (80/120/160 px)
 - `AppointmentBlock` posicionado absolutamente — `top` y `height` calculados desde hora local
 - `NewAppointmentModal`: toggle paciente vinculado (dropdown con search) / externo; calendar + slots
 - `RescheduleModal`: razón `no_show | custom`; llama `POST /api/reschedule-appointment` → email Resend
-- Settings de horario (hora inicio/fin) persistidos en `localStorage`
+- Zoom y hora inicio/fin de la grilla visual persistidos en `localStorage` (agenda_zoom, agenda_start_hour, agenda_end_hour)
 - Indicador de hora actual (línea roja) en la columna de hoy
-- Migraciones: `028_appointments.sql`, `029_appointments_rescheduling.sql` — **aplicar en Supabase SQL editor**
+
+## Módulo de ajustes ✅ (12 mayo 2026)
+
+- **Perfil**: display_name, cédula, especialidad — guardado en BD
+- **Consultorio**: clinic_name, address, link público `/agendar/[id]` con botón Copiar
+- **Agenda**: horario semanal por día (toggle on/off, hora inicio/fin, breaks) + duración fija de citas
+  - Guardado en `practitioners.schedule` (JSONB) y `practitioners.default_duration`
+  - El paciente **no** elige duración desde el link de reservas
+- **Alertas**: umbrales de inactividad y adherencia mínima — localStorage (pendiente migrar a BD)
+
+## Booking público ✅
+
+- Página `/agendar/[id]`: lee `default_duration` y `schedule` del practitioner al inicio
+- Días sin atención aparecen deshabilitados en el calendario
+- Slots generados respetando horario + breaks del día
+- API valida server-side que el slot caiga dentro del horario antes de insertar
 
 ---
 
-## Migraciones aplicadas (acumulado)
+## Migraciones (acumulado)
 
-001–024 + `schedule_overrides.sql` + 025 (admin role) + 026 (user_profiles.display_name) +
-027 (signup trigger restore) — **aplicadas**.
+**Aplicadas:** 001–027 + `schedule_overrides.sql`
 
-028 (appointments) + 029 (rescheduling status) — **pendientes de aplicar manualmente** en Supabase SQL editor.
+**Pendientes de aplicar en Supabase SQL editor:**
+- `028_appointments.sql`
+- `029_appointments_rescheduling.sql`
+- `030_practitioners_address.sql` — columna `address TEXT`
+- `031_practitioners_schedule.sql` — columnas `schedule JSONB`, `default_duration INTEGER DEFAULT 60`
 
 ---
 
 ## Issues conocidos (no rompen build)
 
-1. `loadPractitionerByUser` no filtra por `active` — agregar `.eq('active', true)` en `queries.ts:53`
-2. Onboarding no actualiza `user_profiles.role` a `'practitioner'` — funcional pero inconsistente
-3. Copy engañoso en `/admin/invite` — dice "establece contraseña"; Supabase usa magic link, no password
-4. N+1 en `loadAllProfessionals` — aceptable para MVP, refactorizar con `GROUP BY` cuando sea relevante
-5. Round-trip extra para email del paciente en `loadPatientDetail` — crear RPC dedicada
+1. Onboarding no actualiza `user_profiles.role` a `'practitioner'` — funcional pero inconsistente
+2. Copy engañoso en `/admin/invite` — dice "establece contraseña"; Supabase usa magic link
+3. N+1 en `loadAllProfessionals` — aceptable para MVP
+4. Round-trip extra para email del paciente en `loadPatientDetail` — crear RPC dedicada
+5. Agenda view (`clinic/agenda/page.tsx`) lee hora inicio/fin de `localStorage`; no sincroniza con el schedule del practitioner en BD — las dos fuentes son independientes por ahora
 
 ---
 
 ## Pendiente · Fase 3
 
 - **Adherencia real** desde última visita (`weight_logs ∪ food_logs ∪ gym_sessions` desde appointment más reciente)
-- **Notas de consulta** — migración `030_consultation_notes.sql` + card en detalle del paciente
+- **Notas de consulta** — migración + card en detalle del paciente
 - **Tabs de detalle** aún stub: Antropometría, Alimentación, Entrenamiento, Conversación
 - **Reportes globales** — `/clinic/reportes`
 - **Biblioteca** — `/clinic/biblioteca` (plantillas SMAE, mensajes, recetario)
-- **Ajustes** — `/clinic/ajustes` (perfil del practitioner, umbrales de alertas)
 - **Alerta de estancamiento de peso** — `computeAlert` solo marca inactividad; agregar lógica vs goal
-- **Reporte PDF** — Btn ya pintado en header; stack: `@react-pdf/renderer`
-- **`RESEND_API_KEY`** en `.env.local` para que los emails de reagenda funcionen
+- **Reporte PDF** — Btn pintado en header; stack sugerido: `@react-pdf/renderer`
+- **Umbrales de alertas en BD** — actualmente en localStorage; migrar a tabla settings del practitioner
+- **Sincronizar grilla de agenda** con `practitioners.schedule` (hoy usa localStorage independiente)
 
 ---
 
@@ -124,7 +147,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=     # para invite-professional y reschedule-appointment
 NEXT_PUBLIC_SITE_URL=          # URL base del sitio (dev: http://localhost:3000)
 RESEND_API_KEY=                # emails de reagenda (opcional; se omite si no está)
-ANTHROPIC_API_KEY=             # si se reactivan rutas AI
 ```
 
 ---
@@ -156,4 +178,4 @@ ON CONFLICT (user_id) DO NOTHING;
 - Clases utilitarias: `.fk-eyebrow` (mono 10px uppercase tracking ink-4), `.fk-serif`, `.fk-mono`
 - `PulseLine` es la firma visual — usar en loading states y elementos destacados
 - Fondo sidebar: `var(--paper)` · Fondo página principal: `#fff`
-- Patrón de pantallas: Client Component + `useEffect` para datos + loading/error/empty states con `PulseLine`
+- Patrón de pantallas: Client Component + `useEffect` para datos + loading/error/empty states
