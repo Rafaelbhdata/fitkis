@@ -866,7 +866,7 @@ function TabGym({
           { label: 'Sesiones registradas', n: sessions.length, sub: 'últimas 20 mostradas' },
           { label: 'Última sesión',         n: daysSinceLast,   sub: formatDateShort(lastSession.date) + ' · ' + (ROUTINE_META[lastSession.routine_type]?.label ?? lastSession.routine_type) },
         ].map((s) => (
-          <div key={s.label} style={{ background: 'var(--paper)', padding: '18px 24px' }}>
+          <div key={s.label} style={{ background: '#fff', padding: '18px 24px' }}>
             <div className="fk-eyebrow">{s.label}</div>
             <div className="fk-serif" style={{ fontSize: 32, fontWeight: 300, lineHeight: 1.1, marginTop: 4, letterSpacing: '-0.02em' }}>{s.n}</div>
             <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 3, fontFamily: 'var(--f-sans)' }}>{s.sub}</div>
@@ -1221,7 +1221,7 @@ export default function PatientDetailPage({
   const dropKg = ws.length >= 2 ? ws[0] - ws[ws.length - 1] : 0
 
   return (
-    <div style={{ flex: 1, background: 'var(--paper)', minHeight: '100%' }}>
+    <div style={{ flex: 1, background: '#fff', minHeight: '100%' }}>
       {/* Header */}
       <div style={{ padding: '24px 40px 0' }}>
         <Link

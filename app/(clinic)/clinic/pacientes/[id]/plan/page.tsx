@@ -338,7 +338,7 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
   ]
 
   return (
-    <div style={{ flex: 1, background: 'var(--paper)', minHeight: '100%' }}>
+    <div style={{ flex: 1, background: '#fff', minHeight: '100%' }}>
       <div style={{ padding: '24px 40px 0' }}>
         <Link
           href={`/clinic/pacientes/${patient.patient_id}`}
@@ -784,7 +784,7 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
                 padding: '14px 16px',
                 borderRadius: 10,
                 border: '1px solid var(--ink-7)',
-                background: 'var(--paper)',
+                background: '#fff',
                 fontFamily: 'var(--f-serif)',
                 fontStyle: 'italic',
                 fontSize: 16,
@@ -857,7 +857,7 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
                 width: '100%',
                 height: '100%',
                 borderRadius: 30,
-                background: 'var(--paper)',
+                background: '#fff',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',

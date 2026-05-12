@@ -108,7 +108,7 @@ export default function ClinicPatientsPage() {
   }
 
   return (
-    <div style={{ flex: 1, background: 'var(--paper)', minHeight: '100%' }}>
+    <div style={{ flex: 1, background: '#fff', minHeight: '100%' }}>
       <ClinicTopbar
         sub={`Práctica · ${formatToday()}`}
         title={
@@ -186,7 +186,7 @@ export default function ClinicPatientsPage() {
               },
               { label: 'Consultas hoy', n: '—', sub: 'agenda · fase 2', col: 'var(--ink-4)' },
             ].map((s) => (
-              <div key={s.label} style={{ background: 'var(--paper)', padding: '20px 28px' }}>
+              <div key={s.label} style={{ background: '#fff', padding: '20px 28px' }}>
                 <div className="fk-eyebrow">{s.label}</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
                   <span
@@ -350,7 +350,7 @@ export default function ClinicPatientsPage() {
                       borderBottom: '1px solid var(--ink-7)',
                       alignItems: 'center',
                       cursor: isClickable ? 'pointer' : 'default',
-                      background: p.status === 'pending' ? 'var(--paper-2)' : 'transparent',
+                      background: p.status === 'pending' ? 'var(--paper)' : 'transparent',
                     }}
                   >
                     <div
