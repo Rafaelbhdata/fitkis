@@ -269,9 +269,15 @@ export default function ClinicPatientsPage() {
                 sub: pendingCount ? 'invitaciones sin aceptar' : 'ninguna',
                 col: 'var(--signal)',
               },
-              { label: 'Consultas hoy', n: todayCount ?? '—', sub: todayCount === null ? 'cargando…' : todayCount === 0 ? 'sin citas hoy' : todayCount === 1 ? '1 cita programada' : `${todayCount} citas programadas`, col: todayCount ? 'var(--sky)' : 'var(--ink-4)' },
+              { label: 'Consultas hoy', n: todayCount ?? '—', sub: todayCount === null ? 'cargando…' : todayCount === 0 ? 'sin citas hoy' : todayCount === 1 ? '1 cita programada' : `${todayCount} citas programadas`, col: todayCount ? 'var(--sky)' : 'var(--ink-4)', href: '/clinic/agenda' },
             ].map((s) => (
-              <div key={s.label} style={{ background: '#fff', padding: '20px 28px' }}>
+              <div key={s.label} style={{ background: '#fff', padding: '20px 28px', position: 'relative', cursor: 'href' in s && s.href ? 'pointer' : 'default', transition: 'background 0.15s' }}
+                onMouseEnter={e => { if ('href' in s && s.href) (e.currentTarget as HTMLElement).style.background = 'var(--paper)' }}
+                onMouseLeave={e => { if ('href' in s && s.href) (e.currentTarget as HTMLElement).style.background = '#fff' }}
+              >
+                {'href' in s && s.href && (
+                  <Link href={s.href} style={{ position: 'absolute', inset: 0 }} aria-label={s.label} />
+                )}
                 <div className="fk-eyebrow">{s.label}</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
                   <span
