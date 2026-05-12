@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import type { Appointment, AppointmentStatus } from '@/lib/clinic/queries'
 
 const STATUS_CFG: Record<AppointmentStatus, { bg: string; border: string; color: string }> = {
@@ -75,15 +76,31 @@ export function AppointmentBlock({ appt, top, height, onStatusChange, onReschedu
         )}
       </div>
 
-      {/* Patient name */}
-      <div style={{
-        fontFamily: 'var(--f-sans)', fontSize: 11, fontWeight: 500, color: 'var(--ink)',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        textDecoration: appt.status === 'cancelled' ? 'line-through' : 'none',
-        marginTop: 1,
-      }}>
-        {appt.patient_name}
-      </div>
+      {/* Patient name — clickeable si tiene patient_id en el sistema */}
+      {appt.patient_id ? (
+        <Link
+          href={`/clinic/pacientes/${appt.patient_id}`}
+          onClick={e => e.stopPropagation()}
+          style={{
+            display: 'block', fontFamily: 'var(--f-sans)', fontSize: 11, fontWeight: 500,
+            color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            textDecoration: appt.status === 'cancelled' ? 'line-through' : 'underline',
+            textDecorationColor: 'var(--ink-6)', textUnderlineOffset: 2,
+            marginTop: 1, cursor: 'pointer',
+          }}
+        >
+          {appt.patient_name}
+        </Link>
+      ) : (
+        <div style={{
+          fontFamily: 'var(--f-sans)', fontSize: 11, fontWeight: 500, color: 'var(--ink)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          textDecoration: appt.status === 'cancelled' ? 'line-through' : 'none',
+          marginTop: 1,
+        }}>
+          {appt.patient_name}
+        </div>
+      )}
 
       {/* Duration */}
       {tall && (
