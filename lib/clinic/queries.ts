@@ -285,6 +285,8 @@ export type PatientDetail = {
   weight_history: WeightLog[] // oldest → newest
   active_diet?: ActiveDietSnapshot
   days_since_activity?: number
+  adherence: number | null   // % días con actividad en los últimos 30 días
+  streak: number             // racha actual en días consecutivos
 }
 
 export type ActiveDietSnapshot = {
@@ -320,7 +322,9 @@ export async function loadPatientDetail(
 
   if (!relation) return null
 
-  const [{ data: profile }, { data: weights }, { data: diet }, { data: relsRaw }] =
+  const cutoff30 = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0] })()
+
+  const [{ data: profile }, { data: weights }, { data: diet }, { data: relsRaw }, { data: foodDates }, { data: gymDates }] =
     await Promise.all([
       supabase
         .from('user_profiles')
@@ -349,6 +353,16 @@ export async function loadPatientDetail(
       // `user_profiles` al crear la relación.
       supabase
         .rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never),
+      supabase
+        .from('food_logs')
+        .select('date')
+        .eq('user_id', patientId)
+        .gte('date', cutoff30),
+      supabase
+        .from('gym_sessions')
+        .select('date')
+        .eq('user_id', patientId)
+        .gte('date', cutoff30),
     ])
 
   const profileWithName = profile as { height_cm?: number; goal_weight_kg?: number; display_name?: string } | null
@@ -365,6 +379,13 @@ export async function loadPatientDetail(
   const weightHistory = ((weights ?? []) as WeightLog[]).slice().reverse()
   const weightArr = weightHistory.map((w) => w.weight_kg).filter((v): v is number => v != null)
   const daysSinceActivity = computeLastActivityDays(weightHistory)
+
+  const allDates = new Set<string>()
+  for (const w of weightHistory) { if (w.date >= cutoff30) allDates.add(w.date) }
+  for (const r of (foodDates ?? []) as { date: string }[]) allDates.add(r.date)
+  for (const r of (gymDates  ?? []) as { date: string }[]) allDates.add(r.date)
+  const adherence = allDates.size > 0 ? Math.round((allDates.size / 30) * 100) : null
+  const streak    = computeStreak(allDates)
 
   return {
     patient_id: patientId,
@@ -399,6 +420,8 @@ export async function loadPatientDetail(
         }
       : undefined,
     days_since_activity: daysSinceActivity,
+    adherence,
+    streak,
   }
 }
 
@@ -798,6 +821,26 @@ export async function bookAppointmentPublic(
     .select()
     .single()
   return { data: data as Appointment | null, error: error?.message ?? null }
+}
+
+/** Próxima cita futura (no cancelada) de un paciente con un practitioner */
+export async function loadNextAppointmentForPatient(
+  supabase: SB,
+  practitionerId: string,
+  patientId: string,
+): Promise<Appointment | null> {
+  const now = new Date().toISOString()
+  const { data } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('practitioner_id', practitionerId)
+    .eq('patient_id', patientId)
+    .not('status', 'in', '("cancelled","no_show","completed")')
+    .gte('starts_at', now)
+    .order('starts_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  return data as Appointment | null
 }
 
 // =============================================================================

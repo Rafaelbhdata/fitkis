@@ -11,10 +11,12 @@ import {
   loadPractitionerByUser,
   loadPatientFoodLogs,
   loadPatientGymSessions,
+  loadNextAppointmentForPatient,
   daysBetween,
   type PatientDetail,
   type FoodLogEntry,
   type GymSessionEntry,
+  type Appointment,
 } from '@/lib/clinic/queries'
 
 type Tab = 'resumen' | 'antropo' | 'alim' | 'gym' | 'plan' | 'msg'
@@ -254,7 +256,7 @@ function HeroComposition({ patient }: { patient: PatientDetail }) {
   )
 }
 
-function RightRail({ patient }: { patient: PatientDetail }) {
+function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextAppointment: Appointment | null }) {
   const groups = [
     {
       g: 'Verdura',
@@ -378,7 +380,7 @@ function RightRail({ patient }: { patient: PatientDetail }) {
         </Link>
       </div>
 
-      {/* Próxima consulta — placeholder Fase 3 */}
+      {/* Próxima consulta */}
       <div
         style={{
           background: 'var(--ink)',
@@ -390,20 +392,38 @@ function RightRail({ patient }: { patient: PatientDetail }) {
         <div className="fk-eyebrow" style={{ color: 'var(--signal)' }}>
           Próxima consulta
         </div>
-        <div
-          className="fk-serif"
-          style={{ fontSize: 22, fontWeight: 300, fontStyle: 'italic', marginTop: 8, lineHeight: 1.2 }}
-        >
-          Agenda — fase 3
-        </div>
-        <div
-          style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 6, fontFamily: 'var(--f-mono)' }}
-        >
-          tabla `appointments` por crear
-        </div>
+        {nextAppointment ? (
+          <>
+            <div
+              className="fk-serif"
+              style={{ fontSize: 22, fontWeight: 300, fontStyle: 'italic', marginTop: 8, lineHeight: 1.2 }}
+            >
+              {formatAppointmentDate(nextAppointment.starts_at)}
+            </div>
+            <div
+              style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 6, fontFamily: 'var(--f-mono)' }}
+            >
+              {formatAppointmentTime(nextAppointment.starts_at)} · {nextAppointment.duration_minutes} min
+            </div>
+          </>
+        ) : (
+          <>
+            <div
+              className="fk-serif"
+              style={{ fontSize: 22, fontWeight: 300, fontStyle: 'italic', marginTop: 8, lineHeight: 1.2 }}
+            >
+              Sin cita agendada
+            </div>
+            <div
+              style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 6, fontFamily: 'var(--f-mono)' }}
+            >
+              Ve a Agenda para programar
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Adherencia — placeholder */}
+      {/* Adherencia */}
       <div
         style={{
           background: '#fff',
@@ -413,9 +433,36 @@ function RightRail({ patient }: { patient: PatientDetail }) {
         }}
       >
         <div className="fk-eyebrow">Adherencia · 30 días</div>
-        <div style={{ marginTop: 14, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)' }}>
-          Cálculo basado en registros diarios pendiente · fase 3.
-        </div>
+        {patient.adherence != null ? (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span className="fk-serif" style={{ fontSize: 36, fontWeight: 300, lineHeight: 1 }}>
+                {patient.adherence}
+              </span>
+              <span style={{ fontSize: 14, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>%</span>
+            </div>
+            <div style={{ marginTop: 10, height: 6, background: 'var(--paper-3)', borderRadius: 3, overflow: 'hidden' }}>
+              <div
+                style={{
+                  height: '100%',
+                  width: `${patient.adherence}%`,
+                  background: patient.adherence >= 70 ? 'var(--leaf)' : patient.adherence >= 40 ? 'var(--honey)' : 'var(--berry)',
+                  borderRadius: 3,
+                  transition: 'width 0.4s ease',
+                }}
+              />
+            </div>
+            {patient.streak > 0 && (
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                racha · {patient.streak} día{patient.streak !== 1 ? 's' : ''} consecutivo{patient.streak !== 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ marginTop: 14, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)' }}>
+            Sin registros en los últimos 30 días.
+          </div>
+        )}
       </div>
 
       {/* Quick send */}
@@ -1090,6 +1137,8 @@ export default function PatientDetailPage({
   const [gymError, setGymError]         = useState<string | null>(null)
   const [gymFetched, setGymFetched]     = useState(false)
 
+  const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null)
+
   useEffect(() => {
     if (userLoading) return
     if (!user) {
@@ -1106,9 +1155,13 @@ export default function PatientDetailPage({
           setLoading(false)
           return
         }
-        const detail = await loadPatientDetail(supabase, practitioner.id, patientId)
+        const [detail, nextAppt] = await Promise.all([
+          loadPatientDetail(supabase, practitioner.id, patientId),
+          loadNextAppointmentForPatient(supabase, practitioner.id, patientId),
+        ])
         if (cancelled) return
         setPatient(detail)
+        setNextAppointment(nextAppt)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Error desconocido')
       } finally {
@@ -1396,10 +1449,24 @@ export default function PatientDetailPage({
           {tab === 'msg'    && <TabConversacion patient={patient} />}
         </div>
 
-        <RightRail patient={patient} />
+        <RightRail patient={patient} nextAppointment={nextAppointment} />
       </div>
     </div>
   )
+}
+
+function formatAppointmentDate(isoString: string): string {
+  const d = new Date(isoString)
+  const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`
+}
+
+function formatAppointmentTime(isoString: string): string {
+  const d = new Date(isoString)
+  const h = d.getHours().toString().padStart(2, '0')
+  const m = d.getMinutes().toString().padStart(2, '0')
+  return `${h}:${m}`
 }
 
 function formatDateShort(isoDate: string): string {
