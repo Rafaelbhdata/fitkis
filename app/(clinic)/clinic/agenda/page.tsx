@@ -24,12 +24,11 @@ const MONTHS_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','
 
 // Zoom levels: row height per hour + whether to show 30-min sub-rows
 const ZOOM_LEVELS = [
-  { rowH: 48,  halfHour: false }, // zoom out máximo
-  { rowH: 80,  halfHour: false }, // default
-  { rowH: 120, halfHour: true  }, // zoom in 1
-  { rowH: 160, halfHour: true  }, // zoom in máximo (filas de 30 min)
+  { rowH: 80,  halfHour: false }, // default (1×)
+  { rowH: 120, halfHour: true  }, // zoom in 1 (2×)
+  { rowH: 160, halfHour: true  }, // zoom in máximo (3×)
 ] as const
-type ZoomIdx = 0 | 1 | 2 | 3
+type ZoomIdx = 0 | 1 | 2
 
 function getWeekStart(offset: number): string {
   const d = new Date()
@@ -76,7 +75,7 @@ export default function AgendaPage() {
   const [startHour, setStartHour]       = useState(9)
   const [endHour, setEndHour]           = useState(17)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [zoomIdx, setZoomIdx]           = useState<ZoomIdx>(1)
+  const [zoomIdx, setZoomIdx]           = useState<ZoomIdx>(0)
   const settingsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -90,7 +89,7 @@ export default function AgendaPage() {
 
   function changeZoom(delta: 1 | -1) {
     setZoomIdx(prev => {
-      const next = Math.max(0, Math.min(3, prev + delta)) as ZoomIdx
+      const next = Math.max(0, Math.min(2, prev + delta)) as ZoomIdx
       localStorage.setItem('agenda_zoom', String(next))
       return next
     })
@@ -211,10 +210,10 @@ export default function AgendaPage() {
             −
           </button>
           <span style={{ padding:'0 8px', fontSize:10, fontFamily:'var(--f-mono)', color:'var(--ink-4)', letterSpacing:'0.05em', userSelect:'none' }}>
-            {['1×','1.5×','2×','3×'][zoomIdx]}
+            {['1×','2×','3×'][zoomIdx]}
           </span>
-          <button onClick={() => changeZoom(1)} disabled={zoomIdx === 3}
-            style={{ background:'none', border:'none', borderLeft:'1px solid var(--ink-7)', padding:'6px 10px', fontSize:14, cursor: zoomIdx === 3 ? 'default' : 'pointer', color: zoomIdx === 3 ? 'var(--ink-6)' : 'var(--ink-3)', fontFamily:'var(--f-mono)', lineHeight:1 }}>
+          <button onClick={() => changeZoom(1)} disabled={zoomIdx === 2}
+            style={{ background:'none', border:'none', borderLeft:'1px solid var(--ink-7)', padding:'6px 10px', fontSize:14, cursor: zoomIdx === 2 ? 'default' : 'pointer', color: zoomIdx === 2 ? 'var(--ink-6)' : 'var(--ink-3)', fontFamily:'var(--f-mono)', lineHeight:1 }}>
             +
           </button>
         </div>
