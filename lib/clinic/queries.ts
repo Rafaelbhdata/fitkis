@@ -107,10 +107,36 @@ export async function loadPatientsForPractitioner(
     return []
   }
 
-  // Sequential to avoid hammering the connection pool. With ~10s of patients
-  // we could parallelize; for now keep it deterministic.
+  const patientIds = relations.map((r) => r.patient_id)
+
+  // Bulk-fetch latest food/gym date per patient — 2 queries total regardless of list size
+  const [{ data: foodRows }, { data: gymRows }] = await Promise.all([
+    supabase
+      .from('food_logs')
+      .select('user_id, date')
+      .in('user_id', patientIds)
+      .order('date', { ascending: false }),
+    supabase
+      .from('gym_sessions')
+      .select('user_id, date')
+      .in('user_id', patientIds)
+      .order('date', { ascending: false }),
+  ])
+
+  // Keep only the most recent date per patient (rows are DESC so first hit wins)
+  const lastFoodByPatient: Record<string, string> = {}
+  for (const row of (foodRows ?? []) as { user_id: string; date: string }[]) {
+    if (!lastFoodByPatient[row.user_id]) lastFoodByPatient[row.user_id] = row.date
+  }
+  const lastGymByPatient: Record<string, string> = {}
+  for (const row of (gymRows ?? []) as { user_id: string; date: string }[]) {
+    if (!lastGymByPatient[row.user_id]) lastGymByPatient[row.user_id] = row.date
+  }
+
   const enriched = await Promise.all(
-    relations.map((rel, index) => enrichPatient(supabase, rel, index))
+    relations.map((rel, index) =>
+      enrichPatient(supabase, rel, index, lastFoodByPatient[rel.patient_id], lastGymByPatient[rel.patient_id])
+    )
   )
 
   return enriched
@@ -119,9 +145,11 @@ export async function loadPatientsForPractitioner(
 async function enrichPatient(
   supabase: SB,
   rel: GetPractitionerPatientsRow,
-  index: number
+  index: number,
+  lastFoodDate?: string,
+  lastGymDate?: string,
 ): Promise<MockPatient> {
-  const [{ data: profile }, { data: weights }, { data: diet }, { data: lastFood }, { data: lastGym }] = await Promise.all([
+  const [{ data: profile }, { data: weights }, { data: diet }] = await Promise.all([
     supabase
       .from('user_profiles')
       .select('height_cm, goal_weight_kg')
@@ -141,20 +169,6 @@ async function enrichPatient(
       .order('effective_date', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from('food_logs')
-      .select('date')
-      .eq('user_id', rel.patient_id)
-      .order('date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from('gym_sessions')
-      .select('date')
-      .eq('user_id', rel.patient_id)
-      .order('date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
   ])
 
   // Oldest-to-newest for the sparkline
@@ -168,11 +182,7 @@ async function enrichPatient(
     .map((w) => w.muscle_mass_kg)
     .filter((v): v is number => v != null)
 
-  const daysSinceActivity = computeLastActivityDays(
-    weightHistory,
-    (lastFood as { date: string } | null)?.date ?? null,
-    (lastGym  as { date: string } | null)?.date ?? null,
-  )
+  const daysSinceActivity = computeLastActivityDays(weightHistory, lastFoodDate, lastGymDate)
   const goal = formatGoal(weightArr, profile?.goal_weight_kg)
   const alert = computeAlert(daysSinceActivity, weightHistory)
   const lastSeen = formatLastSeen(rel, daysSinceActivity)
@@ -307,7 +317,7 @@ export async function loadPatientDetail(
 
   const weightHistory = ((weights ?? []) as WeightLog[]).slice().reverse()
   const weightArr = weightHistory.map((w) => w.weight_kg).filter((v): v is number => v != null)
-  const daysSinceActivity = computeLastActivityDays(weightHistory, null, null)
+  const daysSinceActivity = computeLastActivityDays(weightHistory)
 
   return {
     patient_id: patientId,
@@ -480,7 +490,7 @@ export async function invitePatientByEmail(
 // HELPERS
 // =============================================================================
 
-function daysBetween(isoDate: string): number {
+export function daysBetween(isoDate: string): number {
   const d = new Date(isoDate + 'T00:00:00')
   return Math.floor((Date.now() - d.getTime()) / 86_400_000)
 }
@@ -491,8 +501,8 @@ function daysBetween(isoDate: string): number {
  */
 function computeLastActivityDays(
   weightHistory: WeightLog[],
-  lastFoodDate: string | null,
-  lastGymDate:  string | null,
+  lastFoodDate?: string,
+  lastGymDate?:  string,
 ): number | undefined {
   const candidates: number[] = []
   if (weightHistory.length) {
@@ -501,7 +511,7 @@ function computeLastActivityDays(
   if (lastFoodDate) candidates.push(daysBetween(lastFoodDate))
   if (lastGymDate)  candidates.push(daysBetween(lastGymDate))
   if (!candidates.length) return undefined
-  return Math.min(...candidates) // más reciente = menor número de días
+  return Math.min(...candidates)
 }
 
 /**

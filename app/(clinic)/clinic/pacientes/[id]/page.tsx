@@ -11,6 +11,7 @@ import {
   loadPractitionerByUser,
   loadPatientFoodLogs,
   loadPatientGymSessions,
+  daysBetween,
   type PatientDetail,
   type FoodLogEntry,
   type GymSessionEntry,
@@ -852,7 +853,7 @@ function TabGym({
 
   const lastSession = sessions[0]
   const daysSinceLast = (() => {
-    const d = Math.floor((Date.now() - new Date(lastSession.date + 'T00:00:00').getTime()) / 86400000)
+    const d = daysBetween(lastSession.date)
     if (d === 0) return 'hoy'
     if (d === 1) return 'hace 1 día'
     return `hace ${d} días`
