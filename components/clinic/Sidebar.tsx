@@ -115,7 +115,7 @@ export function ClinicSidebar() {
       style={{
         borderRight: '1px solid var(--ink-7)',
         padding: '24px 16px 20px',
-        background: '#fff',
+        background: 'var(--paper)',
       }}
     >
       <FkWord size={22} />
