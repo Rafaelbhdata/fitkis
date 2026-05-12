@@ -10,11 +10,13 @@ import {
   updatePractitioner,
   type PractitionerRecord,
 } from '@/lib/clinic/queries'
+import {
+  DURATIONS, TIME_OPTIONS, DAY_ORDER, DAY_LABELS, timeToMin,
+  DEFAULT_WEEK_SCHEDULE,
+  type DayKey, type Break, type DaySchedule, type WeekSchedule,
+} from '@/lib/clinic/calendar-utils'
 
-// ─── localStorage keys ────────────────────────────────────────────────────────
-const LS_START_HOUR       = 'agenda_start_hour'
-const LS_END_HOUR         = 'agenda_end_hour'
-const LS_DEFAULT_DURATION = 'agenda_default_duration'
+// ─── localStorage keys (solo umbrales — agenda ahora en BD) ──────────────────
 const LS_INACTIVITY_DAYS  = 'clinic_inactivity_days'
 const LS_MIN_ADHERENCE    = 'clinic_min_adherence'
 
@@ -644,206 +646,251 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
 
 // ─── Panel: Agenda ────────────────────────────────────────────────────────────
 
-const HOUR_OPTIONS = Array.from({ length: 17 }, (_, i) => ({
-  value: i + 6,
-  label: `${String(i + 6).padStart(2, '0')}:00`,
-}))
+// ─── TimeSelect ───────────────────────────────────────────────────────────────
 
-const DURATION_OPTIONS = [
-  { value: 30,  label: '30 min' },
-  { value: 45,  label: '45 min' },
-  { value: 50,  label: '50 min' },
-  { value: 60,  label: '1 hora' },
-  { value: 90,  label: '1h 30 min' },
-]
-
-function SelectField({
-  label,
-  value,
-  options,
-  onChange,
-  hint,
-}: {
-  label: string
-  value: number
-  options: { value: number; label: string }[]
-  onChange: (v: number) => void
-  hint?: string
-}) {
+function TimeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div style={{ marginBottom: 20 }}>
-      <label
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
         style={{
-          display: 'block',
+          appearance: 'none',
+          background: 'var(--paper)',
+          border: '1px solid var(--ink-7)',
+          borderRadius: 7,
+          padding: '5px 24px 5px 9px',
           fontFamily: 'var(--f-mono)',
-          fontSize: 10,
-          fontWeight: 600,
-          letterSpacing: '0.13em',
-          textTransform: 'uppercase',
-          color: 'var(--ink-4)',
-          marginBottom: 7,
+          fontSize: 12,
+          color: 'var(--ink)',
+          cursor: 'pointer',
+          outline: 'none',
         }}
       >
-        {label}
-      </label>
-      <div style={{ position: 'relative' }}>
-        <select
-          value={value}
-          onChange={e => onChange(parseInt(e.target.value, 10))}
-          style={{
-            width: '100%',
-            appearance: 'none',
-            background: '#fff',
-            border: '1px solid var(--ink-7)',
-            borderRadius: 10,
-            padding: '11px 40px 11px 14px',
-            fontSize: 14,
-            fontFamily: 'var(--f-sans)',
-            color: 'var(--ink)',
-            outline: 'none',
-            cursor: 'pointer',
-            boxSizing: 'border-box',
-          }}
-        >
-          {options.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <div
-          style={{
-            position: 'absolute',
-            right: 14,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            pointerEvents: 'none',
-            color: 'var(--ink-5)',
-          }}
-        >
-          <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </div>
-      </div>
-      {hint && (
-        <div style={{ marginTop: 6, fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', lineHeight: 1.5 }}>
-          {hint}
-        </div>
-      )}
+        {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <svg
+        viewBox="0 0 24 24" width={10} height={10} fill="none"
+        stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+        style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--ink-5)' }}
+      >
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
     </div>
   )
 }
 
-function PanelAgenda() {
-  const [startHour, setStartHour] = useState(9)
-  const [endHour,   setEndHour]   = useState(17)
-  const [duration,  setDuration]  = useState(50)
-  const [saved,     setSaved]     = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
+// ─── Panel: Agenda ─────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    setStartHour(lsNum(LS_START_HOUR, 9))
-    setEndHour(lsNum(LS_END_HOUR, 17))
-    setDuration(lsNum(LS_DEFAULT_DURATION, 50))
-  }, [])
+function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
+  const supabase = useSupabase()
 
-  function handleSave() {
-    if (startHour >= endHour) {
-      setError('La hora de inicio debe ser menor que la hora de fin.')
-      return
-    }
-    setError(null)
-    localStorage.setItem(LS_START_HOUR, String(startHour))
-    localStorage.setItem(LS_END_HOUR, String(endHour))
-    localStorage.setItem(LS_DEFAULT_DURATION, String(duration))
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+  const [duration, setDuration] = useState<number>(practitioner.default_duration)
+  const [schedule, setSchedule] = useState<WeekSchedule>(practitioner.schedule ?? DEFAULT_WEEK_SCHEDULE)
+  const [saving,   setSaving]   = useState(false)
+  const [saved,    setSaved]    = useState(false)
+  const [error,    setError]    = useState<string | null>(null)
+
+  function updateDay(key: DayKey, patch: Partial<DaySchedule>) {
+    setSchedule(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }))
   }
 
-  /* Visualization of the schedule window */
-  const totalHours = 22 - 6 // 6am to 10pm
-  const startPct   = ((startHour - 6) / totalHours) * 100
-  const spanPct    = ((endHour - startHour) / totalHours) * 100
+  function addBreak(key: DayKey) {
+    setSchedule(prev => ({
+      ...prev,
+      [key]: { ...prev[key], breaks: [...prev[key].breaks, { start: '13:00', end: '14:00' }] },
+    }))
+  }
+
+  function removeBreak(key: DayKey, idx: number) {
+    setSchedule(prev => ({
+      ...prev,
+      [key]: { ...prev[key], breaks: prev[key].breaks.filter((_, i) => i !== idx) },
+    }))
+  }
+
+  function updateBreak(key: DayKey, idx: number, field: keyof Break, value: string) {
+    setSchedule(prev => {
+      const breaks = [...prev[key].breaks]
+      breaks[idx] = { ...breaks[idx], [field]: value }
+      return { ...prev, [key]: { ...prev[key], breaks } }
+    })
+  }
+
+  async function handleSave() {
+    for (const key of DAY_ORDER) {
+      const d = schedule[key]
+      if (d.enabled && timeToMin(d.start) >= timeToMin(d.end)) {
+        setError(`${DAY_LABELS[key]}: la hora de inicio debe ser anterior a la hora de fin.`)
+        return
+      }
+    }
+    setSaving(true); setError(null); setSaved(false)
+    const res = await updatePractitioner(supabase, practitioner.id, {
+      schedule,
+      default_duration: duration,
+    })
+    setSaving(false)
+    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500) }
+    else setError(res.error)
+  }
 
   return (
     <div>
       <PanelHeader
         eyebrow="Ajustes · Agenda"
         title="Configuración de agenda"
-        sub="Horario visible y duración por defecto para nuevas citas."
+        sub="Horario semanal y duración de citas para el link de reservas."
       />
 
-      {/* Schedule visualizer */}
-      <div
-        style={{
-          marginBottom: 28,
-          background: 'var(--paper)',
-          border: '1px solid var(--ink-7)',
-          borderRadius: 12,
-          padding: '16px 18px',
-        }}
-      >
-        <div
+      {/* Duración */}
+      <div style={{ marginBottom: 28 }}>
+        <label
           style={{
-            fontFamily: 'var(--f-mono)',
-            fontSize: 10,
-            color: 'var(--ink-5)',
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            marginBottom: 10,
+            display: 'block', fontFamily: 'var(--f-mono)', fontSize: 10, fontWeight: 600,
+            letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 10,
           }}
         >
-          Vista previa del horario
+          Duración por defecto de citas
+        </label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {DURATIONS.map(d => (
+            <button
+              key={d} type="button" onClick={() => setDuration(d)}
+              style={{
+                padding: '9px 18px', borderRadius: 999,
+                border: `2px solid ${duration === d ? 'var(--ink)' : 'var(--ink-7)'}`,
+                background: duration === d ? 'var(--ink)' : '#fff',
+                color: duration === d ? 'var(--paper)' : 'var(--ink-3)',
+                fontFamily: 'var(--f-mono)', fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', transition: 'all 0.12s',
+              }}
+            >
+              {d} min
+            </button>
+          ))}
         </div>
-        <div style={{ position: 'relative', height: 12, background: 'var(--paper-3)', borderRadius: 99 }}>
-          <div
-            style={{
-              position: 'absolute',
-              left: `${startPct}%`,
-              width: `${spanPct}%`,
-              height: '100%',
-              background: 'var(--ink)',
-              borderRadius: 99,
-              transition: 'left 0.2s, width 0.2s',
-            }}
-          />
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            marginTop: 6,
-            fontFamily: 'var(--f-mono)',
-            fontSize: 10,
-            color: 'var(--ink-5)',
-          }}
-        >
-          <span>06:00</span>
-          <span
-            style={{
-              color: 'var(--ink)',
-              fontWeight: 700,
-              letterSpacing: '-0.01em',
-            }}
-          >
-            {String(startHour).padStart(2,'0')}:00 → {String(endHour).padStart(2,'0')}:00
-          </span>
-          <span>22:00</span>
+        <div style={{ marginTop: 7, fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)' }}>
+          El paciente no puede elegir la duración desde el link de reservas.
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <SelectField label="Hora de inicio" value={startHour} options={HOUR_OPTIONS} onChange={setStartHour} />
-        <SelectField label="Hora de fin"    value={endHour}   options={HOUR_OPTIONS} onChange={setEndHour} />
-      </div>
-      <SelectField
-        label="Duración por defecto de citas"
-        value={duration}
-        options={DURATION_OPTIONS}
-        onChange={setDuration}
-        hint="Se aplica al crear una cita nueva. Puedes cambiarlo por cita individual."
-      />
+      {/* Horario semanal */}
+      <div style={{ marginBottom: 24 }}>
+        <label
+          style={{
+            display: 'block', fontFamily: 'var(--f-mono)', fontSize: 10, fontWeight: 600,
+            letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 10,
+          }}
+        >
+          Horario semanal
+        </label>
 
-      <SaveFooter loading={false} saved={saved} error={error} onClick={handleSave} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {DAY_ORDER.map(key => {
+            const day = schedule[key]
+            return (
+              <div
+                key={key}
+                style={{
+                  background: day.enabled ? '#fff' : 'var(--paper-2)',
+                  border: '1px solid var(--ink-7)',
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  transition: 'background 0.15s',
+                }}
+              >
+                {/* Fila principal del día */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
+                  {/* Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => updateDay(key, { enabled: !day.enabled })}
+                    style={{
+                      width: 32, height: 18, borderRadius: 9, border: 'none',
+                      background: day.enabled ? 'var(--ink)' : 'var(--ink-6)',
+                      position: 'relative', cursor: 'pointer', flexShrink: 0,
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', top: 3,
+                      left: day.enabled ? 17 : 3,
+                      width: 12, height: 12, borderRadius: 999, background: '#fff',
+                      transition: 'left 0.15s',
+                    }} />
+                  </button>
+
+                  {/* Nombre del día */}
+                  <span style={{
+                    fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500,
+                    color: day.enabled ? 'var(--ink)' : 'var(--ink-4)',
+                    width: 86, flexShrink: 0, transition: 'color 0.15s',
+                  }}>
+                    {DAY_LABELS[key]}
+                  </span>
+
+                  {day.enabled ? (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <TimeSelect value={day.start} onChange={v => updateDay(key, { start: v })} />
+                        <span style={{ fontFamily: 'var(--f-mono)', fontSize: 11, color: 'var(--ink-5)' }}>→</span>
+                        <TimeSelect value={day.end} onChange={v => updateDay(key, { end: v })} />
+                      </div>
+                      <button
+                        type="button" onClick={() => addBreak(key)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 3,
+                          padding: '4px 8px', borderRadius: 6,
+                          border: '1px solid var(--ink-7)', background: 'transparent',
+                          color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', fontSize: 10,
+                          cursor: 'pointer', flexShrink: 0, letterSpacing: '0.04em',
+                        }}
+                      >
+                        + pausa
+                      </button>
+                    </>
+                  ) : (
+                    <span style={{ fontFamily: 'var(--f-mono)', fontSize: 11, color: 'var(--ink-5)', letterSpacing: '0.06em' }}>
+                      Sin atención
+                    </span>
+                  )}
+                </div>
+
+                {/* Breaks del día */}
+                {day.enabled && day.breaks.length > 0 && (
+                  <div style={{ padding: '0 14px 10px 54px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {day.breaks.map((brk, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{
+                          fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)',
+                          width: 38, flexShrink: 0,
+                        }}>
+                          pausa
+                        </span>
+                        <TimeSelect value={brk.start} onChange={v => updateBreak(key, i, 'start', v)} />
+                        <span style={{ fontFamily: 'var(--f-mono)', fontSize: 11, color: 'var(--ink-5)' }}>→</span>
+                        <TimeSelect value={brk.end} onChange={v => updateBreak(key, i, 'end', v)} />
+                        <button
+                          type="button" onClick={() => removeBreak(key, i)}
+                          style={{
+                            width: 20, height: 20, borderRadius: 999, border: 'none',
+                            background: 'var(--paper-3)', color: 'var(--ink-4)',
+                            cursor: 'pointer', fontSize: 13, lineHeight: 1,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <SaveFooter loading={saving} saved={saved} error={error} onClick={handleSave} />
     </div>
   )
 }
@@ -1038,7 +1085,7 @@ export default function AjustesPage() {
           <div style={{ padding: '36px 40px', maxWidth: 580 }}>
             {active === 'perfil'      && <PanelPerfil practitioner={practitioner} />}
             {active === 'consultorio' && <PanelConsultorio practitioner={practitioner} />}
-            {active === 'agenda'      && <PanelAgenda />}
+            {active === 'agenda'      && <PanelAgenda practitioner={practitioner} />}
             {active === 'umbrales'    && <PanelUmbrales />}
           </div>
         </div>

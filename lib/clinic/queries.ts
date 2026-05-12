@@ -18,6 +18,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WeightLog } from '@/types'
 import type { AlertKind, MockPatient, PatientStatus } from './mock-data'
+import type { WeekSchedule } from './calendar-utils'
+import { DEFAULT_WEEK_SCHEDULE } from './calendar-utils'
 
 /**
  * Tipo permisivo. La Database está tipada pero las RPCs (`get_practitioner_patients`,
@@ -48,6 +50,8 @@ export type PractitionerRecord = {
   specialty: string | null
   clinic_name: string | null
   address: string | null
+  schedule: WeekSchedule
+  default_duration: number
 }
 
 /**
@@ -60,7 +64,7 @@ export async function loadPractitionerByUser(
 ): Promise<PractitionerRecord | null> {
   const { data, error } = await supabase
     .from('practitioners')
-    .select('id, display_name, license_number, specialty, clinic_name, address')
+    .select('id, display_name, license_number, specialty, clinic_name, address, schedule, default_duration')
     .eq('user_id', userId)
     .eq('active', true)
     .maybeSingle()
@@ -74,6 +78,8 @@ export async function loadPractitionerByUser(
     specialty: data.specialty ?? null,
     clinic_name: data.clinic_name ?? null,
     address: data.address ?? null,
+    schedule: (data.schedule as WeekSchedule) ?? DEFAULT_WEEK_SCHEDULE,
+    default_duration: (data.default_duration as number) ?? 60,
   }
 }
 
@@ -83,6 +89,8 @@ export type PractitionerUpdate = {
   specialty?: string | null
   clinic_name?: string | null
   address?: string | null
+  schedule?: WeekSchedule
+  default_duration?: number
 }
 
 export async function updatePractitioner(

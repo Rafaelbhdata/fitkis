@@ -1,19 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import {
+  DEFAULT_WEEK_SCHEDULE, dateToDayKey, timeToMin, generateSlots,
+} from '@/lib/clinic/calendar-utils'
+import type { WeekSchedule } from '@/lib/clinic/calendar-utils'
 
-/**
- * POST /api/book-appointment
- *
- * Reserva una cita sin sesión de usuario (página pública).
- * Usa service role para poder hacer INSERT ignorando RLS.
- *
- * Nota sobre detección de conflictos: la lógica actual detecta citas
- * que empiezan dentro de la ventana de la nueva. Citas que empiezan
- * antes pero terminan adentro pueden no detectarse si la duración varía.
- * Aceptable con la duración por defecto de 50 min.
- */
-
-// Uso de service role para inserción sin sesión de usuario
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -26,27 +17,25 @@ export async function POST(req: Request) {
     patient_name,
     patient_email,
     starts_at,
-    duration_minutes = 50,
     notes,
     reschedule_id,
   } = body as {
     practitioner_id: string
-    patient_name: string
-    patient_email: string
-    starts_at: string
-    duration_minutes?: number
-    notes?: string
-    reschedule_id?: string
+    patient_name:    string
+    patient_email:   string
+    starts_at:       string
+    notes?:          string
+    reschedule_id?:  string
   }
 
   if (!practitioner_id || !patient_name || !patient_email || !starts_at) {
     return NextResponse.json({ error: 'Faltan campos requeridos.' }, { status: 400 })
   }
 
-  // Verificar practitioner activo
+  // Leer practitioner: duración fija + horario
   const { data: prac } = await supabaseAdmin
     .from('practitioners')
-    .select('id')
+    .select('id, default_duration, schedule')
     .eq('id', practitioner_id)
     .eq('active', true)
     .maybeSingle()
@@ -55,9 +44,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Nutriólogo no encontrado.' }, { status: 404 })
   }
 
-  // Verificar conflicto de horario
-  const startDt = new Date(starts_at)
+  const duration_minutes: number = (prac.default_duration as number) ?? 60
+  const weekSchedule: WeekSchedule = (prac.schedule as WeekSchedule) ?? DEFAULT_WEEK_SCHEDULE
+
+  // Validar que el slot cae dentro del horario del día
+  const startDt  = new Date(starts_at)
+  const dateISO  = startDt.toISOString().split('T')[0]
+  const dayKey   = dateToDayKey(startDt)
+  const daySchedule = weekSchedule[dayKey]
+
+  if (!daySchedule.enabled) {
+    return NextResponse.json({ error: 'El nutriólogo no atiende ese día.' }, { status: 400 })
+  }
+
+  const validSlots = generateSlots(dateISO, duration_minutes, daySchedule)
+  const slotISO    = startDt.toISOString().replace(/\.\d{3}Z$/, 'Z')
+  const slotLocal  = `${dateISO}T${String(startDt.getHours()).padStart(2,'0')}:${String(startDt.getMinutes()).padStart(2,'0')}:00`
+
+  const isValidSlot = validSlots.some(s => {
+    // Comparar hora local: el slot generado usa hora local sin offset
+    return s === slotLocal || new Date(s).getTime() === startDt.getTime()
+  })
+
+  if (!isValidSlot) {
+    return NextResponse.json({ error: 'El horario seleccionado no está disponible.' }, { status: 400 })
+  }
+
+  // Verificar conflicto con citas existentes
   const endDt = new Date(startDt.getTime() + duration_minutes * 60_000)
+  const windowStart = new Date(startDt.getTime() - duration_minutes * 60_000)
 
   const { data: conflicts } = await supabaseAdmin
     .from('appointments')
@@ -65,7 +80,7 @@ export async function POST(req: Request) {
     .eq('practitioner_id', practitioner_id)
     .not('status', 'in', '("cancelled","no_show")')
     .lt('starts_at', endDt.toISOString())
-    .gt('starts_at', new Date(startDt.getTime() - duration_minutes * 60_000).toISOString())
+    .gt('starts_at', windowStart.toISOString())
     .limit(1)
 
   if (conflicts && conflicts.length > 0) {
@@ -82,7 +97,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Si viene de un reagendamiento, cancelar la cita original
   if (reschedule_id) {
     await supabaseAdmin
       .from('appointments')
