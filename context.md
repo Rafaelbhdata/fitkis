@@ -3,8 +3,17 @@
 ## Estado general
 - Setup del proyecto ✅ COMPLETADO
 - Sistema de diseño UI ✅ COMPLETADO (Rediseño v5.0 - "Paper & Pulse")
-- **Web = portal clínico exclusivo** 🔄 EN PROGRESO (Fase 2 cerrada · 11 mayo 2026, rama `clinic/v5-paper-pulse`)
+- **Web = portal clínico exclusivo** 🔄 EN PROGRESO (Fase 2 cerrada + admin flow integrado · 11 mayo 2026, rama `clinic/v5-paper-pulse`)
 - **App móvil ✅ PARIDAD FUNCIONAL** (4 mayo 2026 — pendiente polish + release)
+
+## 🔑 Roles y administración
+
+**rafael.blangah@gmail.com → admin** (asignado 11 mayo 2026 vía UPSERT a `user_profiles.role`).
+
+- El rol vive en `user_profiles.role` (enum: `user | practitioner | professional | admin`, ver migración 025).
+- El portal clínico (`/clinic`) gatea por **existencia de fila en `practitioners` con `active=true`** — no por `user_profiles.role`. Eso es por diseño (un mismo user puede ser admin sin ser nutriólogo).
+- `/admin` y `/admin/invite` gatean por `user_profiles.role = 'admin'` (helper `isAdminUser` en `lib/clinic/queries.ts`).
+- Hay una **inconsistencia conocida**: el onboarding inserta en `practitioners` pero no actualiza `user_profiles.role` a `'practitioner'`. Funciona porque el middleware chequea la tabla directa, pero el campo `role` queda en `'user'`. Ver pendientes 🟡.
 
 ## 🔄 Pivote 11 mayo 2026 · web = solo nutriólogas
 
@@ -45,7 +54,34 @@ Todo el clínico v5 corre contra datos reales:
 - **Lista**: RPC `get_practitioner_patients` + enrich con `weight_logs`, `user_profiles`, `diet_configs`. Loading/empty/error states.
 - **Detalle**: defense-in-depth (verifica relación `practitioner_patients` antes de fetch). Composición corporal, big chart, plan vigente con grupos SMAE.
 - **Editor de plan**: pre-fill desde plan activo, "Guardar y enviar" desactiva el anterior e inserta v+1 con `prescribed_by=practitioner.id`.
-- **Invitación**: modal v5 (`InviteModal.tsx`) usa `get_user_by_email` RPC + insert en `practitioner_patients` con `status=pending`.
+- **Invitación de pacientes**: modal v5 (`InviteModal.tsx`) usa `get_user_by_email` RPC + insert en `practitioner_patients` con `status=pending`.
+
+### Admin flow integrado (commits `56cb291`, `c062dbe`, `8259641`)
+
+Trabajo del socio + fixes míos. Flujo completo end-to-end:
+
+**admin → invita → magic link → onboarding → portal**
+
+- **`/admin`** — panel de admin (lista de nutriólogos registrados, stats activos/inactivos, acciones desactivar/reactivar). Gated por `isAdminUser`.
+- **`/admin/invite`** — formulario para invitar nuevos profesionales vía email. Llama `POST /api/invite-professional`.
+- **`POST /api/invite-professional`** — verifica admin → llama `auth.admin.inviteUserByEmail` con service_role_key → Supabase manda magic link con `redirectTo=/auth/callback?next=/onboarding`.
+- **`PATCH /api/admin/professional`** — desactiva/reactiva un nutriólogo (soft-delete: `practitioners.active = false`).
+- **`/auth/callback`** — intercambia `code` del magic link por sesión activa, redirige a `next` (default `/clinic`).
+- **`/onboarding`** — formulario para que el profesional invitado complete su perfil (nombre, cédula, especialidad, consultorio). Al guardar inserta en `practitioners` y redirige a `/clinic`.
+
+**Migraciones aplicadas:**
+- **025_admin_role.sql** (socio): amplía constraint de `user_profiles.role` para incluir `admin` y `professional`; agrega `practitioners.active` (default TRUE); políticas RLS para que admin pueda SELECT/UPDATE practitioners.
+- **026_user_profiles_display_name.sql** (mío, defensiva): `ADD COLUMN IF NOT EXISTS display_name TEXT` en `user_profiles`. La migración 023 referencia esta columna sin un ALTER previo — esta migración la formaliza para evitar drift entre el repo y la BD.
+
+**Build:** `tsc --noEmit` verde · `next build` verde · 35 rutas.
+
+### Issues conocidos · no rompen build pero hay que atender (🟡)
+
+1. **`loadPractitionerByUser` no filtra por `active`** — middleware sí, pero la query individual no. Defense-in-depth: agregar `.eq('active', true)` en `lib/clinic/queries.ts:53`.
+2. **Onboarding no actualiza `user_profiles.role`** — al insertar en `practitioners`, debería también hacer `UPDATE user_profiles SET role = 'practitioner' WHERE user_id = …`. Funcional pero inconsistente con el modelo de rol.
+3. **UI engañosa en `/admin/invite`** — el texto dice "Al hacer clic establece su contraseña". Supabase `inviteUserByEmail` NO obliga a setear password; el user llega autenticado por magic link y si cierra sesión solo vuelve con otro magic link. Editar copy.
+4. **N+1 en `loadAllProfessionals`** — un count por practitioner. Aceptable para MVP, refactorizar a un solo query con `GROUP BY` cuando haya >50 practitioners.
+5. **`email` del paciente requiere round-trip extra** — `loadPatientDetail` llama `get_practitioner_patients` solo para encontrar el email del paciente (trae toda la lista y filtra). Crear RPC `get_patient_for_practitioner(p_uuid, pat_uuid)` que devuelva email + name en un solo round-trip.
 
 ### Pendiente · Fase 3 (priorizado)
 
@@ -83,14 +119,25 @@ npm install   # solo si cambió package.json
 npm run dev   # http://localhost:3000 (o 3001 si está ocupado)
 ```
 
-Asegúrate de tener `.env.local` con las claves Supabase del proyecto (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
+Asegúrate de tener `.env.local` con las claves Supabase del proyecto:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (para el endpoint admin/invite)
+- `NEXT_PUBLIC_SITE_URL` (URL base del sitio para el redirectTo del magic link; en dev = `http://localhost:3000`)
 
-Para probar el clínico necesitas una cuenta con registro en `practitioners`. Si no tienes, créala con:
+Para probar como **admin**: tu cuenta ya tiene `role = 'admin'` en `user_profiles` (rafael.blangah@gmail.com, asignado 11 mayo 2026). Abre `/admin` → panel completo.
+
+Para probar el **portal clínico**: necesitas una fila en `practitioners` apuntando a tu user. Si no la tienes:
 ```sql
--- en Supabase SQL editor (sustituye <USER_ID>)
-INSERT INTO practitioners (user_id, display_name, license_number, specialty)
-VALUES ('<USER_ID>', 'Tu Nombre', '12345', 'Nutrición clínica · SMAE');
+-- en Supabase SQL editor — sustituye <USER_ID> o usa el email
+INSERT INTO practitioners (user_id, display_name, license_number, specialty, active)
+SELECT id, 'Tu Nombre', '12345', 'Nutrición clínica · SMAE', true
+FROM auth.users
+WHERE email = '<TU_EMAIL>'
+ON CONFLICT (user_id) DO NOTHING;
 ```
+
+Alternativa: entrar como admin a `/admin/invite`, invitar a un email de prueba, recibir el magic link, completar onboarding.
 
 ### Notas para retomar trabajo
 
