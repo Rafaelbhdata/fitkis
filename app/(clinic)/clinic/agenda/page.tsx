@@ -19,9 +19,17 @@ import {
   type AppointmentStatus,
 } from '@/lib/clinic/queries'
 
-const ROW_H     = 80
 const DAYS_ES   = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MONTHS_ES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+
+// Zoom levels: row height per hour + whether to show 30-min sub-rows
+const ZOOM_LEVELS = [
+  { rowH: 48,  halfHour: false }, // zoom out máximo
+  { rowH: 80,  halfHour: false }, // default
+  { rowH: 120, halfHour: true  }, // zoom in 1
+  { rowH: 160, halfHour: true  }, // zoom in máximo (filas de 30 min)
+] as const
+type ZoomIdx = 0 | 1 | 2 | 3
 
 function getWeekStart(offset: number): string {
   const d = new Date()
@@ -47,13 +55,13 @@ function formatWeekRange(weekStart: string): string {
   return `${s.getDate()} – ${e.getDate()} ${MONTHS_ES[e.getMonth()]} ${e.getFullYear()}`
 }
 
-function apptTop(appt: Appointment, startHour: number): number {
+function apptTop(appt: Appointment, startHour: number, rowH: number): number {
   const d = new Date(appt.starts_at)
-  return Math.max(0, ((d.getHours() - startHour) * 60 + d.getMinutes()) / 60 * ROW_H)
+  return Math.max(0, ((d.getHours() - startHour) * 60 + d.getMinutes()) / 60 * rowH)
 }
 
-function apptHeight(appt: Appointment): number {
-  return Math.max(22, (appt.duration_minutes / 60) * ROW_H - 4)
+function apptHeight(appt: Appointment, rowH: number): number {
+  return Math.max(28, (appt.duration_minutes / 60) * rowH - 4)
 }
 
 export default function AgendaPage() {
@@ -68,14 +76,25 @@ export default function AgendaPage() {
   const [startHour, setStartHour]       = useState(9)
   const [endHour, setEndHour]           = useState(17)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [zoomIdx, setZoomIdx]           = useState<ZoomIdx>(1)
   const settingsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const sh = localStorage.getItem('agenda_start_hour')
     const eh = localStorage.getItem('agenda_end_hour')
+    const zi = localStorage.getItem('agenda_zoom')
     if (sh) setStartHour(Number(sh))
     if (eh) setEndHour(Number(eh))
+    if (zi) setZoomIdx(Number(zi) as ZoomIdx)
   }, [])
+
+  function changeZoom(delta: 1 | -1) {
+    setZoomIdx(prev => {
+      const next = Math.max(0, Math.min(3, prev + delta)) as ZoomIdx
+      localStorage.setItem('agenda_zoom', String(next))
+      return next
+    })
+  }
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -91,14 +110,16 @@ export default function AgendaPage() {
     loadPractitionerByUser(supabase, user.id).then(setPractitioner)
   }, [user, supabase])
 
+  const { rowH, halfHour } = ZOOM_LEVELS[zoomIdx]
+
   const weekStart = getWeekStart(weekOffset)
   const days      = getDays(weekStart)
   const today     = todayISO()
   const hours     = Array.from({ length: endHour - startHour }, (_, i) => startHour + i)
-  const totalH    = hours.length * ROW_H
+  const totalH    = hours.length * rowH
 
   const now    = new Date()
-  const nowTop = ((now.getHours() - startHour) * 60 + now.getMinutes()) / 60 * ROW_H
+  const nowTop = ((now.getHours() - startHour) * 60 + now.getMinutes()) / 60 * rowH
   const showNow = nowTop >= 0 && nowTop <= totalH
 
   const fetchAppts = useCallback(async () => {
@@ -182,6 +203,21 @@ export default function AgendaPage() {
         <span className="fk-mono" style={{ fontSize:11, color:'var(--ink-5)', minWidth:52, textAlign:'right' }}>
           {appointments.length > 0 ? `${appointments.length} cita${appointments.length !== 1 ? 's' : ''}` : ''}
         </span>
+
+        {/* Zoom controls */}
+        <div style={{ display:'flex', alignItems:'center', gap:0, border:'1px solid var(--ink-7)', borderRadius:8, overflow:'hidden', flexShrink:0 }}>
+          <button onClick={() => changeZoom(-1)} disabled={zoomIdx === 0}
+            style={{ background:'none', border:'none', borderRight:'1px solid var(--ink-7)', padding:'6px 10px', fontSize:14, cursor: zoomIdx === 0 ? 'default' : 'pointer', color: zoomIdx === 0 ? 'var(--ink-6)' : 'var(--ink-3)', fontFamily:'var(--f-mono)', lineHeight:1 }}>
+            −
+          </button>
+          <span style={{ padding:'0 8px', fontSize:10, fontFamily:'var(--f-mono)', color:'var(--ink-4)', letterSpacing:'0.05em', userSelect:'none' }}>
+            {['1×','1.5×','2×','3×'][zoomIdx]}
+          </span>
+          <button onClick={() => changeZoom(1)} disabled={zoomIdx === 3}
+            style={{ background:'none', border:'none', borderLeft:'1px solid var(--ink-7)', padding:'6px 10px', fontSize:14, cursor: zoomIdx === 3 ? 'default' : 'pointer', color: zoomIdx === 3 ? 'var(--ink-6)' : 'var(--ink-3)', fontFamily:'var(--f-mono)', lineHeight:1 }}>
+            +
+          </button>
+        </div>
       </div>
 
       {loading ? spinner : (
@@ -235,8 +271,11 @@ export default function AgendaPage() {
               {/* Time labels */}
               <div style={{ width:64, flexShrink:0, borderRight:'1px solid var(--ink-7)' }}>
                 {hours.map(h => (
-                  <div key={h} style={{ height:ROW_H, borderBottom:'1px solid var(--ink-7)', display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:7 }}>
-                    <span className="fk-mono" style={{ fontSize:10, color:'var(--ink-5)' }}>{h}:00</span>
+                  <div key={h} style={{ height:rowH, borderBottom:'1px solid var(--ink-7)', position:'relative' }}>
+                    <span className="fk-mono" style={{ position:'absolute', top:7, left:0, right:0, textAlign:'center', fontSize:10, color:'var(--ink-5)' }}>{h}:00</span>
+                    {halfHour && (
+                      <span className="fk-mono" style={{ position:'absolute', top: rowH / 2 + 4, left:0, right:0, textAlign:'center', fontSize:9, color:'var(--ink-6)' }}>{h}:30</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -250,9 +289,15 @@ export default function AgendaPage() {
                   })
                   return (
                     <div key={key} style={{ position:'relative', height:totalH, borderLeft:'1px solid var(--ink-7)', background: isToday ? 'rgba(255,90,31,0.018)' : '#fff' }}>
+                      {/* Hour lines */}
                       {hours.map((_, hi) => (
-                        <div key={hi} style={{ position:'absolute', top:hi*ROW_H, left:0, right:0, height:1, background:'var(--ink-7)' }} />
+                        <div key={hi} style={{ position:'absolute', top:hi*rowH, left:0, right:0, height:1, background:'var(--ink-7)' }} />
                       ))}
+                      {/* Half-hour lines */}
+                      {halfHour && hours.map((_, hi) => (
+                        <div key={`h-${hi}`} style={{ position:'absolute', top:hi*rowH + rowH/2, left:0, right:0, height:1, background:'var(--ink-7)', opacity:0.35 }} />
+                      ))}
+                      {/* Current time */}
                       {isToday && showNow && (
                         <div style={{ position:'absolute', top:nowTop, left:0, right:0, height:2, background:'var(--signal)', zIndex:3, opacity:0.8 }}>
                           <div style={{ position:'absolute', left:-4, top:-3, width:8, height:8, borderRadius:999, background:'var(--signal)' }} />
@@ -260,7 +305,7 @@ export default function AgendaPage() {
                       )}
                       {visible.map(appt => (
                         <AppointmentBlock key={appt.id} appt={appt}
-                          top={apptTop(appt, startHour)} height={apptHeight(appt)}
+                          top={apptTop(appt, startHour, rowH)} height={apptHeight(appt, rowH)}
                           onStatusChange={handleStatusChange} />
                       ))}
                     </div>
