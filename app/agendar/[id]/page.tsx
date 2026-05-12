@@ -253,26 +253,22 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 <p style={{textAlign:'center',color:'var(--ink-4)',fontSize:14,padding:'24px 0'}}>Sin horarios disponibles para este día.</p>
               ) : (
                 <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                  {slots.map(s=>{
-                    const occ = isOccupied(s,occupied,duration)
+                  {slots.filter(s => !isOccupied(s, occupied, duration)).map(s=>{
                     const isSel = s===slot
                     return (
-                      <button key={s} type="button" disabled={occ}
+                      <button key={s} type="button"
                         onClick={()=>{setSlot(s);setStep('form')}}
                         style={{padding:'16px 20px',borderRadius:14,textAlign:'left',
-                          border:`2px solid ${isSel?'var(--signal)':occ?'var(--ink-7)':'var(--ink-6)'}`,
-                          background:isSel?'var(--signal)':occ?'var(--paper)':'#fff',
-                          cursor:occ?'not-allowed':'pointer',transition:'all 0.1s',
+                          border:`2px solid ${isSel?'var(--signal)':'var(--ink-6)'}`,
+                          background:isSel?'var(--signal)':'#fff',
+                          cursor:'pointer',transition:'all 0.1s',
                           display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                        <span style={{fontFamily:'var(--f-mono)',fontSize:14,fontWeight:400,
-                          color:isSel?'#fff':occ?'var(--ink-6)':'var(--ink)',
-                          textDecoration:occ?'line-through':'none'}}>
+                        <span style={{fontFamily:'var(--f-mono)',fontSize:14,fontWeight:400,color:isSel?'#fff':'var(--ink)'}}>
                           {fmtTime(s)}
                         </span>
-                        {!occ&&<span style={{fontFamily:'var(--f-mono)',fontSize:12,
-                          color:isSel?'rgba(255,255,255,0.7)':'var(--ink-5)'}}>
+                        <span style={{fontFamily:'var(--f-mono)',fontSize:12,color:isSel?'rgba(255,255,255,0.7)':'var(--ink-5)'}}>
                           {duration} min
-                        </span>}
+                        </span>
                       </button>
                     )
                   })}
