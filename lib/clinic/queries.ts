@@ -240,36 +240,47 @@ export async function loadPatientDetail(
 
   if (!relation) return null
 
-  const [{ data: profile }, { data: weights }, { data: diet }] = await Promise.all([
-    supabase
-      .from('user_profiles')
-      .select('height_cm, goal_weight_kg, display_name')
-      .eq('user_id', patientId)
-      .maybeSingle(),
-    supabase
-      .from('weight_logs')
-      .select('id, user_id, date, weight_kg, muscle_mass_kg, body_fat_mass_kg, body_fat_percentage, notes, created_at')
-      .eq('user_id', patientId)
-      .order('date', { ascending: false })
-      .limit(30),
-    supabase
-      .from('diet_configs')
-      .select('id, effective_date, version, verdura, fruta, carb, leguminosa, proteina, grasa, notes, active_meals')
-      .eq('user_id', patientId)
-      .eq('active', true)
-      .order('effective_date', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ])
+  const [{ data: profile }, { data: weights }, { data: diet }, { data: relsRaw }] =
+    await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('height_cm, goal_weight_kg, display_name')
+        .eq('user_id', patientId)
+        .maybeSingle(),
+      supabase
+        .from('weight_logs')
+        .select('id, user_id, date, weight_kg, muscle_mass_kg, body_fat_mass_kg, body_fat_percentage, notes, created_at')
+        .eq('user_id', patientId)
+        .order('date', { ascending: false })
+        .limit(30),
+      supabase
+        .from('diet_configs')
+        .select('id, effective_date, version, verdura, fruta, carb, leguminosa, proteina, grasa, notes, active_meals')
+        .eq('user_id', patientId)
+        .eq('active', true)
+        .order('effective_date', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      // `auth.users.email` no es accesible vía RLS desde el cliente. Reusamos
+      // `get_practitioner_patients` que ya nos devuelve email + nombre. Ineficiente
+      // (trae toda la lista de pacientes para encontrar uno) pero correcto.
+      // TODO Fase 3: nueva RPC `get_patient_for_practitioner(p_uuid, pat_uuid)` que
+      // devuelva email + name en un solo round-trip O materializar email en
+      // `user_profiles` al crear la relación.
+      supabase
+        .rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never),
+    ])
 
-  // Email no está disponible sin una RPC server-side (auth.users no es accesible
-  // desde el cliente). Se obtiene display_name de user_profiles como nombre
-  // preferido. TODO Fase 3: agregar RPC get_patient_for_practitioner(p_uuid, pat_uuid)
-  // que devuelva email + name en un solo round-trip.
+  const profileWithName = profile as { height_cm?: number; goal_weight_kg?: number; display_name?: string } | null
+  const rels = (relsRaw ?? []) as GetPractitionerPatientsRow[]
+  const myRel = rels.find((r) => r.patient_id === patientId)
+
+  const email = myRel?.patient_email ?? ''
   const displayName =
-    (profile as { display_name?: string } | null)?.display_name ||
+    myRel?.patient_name ||
+    profileWithName?.display_name ||
+    email ||
     `Paciente ${patientId.slice(0, 6)}`
-  const email = ''
 
   const weightHistory = ((weights ?? []) as WeightLog[]).slice().reverse()
   const weightArr = weightHistory.map((w) => w.weight_kg).filter((v): v is number => v != null)
@@ -280,9 +291,9 @@ export async function loadPatientDetail(
     email,
     name: displayName,
     initial: pickInitial(displayName, email),
-    height_m: profile?.height_cm != null ? Number((profile.height_cm / 100).toFixed(2)) : undefined,
-    goal_weight_kg: profile?.goal_weight_kg ?? undefined,
-    goal: formatGoal(weightArr, profile?.goal_weight_kg),
+    height_m: profileWithName?.height_cm != null ? Number((profileWithName.height_cm / 100).toFixed(2)) : undefined,
+    goal_weight_kg: profileWithName?.goal_weight_kg ?? undefined,
+    goal: formatGoal(weightArr, profileWithName?.goal_weight_kg),
     status: relation.status,
     weight_history: weightHistory,
     active_diet: diet

@@ -57,13 +57,19 @@ export default function OnboardingPage() {
     setStep('saving')
     setError(null)
 
-    const { error: insertError } = await supabase.from('practitioners').insert({
+    // Cast a `never` para evitar que TS resuelva el shape del Insert como `never`
+    // cuando hay columnas en BD no presentes en el tipo Practitioner (ej.: `active`
+    // añadida en la migración 025). Postgres guarda `undefined` como NULL.
+    const insertPayload = {
       user_id:        user.id,
       display_name:   nombre.trim(),
-      license_number: cedula.trim() || null,
+      license_number: cedula.trim() || undefined,
       specialty:      especialidad,
-      clinic_name:    consultorio.trim() || null,
-    })
+      clinic_name:    consultorio.trim() || undefined,
+    }
+    const { error: insertError } = await supabase
+      .from('practitioners')
+      .insert(insertPayload as never)
 
     if (insertError) {
       setError(insertError.message)
