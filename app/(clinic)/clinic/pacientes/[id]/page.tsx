@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Btn } from '@/components/ui/Btn'
 import { PulseLine } from '@/components/ui/PulseLine'
@@ -1047,9 +1047,9 @@ function TabConversacion({ patient }: { patient: PatientDetail }) {
 export default function PatientDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }) {
-  const { id: patientId } = use(params)
+  const { id: patientId } = params
   const supabase = useSupabase()
   const { user, loading: userLoading } = useUser()
   const [tab, setTab] = useState<Tab>('resumen')
