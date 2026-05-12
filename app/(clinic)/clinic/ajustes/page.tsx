@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
 import { PulseLine } from '@/components/ui/PulseLine'
-import { Ic } from '@/components/clinic/Ic'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
@@ -28,52 +27,11 @@ function lsNum(key: string, fallback: number): number {
 // ─── Nav sections ─────────────────────────────────────────────────────────────
 type SectionKey = 'perfil' | 'consultorio' | 'agenda' | 'umbrales'
 
-const NAV: { key: SectionKey; label: string; sub: string; icon: React.ReactNode }[] = [
-  {
-    key: 'perfil',
-    label: 'Perfil',
-    sub: 'Nombre · cédula · especialidad',
-    icon: (
-      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-      </svg>
-    ),
-  },
-  {
-    key: 'consultorio',
-    label: 'Consultorio',
-    sub: 'Nombre · reservas públicas',
-    icon: (
-      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-  },
-  {
-    key: 'agenda',
-    label: 'Agenda',
-    sub: 'Horario · duración de citas',
-    icon: (
-      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-      </svg>
-    ),
-  },
-  {
-    key: 'umbrales',
-    label: 'Alertas',
-    sub: 'Inactividad · adherencia',
-    icon: (
-      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
-      </svg>
-    ),
-  },
+const NAV: { key: SectionKey; label: string }[] = [
+  { key: 'perfil',       label: 'Perfil' },
+  { key: 'consultorio',  label: 'Consultorio' },
+  { key: 'agenda',       label: 'Agenda' },
+  { key: 'umbrales',     label: 'Alertas' },
 ]
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
@@ -1007,40 +965,18 @@ export default function AjustesPage() {
         </div>
       )}
 
-      {/* Content: split layout */}
+      {/* Content: tabs horizontales */}
       {!loading && !error && practitioner && (
-        <div
-          style={{
-            display: 'flex',
-            gap: 0,
-            minHeight: 'calc(100vh - 97px)',
-          }}
-        >
-          {/* ── Left nav rail ── */}
-          <nav
+        <div>
+          {/* Tab bar */}
+          <div
             style={{
-              width: 220,
-              flexShrink: 0,
-              borderRight: '1px solid var(--ink-7)',
-              padding: '24px 12px',
-              background: 'var(--paper)',
+              display: 'flex',
+              gap: 4,
+              padding: '0 40px',
+              borderBottom: '1px solid var(--ink-7)',
             }}
           >
-            <div
-              style={{
-                fontFamily: 'var(--f-mono)',
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-                color: 'var(--ink-5)',
-                marginBottom: 8,
-                paddingLeft: 10,
-              }}
-            >
-              Configuración
-            </div>
-
             {NAV.map(item => {
               const isActive = active === item.key
               return (
@@ -1048,76 +984,30 @@ export default function AjustesPage() {
                   key={item.key}
                   onClick={() => setActive(item.key)}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    width: '100%',
-                    padding: '10px 10px',
-                    borderRadius: 9,
+                    padding: '10px 16px',
+                    background: 'transparent',
                     border: 'none',
-                    background: isActive ? '#fff' : 'transparent',
-                    boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.07), inset 0 0 0 1px var(--ink-7)' : 'none',
+                    borderBottom: isActive ? '2px solid var(--ink)' : '2px solid transparent',
+                    color: isActive ? 'var(--ink)' : 'var(--ink-4)',
+                    fontFamily: 'var(--f-sans)',
+                    fontSize: 13,
+                    fontWeight: isActive ? 500 : 400,
                     cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'background 0.12s, box-shadow 0.12s',
-                    marginBottom: 2,
+                    marginBottom: -1,
                   }}
-                  onMouseOver={e => { if (!isActive) e.currentTarget.style.background = 'var(--paper-2)' }}
-                  onMouseOut={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
                 >
-                  <span style={{ color: isActive ? 'var(--signal)' : 'var(--ink-4)', flexShrink: 0, transition: 'color 0.12s' }}>
-                    {item.icon}
-                  </span>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: isActive ? 500 : 400,
-                        color: isActive ? 'var(--ink)' : 'var(--ink-3)',
-                        fontFamily: 'var(--f-sans)',
-                        transition: 'color 0.12s',
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {item.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 9,
-                        fontFamily: 'var(--f-mono)',
-                        color: 'var(--ink-5)',
-                        letterSpacing: '0.04em',
-                        marginTop: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {item.sub}
-                    </div>
-                  </div>
-                  {isActive && (
-                    <span style={{ flexShrink: 0 }}>
-                      <PulseLine w={16} h={5} color="var(--signal)" strokeWidth={1.2} active />
-                    </span>
-                  )}
+                  {item.label}
                 </button>
               )
             })}
-          </nav>
+          </div>
 
-          {/* ── Right content panel ── */}
-          <div
-            style={{
-              flex: 1,
-              padding: '36px 48px',
-              maxWidth: 580,
-            }}
-          >
-            {active === 'perfil'       && <PanelPerfil practitioner={practitioner} />}
-            {active === 'consultorio'  && <PanelConsultorio practitioner={practitioner} />}
-            {active === 'agenda'       && <PanelAgenda />}
-            {active === 'umbrales'     && <PanelUmbrales />}
+          {/* Panel content */}
+          <div style={{ padding: '36px 40px', maxWidth: 580 }}>
+            {active === 'perfil'      && <PanelPerfil practitioner={practitioner} />}
+            {active === 'consultorio' && <PanelConsultorio practitioner={practitioner} />}
+            {active === 'agenda'      && <PanelAgenda />}
+            {active === 'umbrales'    && <PanelUmbrales />}
           </div>
         </div>
       )}
