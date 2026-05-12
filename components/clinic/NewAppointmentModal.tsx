@@ -7,13 +7,16 @@ import { loadPatientsBasic, type PatientBasic } from '@/lib/clinic/queries'
 import {
   MONTHS_CAP, WEEK_LABELS, DURATIONS,
   todayISO, isoDate, firstDayOfMonth, daysInMonth,
-  fmtTime, generateSlots,
+  fmtTime, generateSlots, dateToDayKey,
+  type WeekSchedule,
 } from '@/lib/clinic/calendar-utils'
 
 type PatientMode = 'linked' | 'external'
 
 type Props = {
-  practitionerId: string
+  practitionerId:  string
+  defaultDuration: number
+  schedule:        WeekSchedule | null
   onClose:   () => void
   onCreated: () => void
   createAppointment: (payload: {
@@ -29,7 +32,7 @@ type Props = {
 
 // ─── component ───────────────────────────────────────────────────────────────
 
-export function NewAppointmentModal({ practitionerId, onClose, onCreated, createAppointment }: Props) {
+export function NewAppointmentModal({ practitionerId, defaultDuration, schedule, onClose, onCreated, createAppointment }: Props) {
   const supabase = useSupabase()
 
   // Paciente
@@ -49,7 +52,7 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
   const [calY, setCalY] = useState(now.getFullYear())
   const [calM, setCalM] = useState(now.getMonth())
   const [date, setDate]     = useState<string|null>(null)
-  const [duration, setDuration] = useState(60)
+  const [duration, setDuration] = useState(defaultDuration)
   const [slot, setSlot]     = useState<string|null>(null)
 
   // Form
@@ -80,7 +83,12 @@ export function NewAppointmentModal({ practitionerId, onClose, onCreated, create
     () => [...Array(firstDayOfMonth(calY,calM)).fill(null), ...Array.from({length:daysInMonth(calY,calM)},(_,i)=>i+1)],
     [calY, calM]
   )
-  const slots = useMemo(() => date ? generateSlots(date, duration) : [], [date, duration])
+  const slots = useMemo(() => {
+    if (!date) return []
+    const dayKey = dateToDayKey(new Date(date + 'T00:00:00'))
+    const daySchedule = schedule?.[dayKey]
+    return generateSlots(date, duration, daySchedule)
+  }, [date, duration, schedule])
 
   const patientName  = mode==='linked' ? (selected?.patient_name??'') : extName.trim()
   const patientEmail = mode==='linked' ? (selected?.patient_email??undefined) : (extEmail.trim()||undefined)

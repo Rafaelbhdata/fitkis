@@ -30,14 +30,9 @@ import { DEFAULT_WEEK_SCHEDULE } from './calendar-utils'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = SupabaseClient<any, any, any>
 
-/**
- * Día sin registros a partir del cual marcamos al paciente como "inactivo".
- * Ajustable por practitioner en Fase 3 (tabla settings).
- */
-const INACTIVITY_THRESHOLD_DAYS  = 7   // días sin ningún registro → inactividad
-const STAGNATION_MIN_DAYS        = 21  // ventana mínima entre primera y última medición
-const STAGNATION_MIN_LOGS        = 3   // mediciones necesarias para detectar estancamiento
-const STAGNATION_MAX_DELTA_KG    = 1.0 // cambio total < 1 kg → peso estancado
+const STAGNATION_MIN_DAYS     = 21   // ventana mínima entre primera y última medición
+const STAGNATION_MIN_LOGS     = 3    // mediciones necesarias para detectar estancamiento
+const STAGNATION_MAX_DELTA_KG = 1.0  // cambio total < 1 kg → peso estancado
 
 // =============================================================================
 // PRACTITIONER
@@ -52,6 +47,8 @@ export type PractitionerRecord = {
   address: string | null
   schedule: WeekSchedule
   default_duration: number
+  inactivity_threshold_days: number
+  min_adherence_pct: number
 }
 
 /**
@@ -64,7 +61,7 @@ export async function loadPractitionerByUser(
 ): Promise<PractitionerRecord | null> {
   const { data, error } = await supabase
     .from('practitioners')
-    .select('id, display_name, license_number, specialty, clinic_name, address, schedule, default_duration')
+    .select('id, display_name, license_number, specialty, clinic_name, address, schedule, default_duration, inactivity_threshold_days, min_adherence_pct')
     .eq('user_id', userId)
     .eq('active', true)
     .maybeSingle()
@@ -80,6 +77,8 @@ export async function loadPractitionerByUser(
     address: data.address ?? null,
     schedule: (data.schedule as WeekSchedule) ?? DEFAULT_WEEK_SCHEDULE,
     default_duration: (data.default_duration as number) ?? 60,
+    inactivity_threshold_days: (data.inactivity_threshold_days as number) ?? 7,
+    min_adherence_pct: (data.min_adherence_pct as number) ?? 60,
   }
 }
 
@@ -91,6 +90,8 @@ export type PractitionerUpdate = {
   address?: string | null
   schedule?: WeekSchedule
   default_duration?: number
+  inactivity_threshold_days?: number
+  min_adherence_pct?: number
 }
 
 export async function updatePractitioner(
@@ -131,7 +132,8 @@ type GetPractitionerPatientsRow = {
  */
 export async function loadPatientsForPractitioner(
   supabase: SB,
-  practitionerId: string
+  practitionerId: string,
+  thresholds: { inactivityDays: number; minAdherencePct: number } = { inactivityDays: 7, minAdherencePct: 60 }
 ): Promise<MockPatient[]> {
   const { data, error } = await supabase
     .rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never)
@@ -183,6 +185,7 @@ export async function loadPatientsForPractitioner(
         lastFoodByPatient[rel.patient_id],
         lastGymByPatient[rel.patient_id],
         activityDatesByPatient[rel.patient_id],
+        thresholds.inactivityDays,
       )
     )
   )
@@ -197,6 +200,7 @@ async function enrichPatient(
   lastFoodDate?: string,
   lastGymDate?: string,
   activityDates?: Set<string>,
+  inactivityDays = 7,
 ): Promise<MockPatient> {
   const [{ data: profile }, { data: weights }, { data: diet }] = await Promise.all([
     supabase
@@ -233,7 +237,7 @@ async function enrichPatient(
 
   const daysSinceActivity = computeLastActivityDays(weightHistory, lastFoodDate, lastGymDate)
   const goal     = formatGoal(weightArr, profile?.goal_weight_kg)
-  const alert    = computeAlert(daysSinceActivity, weightHistory)
+  const alert    = computeAlert(daysSinceActivity, weightHistory, inactivityDays)
   const lastSeen = formatLastSeen(rel, daysSinceActivity)
   const initial  = pickInitial(rel.patient_name, rel.patient_email)
   const displayName = rel.patient_name || rel.patient_email || `Paciente ${rel.patient_id.slice(0, 6)}`
@@ -621,11 +625,8 @@ function computeStreak(dates: Set<string>): number {
   return streak
 }
 
-function computeAlert(daysSinceActivity: number | undefined, weightHistory: WeightLog[]): AlertKind {
-  // Inactividad tiene prioridad sobre estancamiento
-  if (daysSinceActivity == null || daysSinceActivity >= INACTIVITY_THRESHOLD_DAYS) {
-    return 'inactividad'
-  }
+function computeAlert(daysSinceActivity: number | undefined, weightHistory: WeightLog[], inactivityDays = 7): AlertKind {
+  if (daysSinceActivity == null || daysSinceActivity >= inactivityDays) return 'inactividad'
   if (isStagnant(weightHistory)) return 'estancamiento'
   return null
 }

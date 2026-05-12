@@ -367,6 +367,8 @@ export default function AgendaPage() {
       {newApptOpen && practitioner && (
         <NewAppointmentModal
           practitionerId={practitioner.id}
+          defaultDuration={practitioner.default_duration}
+          schedule={practitioner.schedule}
           onClose={() => setNewApptOpen(false)}
           onCreated={() => { setNewApptOpen(false); fetchAppts() }}
           createAppointment={handleCreate}

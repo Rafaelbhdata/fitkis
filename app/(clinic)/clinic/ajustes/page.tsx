@@ -16,16 +16,6 @@ import {
   type DayKey, type Break, type DaySchedule, type WeekSchedule,
 } from '@/lib/clinic/calendar-utils'
 
-// ─── localStorage keys (solo umbrales — agenda ahora en BD) ──────────────────
-const LS_INACTIVITY_DAYS  = 'clinic_inactivity_days'
-const LS_MIN_ADHERENCE    = 'clinic_min_adherence'
-
-function lsNum(key: string, fallback: number): number {
-  if (typeof window === 'undefined') return fallback
-  const v = localStorage.getItem(key)
-  const n = v !== null ? parseInt(v, 10) : NaN
-  return isNaN(n) ? fallback : n
-}
 
 // ─── Nav sections ─────────────────────────────────────────────────────────────
 type SectionKey = 'perfil' | 'consultorio' | 'agenda' | 'umbrales'
@@ -890,25 +880,26 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
 
 // ─── Panel: Umbrales de alertas ───────────────────────────────────────────────
 
-function PanelUmbrales() {
-  const [inactDays,    setInactDays]    = useState(7)
-  const [minAdherence, setMinAdherence] = useState(60)
+function PanelUmbrales({ practitioner }: { practitioner: PractitionerRecord }) {
+  const supabase = useSupabase()
+
+  const [inactDays,    setInactDays]    = useState(practitioner.inactivity_threshold_days)
+  const [minAdherence, setMinAdherence] = useState(practitioner.min_adherence_pct)
+  const [saving,       setSaving]       = useState(false)
   const [saved,        setSaved]        = useState(false)
   const [error,        setError]        = useState<string | null>(null)
 
-  useEffect(() => {
-    setInactDays(lsNum(LS_INACTIVITY_DAYS, 7))
-    setMinAdherence(lsNum(LS_MIN_ADHERENCE, 60))
-  }, [])
-
-  function handleSave() {
+  async function handleSave() {
     if (inactDays < 1 || inactDays > 90) { setError('Días de inactividad debe estar entre 1 y 90.'); return }
     if (minAdherence < 0 || minAdherence > 100) { setError('La adherencia mínima debe estar entre 0 y 100.'); return }
-    setError(null)
-    localStorage.setItem(LS_INACTIVITY_DAYS, String(inactDays))
-    localStorage.setItem(LS_MIN_ADHERENCE, String(minAdherence))
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+    setSaving(true); setError(null); setSaved(false)
+    const res = await updatePractitioner(supabase, practitioner.id, {
+      inactivity_threshold_days: inactDays,
+      min_adherence_pct: minAdherence,
+    })
+    setSaving(false)
+    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500) }
+    else setError(res.error)
   }
 
   return (
@@ -918,46 +909,6 @@ function PanelUmbrales() {
         title="Umbrales de alertas"
         sub="Define cuándo se marca a un paciente como inactivo o con adherencia baja."
       />
-
-      {/* Local storage notice */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 10,
-          alignItems: 'flex-start',
-          background: 'var(--honey-soft)',
-          borderRadius: 10,
-          padding: '12px 14px',
-          marginBottom: 28,
-        }}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width={14}
-          height={14}
-          fill="none"
-          stroke="var(--honey)"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ flexShrink: 0, marginTop: 1 }}
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        <span
-          style={{
-            fontFamily: 'var(--f-mono)',
-            fontSize: 10,
-            color: 'var(--ink-3)',
-            lineHeight: 1.6,
-          }}
-        >
-          Estas preferencias se guardan en este navegador. La lógica del servidor usa valores
-          por defecto hasta que se migren a la base de datos en Fase 3.
-        </span>
-      </div>
 
       <Stepper
         label="Días sin registros → inactividad"
@@ -979,7 +930,7 @@ function PanelUmbrales() {
         hint="Porcentaje de días activos en los últimos 30 días por debajo del cual se genera una alerta."
       />
 
-      <SaveFooter loading={false} saved={saved} error={error} onClick={handleSave} />
+      <SaveFooter loading={saving} saved={saved} error={error} onClick={handleSave} />
     </div>
   )
 }
@@ -1079,7 +1030,7 @@ export default function AjustesPage() {
             {active === 'perfil'      && <PanelPerfil practitioner={practitioner} />}
             {active === 'consultorio' && <PanelConsultorio practitioner={practitioner} />}
             {active === 'agenda'      && <PanelAgenda practitioner={practitioner} />}
-            {active === 'umbrales'    && <PanelUmbrales />}
+            {active === 'umbrales'    && <PanelUmbrales practitioner={practitioner} />}
           </div>
         </div>
       )}

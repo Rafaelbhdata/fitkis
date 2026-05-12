@@ -66,7 +66,10 @@ export default function ClinicPatientsPage() {
           return
         }
         setPractitioner(p)
-        const list = await loadPatientsForPractitioner(supabase, p.id)
+        const list = await loadPatientsForPractitioner(supabase, p.id, {
+          inactivityDays: p.inactivity_threshold_days,
+          minAdherencePct: p.min_adherence_pct,
+        })
         if (cancelled) return
         setPatients(list)
       } catch (e) {
@@ -83,7 +86,10 @@ export default function ClinicPatientsPage() {
 
   async function refreshPatients() {
     if (!practitioner) return
-    const list = await loadPatientsForPractitioner(supabase, practitioner.id)
+    const list = await loadPatientsForPractitioner(supabase, practitioner.id, {
+      inactivityDays: practitioner.inactivity_threshold_days,
+      minAdherencePct: practitioner.min_adherence_pct,
+    })
     setPatients(list)
   }
 
