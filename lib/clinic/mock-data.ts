@@ -35,6 +35,7 @@ export type MockPatient = {
   alert: AlertKind
   adherence: number | null
   streak: number
+  days_since_activity?: number
   /** UUID real del paciente en Supabase. Siempre presente en registros reales; undefined solo en mock puro. */
   _patient_id?: string
 }

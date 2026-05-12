@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Btn } from '@/components/ui/Btn'
 import { PulseLine } from '@/components/ui/PulseLine'
@@ -18,6 +18,13 @@ import type { MockPatient } from '@/lib/clinic/mock-data'
 import { InviteModal } from '@/components/clinic/InviteModal'
 
 type FilterKey = 'todos' | 'atencion' | 'pending' | 'archivo'
+type SortKey   = 'last_seen' | 'name' | 'fat'
+
+const SORT_LABELS: Record<SortKey, string> = {
+  last_seen: 'Últ. registro',
+  name:      'Nombre A–Z',
+  fat:       '% Grasa ↑',
+}
 
 const AVATAR_PALETTE: Array<{ bg: string; fg: string }> = [
   { bg: 'var(--leaf-soft)', fg: 'var(--leaf)' },
@@ -45,8 +52,14 @@ export default function ClinicPatientsPage() {
   const [patients, setPatients] = useState<MockPatient[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState<FilterKey>('todos')
+  const [filter, setFilter]       = useState<FilterKey>('todos')
+  const [sortKey, setSortKey]     = useState<SortKey>('last_seen')
+  const [sortOpen, setSortOpen]   = useState(false)
+  const [searchQuery, setSearch]  = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const sortRef   = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (userLoading) return
@@ -79,6 +92,35 @@ export default function ClinicPatientsPage() {
     }
   }, [user, userLoading, supabase])
 
+  // ⌘K abre el buscador
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(true)
+        setTimeout(() => searchRef.current?.focus(), 50)
+      }
+      if (e.key === 'Escape') {
+        setSearchOpen(false)
+        setSearch('')
+        setSortOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Click fuera cierra el dropdown de sort
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortOpen(false)
+      }
+    }
+    if (sortOpen) document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [sortOpen])
+
   async function refreshPatients() {
     if (!practitioner) return
     const list = await loadPatientsForPractitioner(supabase, practitioner.id)
@@ -86,11 +128,32 @@ export default function ClinicPatientsPage() {
   }
 
   const filtered = useMemo(() => {
-    if (filter === 'atencion') return patients.filter((p) => p.alert)
-    if (filter === 'pending') return patients.filter((p) => p.status === 'pending')
-    if (filter === 'archivo') return patients.filter((p) => p.status === 'inactive')
-    return patients
-  }, [filter, patients])
+    // 1. Tab filter
+    let list = patients
+    if (filter === 'atencion') list = patients.filter((p) => p.alert)
+    else if (filter === 'pending') list = patients.filter((p) => p.status === 'pending')
+    else if (filter === 'archivo') list = patients.filter((p) => p.status === 'inactive')
+
+    // 2. Search
+    const q = searchQuery.trim().toLowerCase()
+    if (q) list = list.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q)
+    )
+
+    // 3. Sort
+    return [...list].sort((a, b) => {
+      if (sortKey === 'name') return a.name.localeCompare(b.name, 'es')
+      if (sortKey === 'fat') {
+        const fa = a.fat.at(-1) ?? -1
+        const fb = b.fat.at(-1) ?? -1
+        return fb - fa // mayor % grasa primero
+      }
+      // last_seen: menor días = más reciente = primero
+      const da = a.days_since_activity ?? Infinity
+      const db = b.days_since_activity ?? Infinity
+      return da - db
+    })
+  }, [filter, patients, searchQuery, sortKey])
 
   // Stats
   const activeCount = patients.filter((p) => p.status === 'active').length
@@ -118,36 +181,57 @@ export default function ClinicPatientsPage() {
         }
         right={
           <>
-            <button
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 14px',
-                borderRadius: 999,
-                border: '1px solid var(--ink-7)',
-                background: '#fff',
-                fontSize: 13,
-                fontFamily: 'var(--f-sans)',
-                color: 'var(--ink-2)',
-                cursor: 'pointer',
-              }}
-            >
-              <Ic.search width={14} height={14} />
-              Buscar
-              <span
-                className="fk-mono"
+            {searchOpen ? (
+              <div style={{ position: 'relative' }}>
+                <Ic.search width={14} height={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-4)', pointerEvents: 'none' }} />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar paciente…"
+                  autoFocus
+                  style={{
+                    paddingLeft: 34,
+                    paddingRight: 12,
+                    paddingTop: 10,
+                    paddingBottom: 10,
+                    borderRadius: 999,
+                    border: '1px solid var(--ink-5)',
+                    background: '#fff',
+                    fontSize: 13,
+                    fontFamily: 'var(--f-sans)',
+                    color: 'var(--ink)',
+                    width: 220,
+                    outline: 'none',
+                  }}
+                  onBlur={() => { if (!searchQuery) { setSearchOpen(false) } }}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={() => { setSearchOpen(true); setTimeout(() => searchRef.current?.focus(), 50) }}
                 style={{
-                  fontSize: 10,
-                  padding: '2px 6px',
-                  background: 'var(--paper-3)',
-                  borderRadius: 4,
-                  color: 'var(--ink-4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 999,
+                  border: '1px solid var(--ink-7)',
+                  background: '#fff',
+                  fontSize: 13,
+                  fontFamily: 'var(--f-sans)',
+                  color: 'var(--ink-2)',
+                  cursor: 'pointer',
                 }}
               >
-                ⌘K
-              </span>
-            </button>
+                <Ic.search width={14} height={14} />
+                Buscar
+                <span className="fk-mono" style={{ fontSize: 10, padding: '2px 6px', background: 'var(--paper-3)', borderRadius: 4, color: 'var(--ink-4)' }}>
+                  ⌘K
+                </span>
+              </button>
+            )}
             <Btn variant="signal" icon={<Ic.plus />} onClick={() => setInviteOpen(true)}>
               Vincular paciente
             </Btn>
@@ -266,35 +350,62 @@ export default function ClinicPatientsPage() {
                 )
               })}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div ref={sortRef} style={{ position: 'relative' }}>
               <button
+                onClick={() => setSortOpen((o) => !o)}
                 style={{
                   padding: '8px 12px',
                   borderRadius: 8,
-                  border: '1px solid var(--ink-7)',
+                  border: `1px solid ${sortOpen ? 'var(--ink-4)' : 'var(--ink-7)'}`,
                   background: '#fff',
                   fontSize: 12,
-                  color: 'var(--ink-3)',
+                  color: 'var(--ink-2)',
                   cursor: 'pointer',
                   fontFamily: 'var(--f-sans)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
               >
-                Ordenar: Últ. registro ▾
+                Ordenar: {SORT_LABELS[sortKey]} ▾
               </button>
-              <button
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  border: '1px solid var(--ink-7)',
+              {sortOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 6px)',
+                  right: 0,
                   background: '#fff',
-                  fontSize: 12,
-                  color: 'var(--ink-3)',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--f-sans)',
-                }}
-              >
-                Vista: Editorial ▾
-              </button>
+                  border: '1px solid var(--ink-7)',
+                  borderRadius: 10,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  minWidth: 180,
+                  zIndex: 50,
+                  overflow: 'hidden',
+                }}>
+                  {(Object.entries(SORT_LABELS) as [SortKey, string][]).map(([k, label]) => (
+                    <button
+                      key={k}
+                      onClick={() => { setSortKey(k); setSortOpen(false) }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '10px 14px',
+                        border: 'none',
+                        background: sortKey === k ? 'var(--paper-2)' : 'transparent',
+                        fontSize: 13,
+                        fontFamily: 'var(--f-sans)',
+                        color: sortKey === k ? 'var(--ink)' : 'var(--ink-3)',
+                        cursor: 'pointer',
+                        fontWeight: sortKey === k ? 500 : 400,
+                      }}
+                    >
+                      {label}
+                      {sortKey === k && <span style={{ float: 'right', color: 'var(--signal)' }}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

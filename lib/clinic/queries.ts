@@ -197,6 +197,7 @@ async function enrichPatient(
     alert,
     adherence: null,
     streak: 0,
+    days_since_activity: daysSinceActivity,
     _patient_id: rel.patient_id,
   }
 }
