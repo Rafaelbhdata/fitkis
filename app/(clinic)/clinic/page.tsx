@@ -18,12 +18,11 @@ import type { MockPatient } from '@/lib/clinic/mock-data'
 import { InviteModal } from '@/components/clinic/InviteModal'
 
 type FilterKey = 'todos' | 'atencion' | 'pending' | 'archivo'
-type SortKey   = 'last_seen' | 'name' | 'fat'
+type SortKey   = 'last_seen' | 'name'
 
 const SORT_LABELS: Record<SortKey, string> = {
   last_seen: 'Últ. registro',
   name:      'Nombre A–Z',
-  fat:       '% Grasa ↑',
 }
 
 const AVATAR_PALETTE: Array<{ bg: string; fg: string }> = [
@@ -143,11 +142,6 @@ export default function ClinicPatientsPage() {
     // 3. Sort
     return [...list].sort((a, b) => {
       if (sortKey === 'name') return a.name.localeCompare(b.name, 'es')
-      if (sortKey === 'fat') {
-        const fa = a.fat.at(-1) ?? -1
-        const fb = b.fat.at(-1) ?? -1
-        return fb - fa // mayor % grasa primero
-      }
       // last_seen: menor días = más reciente = primero
       const da = a.days_since_activity ?? Infinity
       const db = b.days_since_activity ?? Infinity
