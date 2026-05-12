@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     starts_at,
     duration_minutes = 50,
     notes,
+    reschedule_id,
   } = body as {
     practitioner_id: string
     patient_name: string
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
     starts_at: string
     duration_minutes?: number
     notes?: string
+    reschedule_id?: string
   }
 
   if (!practitioner_id || !patient_name || !patient_email || !starts_at) {
@@ -78,6 +80,14 @@ export async function POST(req: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Si viene de un reagendamiento, cancelar la cita original
+  if (reschedule_id) {
+    await supabaseAdmin
+      .from('appointments')
+      .update({ status: 'cancelled' } as never)
+      .eq('id', reschedule_id)
   }
 
   return NextResponse.json({ appointment: data })

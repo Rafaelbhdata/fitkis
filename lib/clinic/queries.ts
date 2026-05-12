@@ -602,7 +602,7 @@ function pickInitial(name: string | null | undefined, email: string | null | und
 // APPOINTMENTS
 // =============================================================================
 
-export type AppointmentStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
+export type AppointmentStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | 'rescheduling'
 
 export type Appointment = {
   id: string

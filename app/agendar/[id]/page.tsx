@@ -88,6 +88,11 @@ function isSlotOccupied(slotISO: string, occupied: Slot[], durationMin = 50): bo
 export default function BookingPage({ params }: { params: { id: string } }) {
   const practitionerId = params.id
 
+  // rescheduleId viene del query param ?reschedule=UUID (cuando la nutrióloga solicita reagendar)
+  const rescheduleId = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('reschedule') ?? undefined
+    : undefined
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -166,6 +171,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
         starts_at: new Date(selectedSlot).toISOString(),
         duration_minutes: 50,
         notes: notes.trim() || undefined,
+        reschedule_id: rescheduleId,
       }),
     })
 
@@ -239,6 +245,21 @@ export default function BookingPage({ params }: { params: { id: string } }) {
   )
 
   // ─── PractitionerCard ─────────────────────────────────────────────────────
+
+  const RescheduleBanner = () => {
+    if (!rescheduleId) return null
+    return (
+      <div style={{ background: '#fff3e0', border: '1px solid #e65100', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 16 }}>📅</span>
+        <div>
+          <div style={{ fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 600, color: '#e65100' }}>Reagendamiento solicitado</div>
+          <div style={{ fontFamily: 'var(--f-sans)', fontSize: 12, color: '#bf360c', marginTop: 2 }}>
+            Tu nutrióloga quiere cambiar el horario de tu consulta. Elige un nuevo horario a continuación.
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const PractitionerCard = () => {
     if (!practitioner) return null
@@ -366,6 +387,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
       <div style={pageStyle}>
         <div style={containerStyle}>
           <Header />
+          <RescheduleBanner />
           <PractitionerCard />
 
           <div style={cardStyle}>

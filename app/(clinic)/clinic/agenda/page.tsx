@@ -145,6 +145,24 @@ export default function AgendaPage() {
     return { error }
   }
 
+  async function handleReschedule(appt: Appointment) {
+    if (!practitioner) return
+    // Actualiza status local inmediatamente para feedback visual
+    setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: 'rescheduling' } : a))
+    await fetch('/api/reschedule-appointment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        appointmentId:    appt.id,
+        practitionerId:   practitioner.id,
+        practitionerName: practitioner.display_name,
+        patientName:      appt.patient_name,
+        patientEmail:     appt.patient_email ?? '',
+        originalDate:     appt.starts_at,
+      }),
+    })
+  }
+
   function saveHours(sh: number, eh: number) {
     localStorage.setItem('agenda_start_hour', String(sh))
     localStorage.setItem('agenda_end_hour', String(eh))
@@ -305,7 +323,8 @@ export default function AgendaPage() {
                       {visible.map(appt => (
                         <AppointmentBlock key={appt.id} appt={appt}
                           top={apptTop(appt, startHour, rowH)} height={apptHeight(appt, rowH)}
-                          onStatusChange={handleStatusChange} />
+                          onStatusChange={handleStatusChange}
+                          onReschedule={handleReschedule} />
                       ))}
                     </div>
                   )
