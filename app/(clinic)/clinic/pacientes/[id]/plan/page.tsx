@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Btn } from '@/components/ui/Btn'
@@ -188,8 +188,8 @@ function formatEffectiveDate(iso: string): string {
   return `${days[d.getDay()]} ${d.getDate()} de ${months[d.getMonth()]}, ${d.getFullYear()}`
 }
 
-export default function PlanEditorPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: patientId } = use(params)
+export default function PlanEditorPage({ params }: { params: { id: string } }) {
+  const { id: patientId } = params
   const supabase = useSupabase()
   const { user, loading: userLoading } = useUser()
   const router = useRouter()
