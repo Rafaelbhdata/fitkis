@@ -342,32 +342,15 @@ export async function loadPatientDetail(
 
   if (!relation) return null
 
-  // Ventana de adherencia: desde la última cita completada (si existe y es ≤90d),
-  // sino fallback a 30 días rolling. Esto le da a la nutrióloga contexto real:
-  // "¿qué tan adherente ha sido desde la última vez que nos vimos?"
-  const lastAppt = await loadLastCompletedAppointment(supabase, practitionerId, patientId)
-  const today = new Date()
+  // Pre-fetch 90 días de actividad y la última cita en paralelo; la ventana real
+  // de adherencia se calcula al resolver lastAppt (puede ser 30d rolling).
   const MAX_WINDOW_DAYS = 90
-  let windowStart: Date
-  let sinceAppointment = false
-  if (lastAppt) {
-    const apptDate = new Date(lastAppt.starts_at)
-    const daysSinceAppt = Math.floor((today.getTime() - apptDate.getTime()) / 86_400_000)
-    if (daysSinceAppt > 0 && daysSinceAppt <= MAX_WINDOW_DAYS) {
-      windowStart = apptDate
-      sinceAppointment = true
-    } else {
-      windowStart = new Date(today)
-      windowStart.setDate(windowStart.getDate() - 30)
-    }
-  } else {
-    windowStart = new Date(today)
-    windowStart.setDate(windowStart.getDate() - 30)
-  }
-  const cutoffISO = windowStart.toISOString().split('T')[0]
-  const windowDays = Math.max(1, Math.floor((today.getTime() - windowStart.getTime()) / 86_400_000))
+  const today = new Date()
+  const widestCutoff = new Date(today)
+  widestCutoff.setDate(widestCutoff.getDate() - MAX_WINDOW_DAYS)
+  const widestCutoffISO = widestCutoff.toISOString().split('T')[0]
 
-  const [{ data: profile }, { data: weights }, { data: diet }, { data: relsRaw }, { data: foodDates }, { data: gymDates }] =
+  const [{ data: profile }, { data: weights }, { data: diet }, { data: relsRaw }, { data: foodDates }, { data: gymDates }, lastAppt] =
     await Promise.all([
       supabase
         .from('user_profiles')
@@ -391,22 +374,39 @@ export async function loadPatientDetail(
       // `auth.users.email` no es accesible vía RLS desde el cliente. Reusamos
       // `get_practitioner_patients` que ya nos devuelve email + nombre. Ineficiente
       // (trae toda la lista de pacientes para encontrar uno) pero correcto.
-      // TODO Fase 3: nueva RPC `get_patient_for_practitioner(p_uuid, pat_uuid)` que
-      // devuelva email + name en un solo round-trip O materializar email en
-      // `user_profiles` al crear la relación.
       supabase
         .rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never),
       supabase
         .from('food_logs')
         .select('date')
         .eq('user_id', patientId)
-        .gte('date', cutoffISO),
+        .gte('date', widestCutoffISO),
       supabase
         .from('gym_sessions')
         .select('date')
         .eq('user_id', patientId)
-        .gte('date', cutoffISO),
+        .gte('date', widestCutoffISO),
+      loadLastCompletedAppointment(supabase, practitionerId, patientId),
     ])
+
+  let windowStart: Date
+  let sinceAppointment = false
+  if (lastAppt) {
+    const apptDate = new Date(lastAppt.starts_at)
+    const daysSinceAppt = Math.floor((today.getTime() - apptDate.getTime()) / 86_400_000)
+    if (daysSinceAppt > 0 && daysSinceAppt <= MAX_WINDOW_DAYS) {
+      windowStart = apptDate
+      sinceAppointment = true
+    } else {
+      windowStart = new Date(today)
+      windowStart.setDate(windowStart.getDate() - 30)
+    }
+  } else {
+    windowStart = new Date(today)
+    windowStart.setDate(windowStart.getDate() - 30)
+  }
+  const cutoffISO = windowStart.toISOString().split('T')[0]
+  const windowDays = Math.max(1, Math.floor((today.getTime() - windowStart.getTime()) / 86_400_000))
 
   const profileWithName = profile as { height_cm?: number; goal_weight_kg?: number; display_name?: string } | null
   const rels = (relsRaw ?? []) as GetPractitionerPatientsRow[]
@@ -425,8 +425,8 @@ export async function loadPatientDetail(
 
   const allDates = new Set<string>()
   for (const w of weightHistory) { if (w.date >= cutoffISO) allDates.add(w.date) }
-  for (const r of (foodDates ?? []) as { date: string }[]) allDates.add(r.date)
-  for (const r of (gymDates  ?? []) as { date: string }[]) allDates.add(r.date)
+  for (const r of (foodDates ?? []) as { date: string }[]) { if (r.date >= cutoffISO) allDates.add(r.date) }
+  for (const r of (gymDates  ?? []) as { date: string }[]) { if (r.date >= cutoffISO) allDates.add(r.date) }
   const adherence = allDates.size > 0 ? Math.round((allDates.size / windowDays) * 100) : null
   const streak    = computeStreak(allDates)
 
@@ -496,8 +496,8 @@ export type PlanDraft = {
  *     `prescribed_by = practitionerId`.
  *
  * No es atómico (Supabase JS no soporta transacciones desde el cliente).
- * Si el segundo paso falla, podría quedar el paciente sin plan activo.
- * En Fase 3: convertir en RPC para hacerlo atómico server-side.
+ * Si el segundo paso falla intenta rollback best-effort. Convertir en RPC
+ * server-side para hacerlo atómico de verdad.
  */
 export async function savePlanDraft(
   supabase: SB,
@@ -1136,6 +1136,7 @@ export async function loadAppointmentNotesForPatient(
     .eq('patient_id', patientId)
     .not('notes', 'is', null)
     .order('starts_at', { ascending: false })
+    .limit(200)
 
   return ((data ?? []) as Array<{ id: string; starts_at: string; duration_minutes: number; status: AppointmentStatus; notes: string | null }>)
     .filter(r => r.notes && r.notes.trim() !== '')
@@ -1161,6 +1162,7 @@ export async function loadConsultationNotes(
     .eq('patient_id', patientId)
     .order('note_date', { ascending: false })
     .order('created_at', { ascending: false })
+    .limit(200)
   return (data ?? []) as ConsultationNote[]
 }
 

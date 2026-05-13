@@ -32,7 +32,7 @@ export function ComingSoon({
           }}
         >
           <div className="fk-eyebrow" style={{ marginBottom: 12, color: 'var(--signal)' }}>
-            Fase 3 · próximamente
+            Próximamente
           </div>
           <p
             className="fk-serif"

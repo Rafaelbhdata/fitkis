@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSupabase } from '@/lib/hooks'
 import {
   loadConsultationNotes,
@@ -14,14 +14,10 @@ import {
   type AppointmentNote,
 } from '@/lib/clinic/queries'
 
-/** Entrada unificada para el feed: nota manual del nutriólogo o nota tomada en una cita. */
 type FeedEntry =
   | { kind: 'manual';      data: ConsultationNote }
   | { kind: 'appointment'; data: AppointmentNote }
 
-function entryDate(e: FeedEntry): string {
-  return e.kind === 'manual' ? e.data.note_date : e.data.starts_at.slice(0, 10)
-}
 function entrySortKey(e: FeedEntry): string {
   return e.kind === 'manual' ? e.data.note_date + 'T00:00:00' : e.data.starts_at
 }
@@ -88,11 +84,10 @@ export function ConsultationNotesCard({
     return () => { cancelled = true }
   }, [supabase, practitionerId, patientId])
 
-  // Feed unificado ordenado por fecha descendente
-  const feed: FeedEntry[] = [
+  const feed: FeedEntry[] = useMemo(() => [
     ...notes.map((n): FeedEntry => ({ kind: 'manual', data: n })),
     ...apptNotes.map((a): FeedEntry => ({ kind: 'appointment', data: a })),
-  ].sort((a, b) => entrySortKey(b).localeCompare(entrySortKey(a)))
+  ].sort((a, b) => entrySortKey(b).localeCompare(entrySortKey(a))), [notes, apptNotes])
 
   // Comportamiento radio: solo un badge por nota. Click en el activo lo deselecciona.
   function selectDraftTag(t: ConsultationNoteTag) {
@@ -400,10 +395,7 @@ export function ConsultationNotesCard({
             }
             const n = entry.data
             const isEditing = editingId === n.id
-            // Color del borde y chip = primer tag (o neutro si no hay)
-            const primaryMeta = n.tags.length > 0
-              ? getTagMeta(n.tags[0])
-              : { k: 'observacion' as ConsultationNoteTag, n: 'Nota', c: 'var(--ink-3)', bg: 'var(--paper-3)' }
+            const primaryMeta = n.tags.length > 0 ? getTagMeta(n.tags[0]) : getTagMeta('observacion')
             const headerLabel = n.tags.length > 0 ? primaryMeta.n : 'Nota'
             return (
               <div

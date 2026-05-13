@@ -15,9 +15,7 @@ type Props = {
 }
 
 /**
- * Modal de invitación — sigue la convención del prototipo (overlay + card
- * centrada), no abre como bottom sheet. Para mobile se podría redesear
- * en Fase 3.
+ * Modal de invitación — overlay + card centrada (no bottom sheet en mobile).
  */
 export function InviteModal({ open, onClose, practitionerId, onInvited }: Props) {
   const supabase = useSupabase()
