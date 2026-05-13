@@ -19,7 +19,7 @@ import {
   type Appointment,
   type AppointmentStatus,
 } from '@/lib/clinic/queries'
-import { MONTHS_SHORT, todayISO } from '@/lib/clinic/calendar-utils'
+import { MONTHS_SHORT, todayISO, scheduleHourRange } from '@/lib/clinic/calendar-utils'
 
 const DAYS_ES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -80,13 +80,25 @@ export default function AgendaPage() {
   const settingsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const sh = localStorage.getItem('agenda_start_hour')
-    const eh = localStorage.getItem('agenda_end_hour')
     const zi = localStorage.getItem('agenda_zoom')
-    if (sh) setStartHour(Number(sh))
-    if (eh) setEndHour(Number(eh))
     if (zi) setZoomIdx(Number(zi) as ZoomIdx)
   }, [])
+
+  // Sincroniza el rango visible de la grilla con el schedule del practitioner.
+  // Si la nutrióloga forzó manualmente un rango distinto (override), respeta eso.
+  useEffect(() => {
+    if (!practitioner) return
+    const overrideRaw = localStorage.getItem('agenda_hours_override')
+    const override = overrideRaw ? JSON.parse(overrideRaw) as { start: number; end: number } : null
+    if (override) {
+      setStartHour(override.start)
+      setEndHour(override.end)
+    } else {
+      const { start, end } = scheduleHourRange(practitioner.schedule)
+      setStartHour(start)
+      setEndHour(end)
+    }
+  }, [practitioner])
 
   function changeZoom(delta: 1 | -1) {
     setZoomIdx(prev => {
@@ -171,9 +183,19 @@ export default function AgendaPage() {
   }
 
   function saveHours(sh: number, eh: number) {
-    localStorage.setItem('agenda_start_hour', String(sh))
-    localStorage.setItem('agenda_end_hour', String(eh))
+    localStorage.setItem('agenda_hours_override', JSON.stringify({ start: sh, end: eh }))
+    // Limpieza de keys legacy
+    localStorage.removeItem('agenda_start_hour')
+    localStorage.removeItem('agenda_end_hour')
     setStartHour(sh); setEndHour(eh)
+  }
+
+  function resetHoursToSchedule() {
+    localStorage.removeItem('agenda_hours_override')
+    if (practitioner) {
+      const { start, end } = scheduleHourRange(practitioner.schedule)
+      setStartHour(start); setEndHour(end)
+    }
   }
 
   const apptsByDay = useMemo(() => {
@@ -306,6 +328,12 @@ export default function AgendaPage() {
                         </select>
                       </label>
                     ))}
+                    <button
+                      onClick={resetHoursToSchedule}
+                      style={{ marginTop:6, width:'100%', padding:'6px 10px', borderRadius:6, border:'1px solid var(--ink-7)', background:'#fff', fontSize:11, fontFamily:'var(--f-sans)', color:'var(--ink-3)', cursor:'pointer' }}
+                    >
+                      Usar horario del consultorio
+                    </button>
                   </div>
                 )}
               </div>

@@ -45,6 +45,26 @@ export const DAY_LABELS: Record<DayKey, string> = {
 
 export const DAY_ORDER: DayKey[] = ['lun','mar','mie','jue','vie','sab','dom']
 
+/**
+ * Devuelve [horaInicio, horaFin] que cubre todos los días habilitados del schedule.
+ * Inicio se redondea hacia abajo, fin hacia arriba. Útil para renderizar la grilla
+ * de agenda con el rango visible mínimo necesario.
+ */
+export function scheduleHourRange(schedule: WeekSchedule): { start: number; end: number } {
+  let minStart = 24
+  let maxEnd = 0
+  for (const key of DAY_ORDER) {
+    const day = schedule[key]
+    if (!day.enabled) continue
+    const sH = Math.floor(timeToMin(day.start) / 60)
+    const eH = Math.ceil(timeToMin(day.end) / 60)
+    if (sH < minStart) minStart = sH
+    if (eH > maxEnd) maxEnd = eH
+  }
+  if (maxEnd === 0) return { start: 9, end: 17 } // ningún día habilitado: fallback
+  return { start: minStart, end: maxEnd }
+}
+
 export const DEFAULT_WEEK_SCHEDULE: WeekSchedule = {
   lun: { enabled: true,  start: '09:00', end: '18:00', breaks: [] },
   mar: { enabled: true,  start: '09:00', end: '18:00', breaks: [] },
