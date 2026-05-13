@@ -308,46 +308,35 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
       {/* Bento: fila superior 3 tarjetas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
 
-        {/* Pacientes activos */}
-        <Card style={{ padding: '22px 24px' }}>
-          <div className="fk-eyebrow">Pacientes con licencia activa</div>
-          <div style={{ marginTop: 10 }}>
-            {/* Número + fracción */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span className="fk-serif" style={{
-                fontSize: 44, fontWeight: 300,
-                letterSpacing: '-0.02em', lineHeight: 1,
-              }}>
-                {kpis.active_patients}
-              </span>
-              <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', fontWeight: 400 }}>
-                / {kpis.total_linked}
-              </span>
-            </div>
-
-            {/* Porcentaje en barra + número */}
-            {kpis.total_linked > 0 && (() => {
-              const pct = Math.round((kpis.active_patients / kpis.total_linked) * 100)
-              const color = pct === 100 ? 'var(--leaf)' : pct >= 70 ? 'var(--honey)' : 'var(--signal)'
-              return (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
-                      vinculados totales
-                    </span>
-                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color }}>
-                      {pct}%
-                    </span>
-                  </div>
-                  <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
+        {/* Pacientes con licencia activa */}
+        {(() => {
+          const pct = kpis.total_linked > 0
+            ? Math.round((kpis.active_patients / kpis.total_linked) * 100)
+            : 100
+          const accentColor = pct === 100 ? 'var(--leaf)' : pct >= 70 ? 'var(--honey)' : 'var(--signal)'
+          return (
+            <Card style={{ padding: '22px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="fk-eyebrow">Pacientes con licencia activa</div>
+                <Semaforo value={pct} lo={70} hi={100} size={9} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                <div>
+                  <span className="fk-serif" style={{
+                    fontSize: 44, fontWeight: 300,
+                    letterSpacing: '-0.02em', lineHeight: 1,
+                  }}>
+                    {kpis.active_patients}
+                  </span>
+                  <div style={{ fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', marginTop: 8 }}>
+                    {`de ${kpis.total_linked} vinculados · `}
+                    <span style={{ color: accentColor, fontWeight: 600 }}>{pct}%</span>
                   </div>
                 </div>
-              )
-            })()}
-
-          </div>
-        </Card>
+              </div>
+            </Card>
+          )
+        })()}
 
         {/* Nuevos este mes */}
         <Card style={{ padding: '22px 24px' }}>
