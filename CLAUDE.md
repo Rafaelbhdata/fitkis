@@ -36,6 +36,12 @@ npm run lint     # ESLint
 npm test         # Jest
 ```
 
+## ⚠️ Gotchas de desarrollo
+
+- Rutas con paréntesis en bash SIEMPRE entre comillas dobles: `git add "app/(clinic)/..."`, `ls "app/(clinic)/clinic/"`
+- Verificar que un archivo no existe antes de crearlo — varias páginas (`privacy`, `terms`) ya estaban implementadas
+- El tool `Edit` requiere coincidencia exacta de indentación — si falla con "string not found", re-leer el archivo antes de reintentar
+
 ---
 
 ## 🏗️ Stack tecnológico
@@ -95,92 +101,9 @@ fitkis/
 
 ---
 
-## 🗄️ Schema de base de datos (Supabase/Postgres)
+## 🗄️ Schema de base de datos
 
-> Las tablas de abajo incluyen tanto las del portal clínico como las de `fitkis-mobile`. Los endpoints `/api/*` de este repo son los que consume la app móvil — están activos en producción aunque no se acceden desde la UI web.
-
-```sql
--- Sesiones de gym
-CREATE TABLE gym_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users,
-  date DATE NOT NULL,
-  routine_type TEXT NOT NULL, -- 'upper_a' | 'upper_b' | 'lower_a' | 'lower_b'
-  cardio_minutes INTEGER,
-  cardio_speed DECIMAL,
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Series por ejercicio en cada sesión
-CREATE TABLE session_sets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id UUID REFERENCES gym_sessions(id) ON DELETE CASCADE,
-  exercise_id TEXT NOT NULL,
-  set_number INTEGER NOT NULL,
-  lbs DECIMAL,
-  reps INTEGER,
-  feeling TEXT, -- 'muy_pesado' | 'dificil' | 'perfecto' | 'ligero' | 'quiero_mas'
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Registro de peso corporal
-CREATE TABLE weight_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users,
-  date DATE NOT NULL,
-  weight_kg DECIMAL NOT NULL,
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Log de alimentación por equivalentes
-CREATE TABLE food_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users,
-  date DATE NOT NULL,
-  meal TEXT NOT NULL, -- 'desayuno' | 'snack' | 'comida' | 'cena'
-  group_type TEXT NOT NULL, -- 'verdura' | 'fruta' | 'carb' | 'proteina' | 'grasa' | 'leguminosa'
-  quantity DECIMAL NOT NULL,
-  food_name TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Comidas favoritas
-CREATE TABLE favorite_meals (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users,
-  name TEXT NOT NULL,
-  meal TEXT NOT NULL,
-  items JSONB NOT NULL, -- [{ group_type, quantity, food_name }]
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Hábitos definidos por el usuario
-CREATE TABLE habits (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users,
-  name TEXT NOT NULL,
-  type TEXT NOT NULL, -- 'daily_check' | 'quantity' | 'weekly_frequency'
-  target_value DECIMAL,
-  unit TEXT,
-  active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Log de hábitos completados
-CREATE TABLE habit_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  habit_id UUID REFERENCES habits(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users,
-  date DATE NOT NULL,
-  value DECIMAL,
-  completed BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-**RLS (Row Level Security):** Habilitar en todas las tablas. Cada usuario solo puede SELECT/INSERT/UPDATE/DELETE sus propios registros (WHERE user_id = auth.uid()).
+Ver `context.md` — es la fuente de verdad del schema actual (tablas del portal clínico + tablas compartidas con `fitkis-mobile`). RLS habilitado en todas las tablas vía helper `is_practitioner_of(patient_uuid)`.
 
 ---
 
@@ -576,22 +499,9 @@ URL Vercel: [url]
 
 ---
 
-## 🔧 Variables de entorno requeridas
+## 🔧 Variables de entorno
 
-```
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-
-# Google Calendar OAuth (integración de disponibilidad para nutriólogas)
-GOOGLE_CALENDAR_CLIENT_ID=
-GOOGLE_CALENDAR_CLIENT_SECRET=
-GOOGLE_CALENDAR_REDIRECT_URI=https://fitkis.com/api/auth/google-calendar/callback
-# En desarrollo usar: http://localhost:3000/api/auth/google-calendar/callback
-```
-
-Crear `.env.local` con estos valores. **Nunca commitear este archivo** (incluirlo en `.gitignore`).
+Ver `context.md` para la lista completa y actualizada. Plantilla en `.env.example`. Nunca commitear `.env.local`.
 
 ---
 
