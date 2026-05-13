@@ -290,11 +290,10 @@ export default function AgendaPage() {
       <div style={{ display:'flex', alignItems:'center', gap:16, padding:'8px 32px', borderBottom:'1px solid var(--ink-7)', flexWrap:'wrap' }}>
         <span style={{ fontFamily:'var(--f-mono)', fontSize:10, color:'var(--ink-5)', letterSpacing:'0.08em', textTransform:'uppercase', flexShrink:0 }}>Guía</span>
         {([
-          { bg:'rgba(178,255,153,0.18)', border:'rgba(74,124,58,0.55)',  label:'Agendada'    },
-          { bg:'rgba(40,40,40,0.12)',     border:'rgba(40,40,40,0.6)',    label:'Completada'  },
-          { bg:'rgba(200,30,30,0.07)',   border:'rgba(200,30,30,0.3)',   label:'Cancelada'   },
-          { bg:'rgba(180,0,0,0.12)',      border:'rgba(180,0,0,0.75)',    label:'No asistió'  },
-          { bg:'#fff3e0',                border:'#e65100',               label:'Reagendando' },
+          { bg:'#f1ffed', border:'rgba(74,124,58,0.55)',  label:'Agendada'    },
+          { bg:'#fbefef', border:'rgba(200,30,30,0.3)',   label:'Cancelada'   },
+          { bg:'#f6e0e0', border:'rgba(180,0,0,0.75)',    label:'No asistió'  },
+          { bg:'#fff3e0', border:'#e65100',               label:'Reagendando' },
         ] as const).map(({ bg, border, label }) => (
           <div key={label} style={{ background:bg, borderLeft:`2px solid ${border}`, borderRadius:3, padding:'0 5px', lineHeight:'16px' }}>
             <span style={{ fontFamily:'var(--f-mono)', fontSize:10, color:'var(--ink-3)', letterSpacing:'0.04em', whiteSpace:'nowrap', fontWeight:700 }}>{label}</span>
