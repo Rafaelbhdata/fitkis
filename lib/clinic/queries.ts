@@ -713,7 +713,17 @@ export async function loadPatientsBasic(
 // APPOINTMENTS
 // =============================================================================
 
-export type AppointmentStatus = 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | 'rescheduling'
+export type AppointmentStatus = 'scheduled' | 'cancelled' | 'no_show' | 'rescheduling'
+
+/**
+ * Una cita está "completada" si tiene status `scheduled` y ya terminó
+ * (starts_at + duración < ahora). No existe un estado explícito; se infiere.
+ */
+export function isCompletedAppointment(appt: Pick<Appointment, 'status' | 'starts_at' | 'duration_minutes'>): boolean {
+  if (appt.status !== 'scheduled') return false
+  const endMs = new Date(appt.starts_at).getTime() + appt.duration_minutes * 60_000
+  return endMs < Date.now()
+}
 
 export type Appointment = {
   id: string
@@ -790,22 +800,29 @@ export async function updateAppointmentNotes(
   return { error: error?.message ?? null }
 }
 
-/** Última cita completada de un paciente con un practitioner específico */
+/**
+ * Última cita "completada" de un paciente con un practitioner.
+ * Completada = status `scheduled` cuya hora de fin ya pasó. Pedimos un puñado
+ * y filtramos en memoria porque Postgres no puede comparar `starts_at + duration`
+ * sin una expresión SQL más compleja, y el volumen por paciente es pequeño.
+ */
 export async function loadLastCompletedAppointment(
   supabase: SB,
   practitionerId: string,
   patientId: string,
 ): Promise<Appointment | null> {
+  const nowISO = new Date().toISOString()
   const { data } = await supabase
     .from('appointments')
     .select('*')
     .eq('practitioner_id', practitionerId)
     .eq('patient_id', patientId)
-    .eq('status', 'completed')
+    .eq('status', 'scheduled')
+    .lt('starts_at', nowISO)
     .order('starts_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  return data as Appointment | null
+    .limit(20)
+  const rows = (data ?? []) as Appointment[]
+  return rows.find(isCompletedAppointment) ?? null
 }
 
 /** Citas de hoy para un practitioner (usado en el sidebar) */
@@ -889,7 +906,7 @@ export async function loadNextAppointmentForPatient(
     .select('*')
     .eq('practitioner_id', practitionerId)
     .eq('patient_id', patientId)
-    .not('status', 'in', '("cancelled","no_show","completed")')
+    .not('status', 'in', '("cancelled","no_show","rescheduling")')
     .gte('starts_at', now)
     .order('starts_at', { ascending: true })
     .limit(1)
