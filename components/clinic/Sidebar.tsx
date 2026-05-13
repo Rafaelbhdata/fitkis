@@ -24,11 +24,11 @@ type Item = {
 }
 
 const ITEMS: Item[] = [
-  { key: 'pacientes', href: '/clinic',           label: 'Pacientes',  icon: Ic.grid     },
-  { key: 'agenda',    href: '/clinic/agenda',    label: 'Agenda',     icon: Ic.book     },
-  { key: 'reportes',  href: '/clinic/reportes',  label: 'Reportes',   icon: Ic.share    },
-  { key: 'biblio',    href: '/clinic/biblioteca',label: 'Biblioteca', icon: Ic.apple    },
-  { key: 'ajustes',   href: '/clinic/ajustes',   label: 'Ajustes',    icon: Ic.settings },
+  { key: 'reportes',  href: '/clinic/reportes',  label: 'Dashboard',  icon: Ic.dashboard },
+  { key: 'pacientes', href: '/clinic',           label: 'Pacientes',  icon: Ic.people    },
+  { key: 'agenda',    href: '/clinic/agenda',    label: 'Agenda',     icon: Ic.book      },
+  { key: 'biblio',    href: '/clinic/biblioteca',label: 'Biblioteca', icon: Ic.apple     },
+  { key: 'ajustes',   href: '/clinic/ajustes',   label: 'Ajustes',    icon: Ic.settings  },
 ]
 
 const STATUS_BORDER: Record<string, string> = {

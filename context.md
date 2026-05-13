@@ -60,26 +60,88 @@ lib/
 
 ## Modelo de datos clave
 
+### Tablas del portal clínico (nutriólogo)
+
 ```
 practitioners:
-  display_name, license_number, specialty, clinic_name, address
-  schedule JSONB                — WeekSchedule por día + breaks (default si NULL)
-  default_duration INTEGER       — 15|30|45|60 min, default 60
-  inactivity_threshold_days INT  — alerta de inactividad
-  min_adherence_pct INT          — umbral de "requiere atención"
+  user_id (→ auth.users), display_name, license_number, specialty
+  clinic_name, address
+  schedule JSONB               — WeekSchedule por día + breaks (default si NULL)
+  default_duration INT         — 15|30|45|60 min, default 60
+  inactivity_threshold_days INT — alerta de inactividad (default 7)
+  min_adherence_pct INT        — umbral "requiere atención" (default 60)
   active BOOLEAN
+
+practitioner_patients:
+  practitioner_id (→ practitioners), patient_id (→ auth.users)
+  status ∈ pending|active|inactive
+  invited_at, accepted_at (nullable), created_at
 
 appointments:
   practitioner_id, patient_id, patient_name, patient_email
-  starts_at, duration_minutes, status, notes
-  status ∈ scheduled|confirmed|completed|cancelled|no_show|rescheduling
+  starts_at (timestamptz), duration_minutes, status, notes
+  status ∈ scheduled|cancelled|no_show|rescheduling
+  "completada" = scheduled + ends_at < now (se infiere, no hay estado explícito)
 
 consultation_notes:
-  practitioner_id, patient_id, appointment_id (opt), note_date, body, tags[]
+  practitioner_id, patient_id, appointment_id (opt)
+  note_date, body, tags[]
   tag ∈ ajuste_plan|recordatorio|reagenda|objetivo|observacion
 
 library_templates:
   practitioner_id, kind (plan|mensaje|receta), title, body, plan_equivs JSONB
+```
+
+### Tablas del paciente (compartidas con fitkis-mobile)
+
+```
+user_profiles:
+  user_id, role (user|practitioner|professional|admin)
+  display_name, height_cm, goal_weight_kg
+
+weight_logs:
+  user_id, date (DATE), weight_kg
+  muscle_mass_kg, body_fat_mass_kg, body_fat_percentage (nullable), notes
+  — Nutriólogo puede INSERT/UPDATE/DELETE en pacientes activos
+
+food_logs:
+  user_id, date (DATE)
+  meal ∈ desayuno|snack1|comida|snack2|cena|snack3
+  group_type ∈ verdura|fruta|carb|proteina|grasa|leguminosa
+  quantity, food_name
+
+diet_configs:
+  user_id, prescribed_by (→ practitioners, nullable)
+  version, active BOOLEAN
+  active_meals JSONB — {"desayuno": true, ...}
+  meal_budgets JSONB — porciones por comida (nullable), notes
+
+gym_sessions:
+  user_id, date (DATE)
+  routine_type ∈ upper_a|upper_b|lower_a|lower_b
+  cardio_minutes, cardio_speed, notes
+
+session_sets:
+  session_id (→ gym_sessions)
+  exercise_id, set_number, lbs, reps
+  feeling ∈ muy_pesado|dificil|perfecto|ligero|quiero_mas
+
+habits:
+  user_id, name
+  type ∈ daily_check|quantity|weekly_frequency
+  target_value, unit, active BOOLEAN
+
+habit_logs:
+  habit_id (→ habits), user_id, date (DATE)
+  value (nullable), completed BOOLEAN
+```
+
+### Función helper de RLS
+
+```
+is_practitioner_of(patient_uuid) → BOOLEAN
+— Nutriólogo activo puede SELECT weight_logs, food_logs, habit_logs,
+  habits, gym_sessions, session_sets, diet_configs, user_profiles del paciente
 ```
 
 ---

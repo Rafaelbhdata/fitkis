@@ -79,6 +79,22 @@ export const Ic = {
       <path d="M12 2v2M12 22v-2m5-1.34-1-1.73M11 10.27 7 3.34m13.66 13.66-1.73-1M3.34 7l1.73 1M14 12h8M2 12h2m18.66-5-1.73 1M3.34 17l1.73-1m13.93-13.66-1 1.73M11 13.73l-4 6.93" />
     </svg>
   ),
+  people: (p: IcProps = {}) => (
+    <svg {...base(16)} {...p}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  dashboard: (p: IcProps = {}) => (
+    <svg {...base(16)} strokeLinejoin="miter" {...p}>
+      <rect x="3" y="3" width="7" height="9" rx="1" />
+      <rect x="14" y="3" width="7" height="5" rx="1" />
+      <rect x="14" y="12" width="7" height="9" rx="1" />
+      <rect x="3" y="16" width="7" height="5" rx="1" />
+    </svg>
+  ),
   grid: (p: IcProps = {}) => (
     <svg {...base(16)} strokeLinejoin="miter" {...p}>
       <rect x="3" y="3" width="7" height="7" />

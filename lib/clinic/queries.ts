@@ -843,6 +843,23 @@ export async function loadAppointmentsForDay(
   return (data ?? []) as Appointment[]
 }
 
+/** Todas las citas del día incluyendo canceladas y no-shows (para dashboard). */
+export async function loadAllAppointmentsForDay(
+  supabase: SB,
+  practitionerId: string,
+  date: string,  // 'YYYY-MM-DD' en CDMX
+): Promise<Appointment[]> {
+  const nextISO = shiftDateISO(date, 1)
+  const { data } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('practitioner_id', practitionerId)
+    .gte('starts_at', `${date}T00:00:00-06:00`)
+    .lt('starts_at',  `${nextISO}T00:00:00-06:00`)
+    .order('starts_at', { ascending: true })
+  return (data ?? []) as Appointment[]
+}
+
 /** Practitioner público (para la página de reservas) */
 export async function loadPractitionerPublic(
   supabase: SB,
@@ -1011,10 +1028,18 @@ export async function deleteLibraryTemplate(
 // =============================================================================
 
 export type PracticeKPIs = {
-  active_patients:        number
-  pending_invites:        number
-  avg_adherence:          number | null  // % promedio sobre los pacientes con datos
-  appointments_next_7d:   number
+  active_patients:         number
+  pending_invites:         number
+  new_patients_month:      number
+  avg_adherence:           number | null
+  adherence_distribution:  { high: number; medium: number; low: number; sin_datos: number }
+  appointments_next_7d:    number
+  appointments_month: {
+    total:     number
+    completed: number
+    cancelled: number
+    no_show:   number
+  }
   patients_needing_attention: Array<{
     patient_id: string
     name: string
@@ -1022,7 +1047,7 @@ export type PracticeKPIs = {
     days_since_activity?: number
     adherence: number | null
   }>
-  weight_trend: Array<{ date: string; avg_weight: number }>  // últimos 60 días, promedio diario
+  weight_trend: Array<{ date: string; avg_weight: number }>
 }
 
 /**
@@ -1044,29 +1069,70 @@ export async function loadPracticeKPIs(
   const cutoff60ISO = shiftDateISO(todayCDMX, -60)
   const next7 = new Date(now); next7.setDate(next7.getDate() + 7)
 
-  // Independientes: relaciones (lista de pacientes) y appointments próximos
-  // — appointments solo filtra por practitioner_id, no necesita activeIds
-  const [relsRes, apptRes] = await Promise.all([
+  // Límites del mes actual en CDMX (offset fijo -06:00, convención del proyecto)
+  const [yy, mm] = todayCDMX.split('-').map(Number)
+  const monthStartStr = `${yy}-${String(mm).padStart(2, '0')}-01T00:00:00-06:00`
+  const nextMm = mm === 12 ? 1 : mm + 1
+  const nextYy = mm === 12 ? yy + 1 : yy
+  const monthEndStr   = `${nextYy}-${String(nextMm).padStart(2, '0')}-01T00:00:00-06:00`
+
+  // Primer batch: independientes del tamaño de la práctica
+  const [relsRes, apptRes, apptMonthRes, newPatientsRes] = await Promise.all([
     supabase.rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never),
     supabase.from('appointments').select('id')
       .eq('practitioner_id', practitionerId)
       .gte('starts_at', now.toISOString())
       .lt('starts_at', next7.toISOString())
       .not('status', 'in', '("cancelled","no_show")'),
+    supabase.from('appointments')
+      .select('id, starts_at, duration_minutes, status')
+      .eq('practitioner_id', practitionerId)
+      .gte('starts_at', monthStartStr)
+      .lt('starts_at', monthEndStr),
+    supabase.from('practitioner_patients')
+      .select('id', { count: 'exact', head: true })
+      .eq('practitioner_id', practitionerId)
+      .eq('status', 'active')
+      .gte('created_at', monthStartStr),
   ])
-  if (relsRes.error) throw new Error(relsRes.error.message)
-  if (apptRes.error) throw new Error(apptRes.error.message)
-  const relations = (relsRes.data ?? []) as GetPractitionerPatientsRow[]
-  const apptRows  = apptRes.data ?? []
+  if (relsRes.error)       throw new Error(relsRes.error.message)
+  if (apptRes.error)       throw new Error(apptRes.error.message)
+  if (apptMonthRes.error)  throw new Error(apptMonthRes.error.message)
+  if (newPatientsRes.error) throw new Error(newPatientsRes.error.message)
+
+  // Métricas de citas del mes
+  type ApptMonthRow = { id: string; starts_at: string; duration_minutes: number; status: string }
+  const apptMonthRows = (apptMonthRes.data ?? []) as ApptMonthRow[]
+  const nowMs = now.getTime()
+  let completedCount = 0, cancelledCount = 0, noShowCount = 0
+  for (const a of apptMonthRows) {
+    if (a.status === 'cancelled') { cancelledCount++; continue }
+    if (a.status === 'no_show')   { noShowCount++;    continue }
+    const endMs = new Date(a.starts_at).getTime() + (a.duration_minutes ?? 60) * 60_000
+    if (endMs < nowMs) completedCount++
+  }
+  const appointmentsMonth = {
+    total:     apptMonthRows.length,
+    completed: completedCount,
+    cancelled: cancelledCount,
+    no_show:   noShowCount,
+  }
+
+  const relations  = (relsRes.data ?? []) as GetPractitionerPatientsRow[]
+  const apptRows   = apptRes.data ?? []
   const activeRels = relations.filter(r => r.status === 'active')
   const activeIds  = activeRels.map(r => r.patient_id)
+  const emptyDist  = { high: 0, medium: 0, low: 0, sin_datos: 0 }
 
   if (activeIds.length === 0) {
     return {
-      active_patients: 0,
-      pending_invites: relations.filter(r => r.status === 'pending').length,
-      avg_adherence: null,
-      appointments_next_7d: apptRows.length,
+      active_patients:        0,
+      pending_invites:        relations.filter(r => r.status === 'pending').length,
+      new_patients_month:     newPatientsRes.count ?? 0,
+      avg_adherence:          null,
+      adherence_distribution: emptyDist,
+      appointments_next_7d:   apptRows.length,
+      appointments_month:     appointmentsMonth,
       patients_needing_attention: [],
       weight_trend: [],
     }
@@ -1091,19 +1157,26 @@ export async function loadPracticeKPIs(
   for (const r of gymRows    as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
   for (const r of weightRows as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
 
-  // Adherencia + alerta por paciente activo
+  // Adherencia + distribución + alertas por paciente activo
   type AttentionPatient = PracticeKPIs['patients_needing_attention'][number]
   const adherenceList: number[] = []
   const needAttention: AttentionPatient[] = []
+  const adherenceDistribution = { high: 0, medium: 0, low: 0, sin_datos: 0 }
 
   for (const rel of activeRels) {
-    const dates = activityDates[rel.patient_id] ?? new Set<string>()
+    const dates    = activityDates[rel.patient_id] ?? new Set<string>()
     const adherence = dates.size > 0 ? Math.round((dates.size / 30) * 100) : null
+
+    // Distribución: pacientes sin registros van a sin_datos, no a bajo
+    if (adherence == null)       adherenceDistribution.sin_datos++
+    else if (adherence >= 80)    adherenceDistribution.high++
+    else if (adherence >= 60)    adherenceDistribution.medium++
+    else                         adherenceDistribution.low++
+
     if (adherence != null) adherenceList.push(adherence)
 
-    // Days since last activity (sin stagnation: stagnation requiere weight_history per-paciente)
-    const sortedDates = Array.from(dates).sort().reverse()
-    const lastDateStr = sortedDates[0]
+    const sortedDates     = Array.from(dates).sort().reverse()
+    const lastDateStr     = sortedDates[0]
     const daysSinceActivity = lastDateStr != null ? daysBetween(lastDateStr) : undefined
     const alert: AlertKind = (daysSinceActivity == null || daysSinceActivity >= thresholds.inactivityDays)
       ? 'inactividad'
@@ -1133,14 +1206,17 @@ export async function loadPracticeKPIs(
     .sort((a, b) => a.date.localeCompare(b.date))
 
   return {
-    active_patients: activeRels.length,
-    pending_invites: relations.filter(r => r.status === 'pending').length,
-    avg_adherence: adherenceList.length
+    active_patients:        activeRels.length,
+    pending_invites:        relations.filter(r => r.status === 'pending').length,
+    new_patients_month:     newPatientsRes.count ?? 0,
+    avg_adherence:          adherenceList.length
       ? Math.round(adherenceList.reduce((a, b) => a + b, 0) / adherenceList.length)
       : null,
-    appointments_next_7d: apptRows.length,
+    adherence_distribution: adherenceDistribution,
+    appointments_next_7d:   apptRows.length,
+    appointments_month:     appointmentsMonth,
     patients_needing_attention: needAttention.slice(0, 10),
-    weight_trend: weightTrend,
+    weight_trend:           weightTrend,
   }
 }
 
