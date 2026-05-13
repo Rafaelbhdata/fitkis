@@ -6,6 +6,7 @@ import { Btn } from '@/components/ui/Btn'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from '@/components/clinic/Ic'
 import { ConsultationNotesCard } from '@/components/clinic/ConsultationNotesCard'
+import { generatePatientReport } from '@/components/clinic/PatientReportPDF'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPatientDetail,
@@ -13,8 +14,10 @@ import {
   loadPatientFoodLogs,
   loadPatientGymSessions,
   loadNextAppointmentForPatient,
+  loadConsultationNotes,
   daysBetween,
   type PatientDetail,
+  type PractitionerRecord,
   type FoodLogEntry,
   type GymSessionEntry,
   type Appointment,
@@ -1129,7 +1132,8 @@ export default function PatientDetailPage({
   const { user, loading: userLoading } = useUser()
   const [tab, setTab] = useState<Tab>('resumen')
   const [patient, setPatient] = useState<PatientDetail | null>(null)
-  const [practitionerId, setPractitionerId] = useState<string | null>(null)
+  const [practitioner, setPractitioner] = useState<PractitionerRecord | null>(null)
+  const [generatingPDF, setGeneratingPDF] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -1170,7 +1174,7 @@ export default function PatientDetailPage({
         if (cancelled) return
         setPatient(detail)
         setNextAppointment(nextAppt)
-        setPractitionerId(practitioner.id)
+        setPractitioner(practitioner)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Error desconocido')
       } finally {
@@ -1374,8 +1378,24 @@ export default function PatientDetailPage({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <Btn variant="ghost" icon={<Ic.share />} disabled>
-              Reporte PDF
+            <Btn
+              variant="ghost"
+              icon={<Ic.share />}
+              disabled={!practitioner || generatingPDF}
+              onClick={async () => {
+                if (!practitioner) return
+                setGeneratingPDF(true)
+                try {
+                  const notes = await loadConsultationNotes(supabase, practitioner.id, patient.patient_id)
+                  await generatePatientReport({ patient, practitioner, notes })
+                } catch (e) {
+                  alert('No se pudo generar el reporte: ' + (e instanceof Error ? e.message : 'error'))
+                } finally {
+                  setGeneratingPDF(false)
+                }
+              }}
+            >
+              {generatingPDF ? 'Generando…' : 'Reporte PDF'}
             </Btn>
             <Btn
               variant="ghost"
@@ -1452,8 +1472,8 @@ export default function PatientDetailPage({
                 </div>
                 <BigSpark values={ws} color="var(--ink)" label={`w-${patient.patient_id}`} />
               </div>
-              {practitionerId && (
-                <ConsultationNotesCard practitionerId={practitionerId} patientId={patient.patient_id} />
+              {practitioner && (
+                <ConsultationNotesCard practitionerId={practitioner.id} patientId={patient.patient_id} />
               )}
             </>
           )}
