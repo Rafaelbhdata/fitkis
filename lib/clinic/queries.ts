@@ -747,6 +747,18 @@ export async function updateAppointmentStatus(
   return { error: error?.message ?? null }
 }
 
+export async function updateAppointmentNotes(
+  supabase: SB,
+  id: string,
+  notes: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('appointments')
+    .update({ notes: notes.trim() || null } as never)
+    .eq('id', id)
+  return { error: error?.message ?? null }
+}
+
 /** Última cita completada de un paciente con un practitioner específico */
 export async function loadLastCompletedAppointment(
   supabase: SB,

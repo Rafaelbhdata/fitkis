@@ -172,7 +172,7 @@ function SaveFooter({
           padding: '10px 24px',
           borderRadius: 999,
           border: 'none',
-          background: saved ? 'var(--leaf)' : 'var(--ink)',
+          background: saved ? 'var(--leaf)' : 'var(--signal)',
           color: '#fff',
           fontFamily: 'var(--f-sans)',
           fontSize: 13,
@@ -345,7 +345,7 @@ function Stepper({
               style={{
                 height: '100%',
                 width: `${pct}%`,
-                background: 'var(--ink)',
+                background: 'var(--signal)',
                 borderRadius: 99,
                 transition: 'width 0.15s ease-out',
               }}
@@ -417,7 +417,7 @@ function PanelPerfil({ practitioner }: { practitioner: PractitionerRecord }) {
             width: 52,
             height: 52,
             borderRadius: 999,
-            background: 'var(--ink)',
+            background: 'var(--signal)',
             color: 'var(--paper)',
             display: 'flex',
             alignItems: 'center',
@@ -566,7 +566,7 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
                 padding: '8px 16px',
                 borderRadius: 999,
                 border: 'none',
-                background: copied ? 'var(--leaf)' : 'var(--ink)',
+                background: copied ? 'var(--leaf)' : 'var(--signal)',
                 color: '#fff',
                 fontFamily: 'var(--f-mono)',
                 fontSize: 11,
@@ -747,9 +747,9 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
               key={d} type="button" onClick={() => setDuration(d)}
               style={{
                 padding: '9px 18px', borderRadius: 999,
-                border: `2px solid ${duration === d ? 'var(--ink)' : 'var(--ink-7)'}`,
-                background: duration === d ? 'var(--ink)' : '#fff',
-                color: duration === d ? 'var(--paper)' : 'var(--ink-3)',
+                border: `2px solid ${duration === d ? 'var(--signal)' : 'var(--ink-7)'}`,
+                background: duration === d ? 'var(--signal-soft)' : '#fff',
+                color: duration === d ? 'var(--signal)' : 'var(--ink-3)',
                 fontFamily: 'var(--f-mono)', fontSize: 12, fontWeight: 600,
                 cursor: 'pointer', transition: 'all 0.12s',
               }}
@@ -791,7 +791,7 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
                     onClick={() => updateDay(key, { enabled: !day.enabled })}
                     style={{
                       width: 32, height: 18, borderRadius: 9, border: 'none',
-                      background: day.enabled ? 'var(--ink)' : 'var(--ink-6)',
+                      background: day.enabled ? 'var(--signal)' : 'var(--ink-6)',
                       position: 'relative', cursor: 'pointer', flexShrink: 0,
                       transition: 'background 0.15s',
                     }}

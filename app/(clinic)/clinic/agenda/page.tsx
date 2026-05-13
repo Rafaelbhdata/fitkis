@@ -7,13 +7,14 @@ import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from '@/components/clinic/Ic'
 import { NewAppointmentModal } from '@/components/clinic/NewAppointmentModal'
 import { AppointmentBlock } from '@/components/clinic/AppointmentBlock'
-import { RescheduleModal } from '@/components/clinic/RescheduleModal'
+import { AppointmentDetailModal } from '@/components/clinic/AppointmentDetailModal'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
   loadAppointmentsForWeek,
   createAppointment,
   updateAppointmentStatus,
+  updateAppointmentNotes,
   type PractitionerRecord,
   type Appointment,
   type AppointmentStatus,
@@ -70,8 +71,8 @@ export default function AgendaPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading]           = useState(true)
   const [weekOffset, setWeekOffset]     = useState(0)
-  const [newApptOpen, setNewApptOpen]         = useState(false)
-  const [rescheduleAppt, setRescheduleAppt]   = useState<Appointment | null>(null)
+  const [newApptOpen, setNewApptOpen] = useState(false)
+  const [detailAppt, setDetailAppt]   = useState<Appointment | null>(null)
   const [startHour, setStartHour]       = useState(9)
   const [endHour, setEndHour]           = useState(17)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -136,6 +137,11 @@ export default function AgendaPage() {
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a))
   }
 
+  async function handleNotesChange(id: string, notes: string) {
+    await updateAppointmentNotes(supabase, id, notes)
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, notes: notes.trim() || null } : a))
+  }
+
   async function handleCreate(payload: {
     practitioner_id: string; patient_name: string; patient_email?: string
     patient_id?: string; starts_at: string; duration_minutes: number; notes?: string
@@ -144,26 +150,20 @@ export default function AgendaPage() {
     return { error }
   }
 
-  function handleReschedule(appt: Appointment) {
-    setRescheduleAppt(appt)
-  }
-
   async function handleRescheduleConfirm(reason: 'no_show' | 'custom', customMessage?: string) {
-    if (!rescheduleAppt || !practitioner) return
+    if (!detailAppt || !practitioner) return
     const newStatus = reason === 'no_show' ? 'no_show' : 'rescheduling'
-    // Feedback visual inmediato
-    setAppointments(prev => prev.map(a => a.id === rescheduleAppt.id ? { ...a, status: newStatus } : a))
-    setRescheduleAppt(null)
+    setAppointments(prev => prev.map(a => a.id === detailAppt.id ? { ...a, status: newStatus } : a))
     await fetch('/api/reschedule-appointment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        appointmentId:    rescheduleAppt.id,
+        appointmentId:    detailAppt.id,
         practitionerId:   practitioner.id,
         practitionerName: practitioner.display_name,
-        patientName:      rescheduleAppt.patient_name,
-        patientEmail:     rescheduleAppt.patient_email ?? '',
-        originalDate:     rescheduleAppt.starts_at,
+        patientName:      detailAppt.patient_name,
+        patientEmail:     detailAppt.patient_email ?? '',
+        originalDate:     detailAppt.starts_at,
         reason,
         customMessage,
       }),
@@ -264,6 +264,22 @@ export default function AgendaPage() {
         </div>
       </div>
 
+      {/* Leyenda de colores */}
+      <div style={{ display:'flex', alignItems:'center', gap:16, padding:'8px 32px', borderBottom:'1px solid var(--ink-7)', flexWrap:'wrap' }}>
+        <span style={{ fontFamily:'var(--f-mono)', fontSize:10, color:'var(--ink-5)', letterSpacing:'0.08em', textTransform:'uppercase', flexShrink:0 }}>Guía</span>
+        {([
+          { bg:'rgba(178,255,153,0.18)', border:'rgba(74,124,58,0.55)',  label:'Agendada'    },
+          { bg:'rgba(40,40,40,0.12)',     border:'rgba(40,40,40,0.6)',    label:'Completada'  },
+          { bg:'rgba(200,30,30,0.07)',   border:'rgba(200,30,30,0.3)',   label:'Cancelada'   },
+          { bg:'rgba(180,0,0,0.12)',      border:'rgba(180,0,0,0.75)',    label:'No asistió'  },
+          { bg:'#fff3e0',                border:'#e65100',               label:'Reagendando' },
+        ] as const).map(({ bg, border, label }) => (
+          <div key={label} style={{ background:bg, borderLeft:`2px solid ${border}`, borderRadius:3, padding:'0 5px', lineHeight:'16px' }}>
+            <span style={{ fontFamily:'var(--f-mono)', fontSize:10, color:'var(--ink-3)', letterSpacing:'0.04em', whiteSpace:'nowrap', fontWeight:700 }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
       {loading ? spinner : (
         <div style={{ overflowX:'auto', padding:'24px 32px 40px' }}>
           <div style={{ minWidth:860, border:'1px solid var(--ink-7)', borderRadius:14, overflow:'hidden' }}>
@@ -351,8 +367,7 @@ export default function AgendaPage() {
                         <AppointmentBlock key={appt.id} appt={appt}
                           top={apptTop(appt, startHour, rowH)} height={apptHeight(appt, rowH)}
                           col={col} totalCols={totalCols}
-                          onStatusChange={handleStatusChange}
-                          onReschedule={handleReschedule} />
+                          onOpen={setDetailAppt} />
                       ))}
                     </div>
                   )
@@ -375,12 +390,13 @@ export default function AgendaPage() {
         />
       )}
 
-      {rescheduleAppt && practitioner && (
-        <RescheduleModal
-          appt={rescheduleAppt}
-          practitionerName={practitioner.display_name}
-          onConfirm={handleRescheduleConfirm}
-          onClose={() => setRescheduleAppt(null)}
+      {detailAppt && (
+        <AppointmentDetailModal
+          appt={detailAppt}
+          onClose={() => setDetailAppt(null)}
+          onStatusChange={handleStatusChange}
+          onNotesChange={handleNotesChange}
+          onRescheduleConfirm={handleRescheduleConfirm}
         />
       )}
     </div>
