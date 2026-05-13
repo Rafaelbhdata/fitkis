@@ -35,6 +35,15 @@ function getTagMeta(k: ConsultationNoteTag) {
   return TAG_OPTIONS.find((o) => o.k === k) ?? TAG_OPTIONS[4]
 }
 
+/**
+ * Estado de edición unificado. Solo una nota puede estar en edición a la vez,
+ * sea nota manual nueva, nota manual existente o nota de cita.
+ */
+type Editing =
+  | { mode: 'new' }
+  | { mode: 'manual'; id: string }
+  | { mode: 'appointment'; appointmentId: string }
+  | null
 
 export function ConsultationNotesCard({
   practitionerId,
@@ -44,20 +53,15 @@ export function ConsultationNotesCard({
   patientId: string
 }) {
   const supabase = useSupabase()
-  const [notes, setNotes]                     = useState<ConsultationNote[]>([])
-  const [apptNotes, setApptNotes]             = useState<AppointmentNote[]>([])
-  const [loading, setLoading]                 = useState(true)
-  const [error, setError]                     = useState<string | null>(null)
-  const [composing, setComposing] = useState(false)
-  const [draftBody, setDraftBody] = useState('')
-  const [draftTags, setDraftTags] = useState<ConsultationNoteTag[]>([])
-  const [saving, setSaving]     = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editBody, setEditBody]   = useState('')
-  const [editTags, setEditTags]   = useState<ConsultationNoteTag[]>([])
-  // Edición de notas de cita (appointments.notes)
-  const [editingApptId, setEditingApptId] = useState<string | null>(null)
-  const [editApptBody, setEditApptBody]   = useState('')
+  const [notes, setNotes]         = useState<ConsultationNote[]>([])
+  const [apptNotes, setApptNotes] = useState<AppointmentNote[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
+  const [saving, setSaving]       = useState(false)
+
+  const [editing, setEditing]     = useState<Editing>(null)
+  const [editorBody, setEditorBody] = useState('')
+  const [editorTag, setEditorTag]   = useState<ConsultationNoteTag | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -77,89 +81,81 @@ export function ConsultationNotesCard({
     ...apptNotes.map((a): FeedEntry => ({ kind: 'appointment', data: a })),
   ].sort((a, b) => entrySortKey(b).localeCompare(entrySortKey(a))), [notes, apptNotes])
 
-  // Comportamiento radio: solo un badge por nota. Click en el activo lo deselecciona.
-  function selectDraftTag(t: ConsultationNoteTag) {
-    setDraftTags((prev) => (prev[0] === t ? [] : [t]))
+  function openNew() {
+    setEditing({ mode: 'new' })
+    setEditorBody('')
+    setEditorTag(null)
   }
-  function selectEditTag(t: ConsultationNoteTag) {
-    setEditTags((prev) => (prev[0] === t ? [] : [t]))
+  function openEditManual(n: ConsultationNote) {
+    setEditing({ mode: 'manual', id: n.id })
+    setEditorBody(n.body)
+    setEditorTag(n.tags[0] ?? null)
+  }
+  function openEditAppt(a: AppointmentNote) {
+    setEditing({ mode: 'appointment', appointmentId: a.appointment_id })
+    setEditorBody(a.body)
+    setEditorTag(null)
+  }
+  function closeEditor() {
+    setEditing(null)
+    setEditorBody('')
+    setEditorTag(null)
   }
 
-  async function handleCreate() {
-    if (!draftBody.trim()) return
+  async function handleSave() {
+    if (!editing || !editorBody.trim()) return
     setSaving(true)
-    const { data, error } = await createConsultationNote(supabase, {
-      practitioner_id: practitionerId,
-      patient_id: patientId,
-      body: draftBody,
-      tags: draftTags,
-    })
-    setSaving(false)
-    if (error) { setError(error); return }
-    if (data) setNotes((prev) => [data, ...prev])
-    setDraftBody(''); setDraftTags([]); setComposing(false)
+    try {
+      if (editing.mode === 'new') {
+        const tags = editorTag ? [editorTag] : []
+        const { data, error } = await createConsultationNote(supabase, {
+          practitioner_id: practitionerId,
+          patient_id: patientId,
+          body: editorBody,
+          tags,
+        })
+        if (error) { setError(error); return }
+        if (data) setNotes(prev => [data, ...prev])
+      } else if (editing.mode === 'manual') {
+        const tags = editorTag ? [editorTag] : []
+        const { error } = await updateConsultationNote(supabase, editing.id, { body: editorBody, tags })
+        if (error) { setError(error); return }
+        setNotes(prev => prev.map(n => n.id === editing.id
+          ? { ...n, body: editorBody.trim(), tags, updated_at: new Date().toISOString() }
+          : n
+        ))
+      } else {
+        const { error } = await updateAppointmentNotes(supabase, editing.appointmentId, editorBody)
+        if (error) { setError(error); return }
+        setApptNotes(prev => prev.map(a => a.appointment_id === editing.appointmentId
+          ? { ...a, body: editorBody.trim() }
+          : a
+        ))
+      }
+      closeEditor()
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function startEdit(n: ConsultationNote) {
-    setEditingId(n.id)
-    setEditBody(n.body)
-    setEditTags(n.tags)
-  }
-
-  async function handleSaveEdit(id: string) {
-    if (!editBody.trim()) return
-    setSaving(true)
-    const { error } = await updateConsultationNote(supabase, id, { body: editBody, tags: editTags })
-    setSaving(false)
-    if (error) { setError(error); return }
-    setNotes((prev) => prev.map((n) => n.id === id
-      ? { ...n, body: editBody.trim(), tags: editTags, updated_at: new Date().toISOString() }
-      : n
-    ))
-    setEditingId(null)
-  }
-
-  async function handleDelete(id: string) {
+  async function handleDeleteManual(id: string) {
     if (!confirm('¿Eliminar esta nota? No se puede deshacer.')) return
     const { error } = await deleteConsultationNote(supabase, id)
     if (error) { setError(error); return }
-    setNotes((prev) => prev.filter((n) => n.id !== id))
-  }
-
-  function startEditAppt(a: AppointmentNote) {
-    setEditingApptId(a.appointment_id)
-    setEditApptBody(a.body)
-  }
-
-  async function handleSaveEditAppt(apptId: string) {
-    if (!editApptBody.trim()) return
-    setSaving(true)
-    const { error } = await updateAppointmentNotes(supabase, apptId, editApptBody)
-    setSaving(false)
-    if (error) { setError(error); return }
-    setApptNotes((prev) => prev.map((a) => a.appointment_id === apptId
-      ? { ...a, body: editApptBody.trim() }
-      : a
-    ))
-    setEditingApptId(null)
+    setNotes(prev => prev.filter(n => n.id !== id))
   }
 
   async function handleDeleteAppt(apptId: string) {
     if (!confirm('¿Eliminar esta nota de la cita? Se borra de la cita también.')) return
     const { error } = await updateAppointmentNotes(supabase, apptId, '')
     if (error) { setError(error); return }
-    setApptNotes((prev) => prev.filter((a) => a.appointment_id !== apptId))
+    setApptNotes(prev => prev.filter(a => a.appointment_id !== apptId))
   }
 
   return (
     <div
       id="consultation-notes"
-      style={{
-        background: '#fff',
-        border: '1px solid var(--ink-7)',
-        borderRadius: 14,
-        padding: '22px 26px',
-      }}
+      style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '22px 26px' }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
         <div>
@@ -170,19 +166,13 @@ export function ConsultationNotesCard({
               : `${feed.length} nota${feed.length === 1 ? '' : 's'}${apptNotes.length > 0 ? ` · ${apptNotes.length} desde citas` : ''}`}
           </div>
         </div>
-        {!composing && (
+        {editing == null && (
           <button
-            onClick={() => setComposing(true)}
+            onClick={openNew}
             style={{
-              padding: '8px 14px',
-              borderRadius: 999,
-              border: '1px solid var(--ink-7)',
-              background: '#fff',
-              fontSize: 12,
-              fontFamily: 'var(--f-sans)',
-              fontWeight: 500,
-              color: 'var(--ink)',
-              cursor: 'pointer',
+              padding: '8px 14px', borderRadius: 999, border: '1px solid var(--ink-7)',
+              background: '#fff', fontSize: 12, fontFamily: 'var(--f-sans)', fontWeight: 500,
+              color: 'var(--ink)', cursor: 'pointer',
             }}
           >
             + Nueva nota
@@ -190,85 +180,20 @@ export function ConsultationNotesCard({
         )}
       </div>
 
-      {composing && (
-        <div style={{ marginBottom: 18, padding: 14, background: 'var(--paper)', borderRadius: 10, border: '1px solid var(--ink-7)' }}>
-          <textarea
-            value={draftBody}
-            onChange={(e) => setDraftBody(e.target.value)}
-            placeholder="Apunta lo relevante de la consulta — ajustes al plan, próximos pasos, alertas…"
-            rows={4}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: 8,
-              border: '1px solid var(--ink-7)',
-              background: '#fff',
-              fontFamily: 'var(--f-sans)',
-              fontSize: 14,
-              lineHeight: 1.5,
-              resize: 'vertical',
-            }}
-          />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            {TAG_OPTIONS.map((t) => {
-              const active = draftTags.includes(t.k)
-              return (
-                <button
-                  key={t.k}
-                  onClick={() => selectDraftTag(t.k)}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: 999,
-                    border: active ? `1px solid ${t.c}` : '1px solid var(--ink-7)',
-                    background: active ? t.bg : '#fff',
-                    color: active ? t.c : 'var(--ink-4)',
-                    fontSize: 11,
-                    fontFamily: 'var(--f-sans)',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {t.n}
-                </button>
-              )
-            })}
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-            <button
-              onClick={() => { setComposing(false); setDraftBody(''); setDraftTags([]) }}
-              style={{
-                padding: '8px 16px',
-                borderRadius: 999,
-                border: 'none',
-                background: 'transparent',
-                fontSize: 12,
-                fontFamily: 'var(--f-sans)',
-                color: 'var(--ink-4)',
-                cursor: 'pointer',
-              }}
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleCreate}
-              disabled={!draftBody.trim() || saving}
-              style={{
-                padding: '8px 16px',
-                borderRadius: 999,
-                border: 'none',
-                background: 'var(--ink)',
-                color: 'var(--paper)',
-                fontSize: 12,
-                fontFamily: 'var(--f-sans)',
-                fontWeight: 500,
-                cursor: !draftBody.trim() || saving ? 'not-allowed' : 'pointer',
-                opacity: !draftBody.trim() || saving ? 0.5 : 1,
-              }}
-            >
-              {saving ? 'Guardando…' : 'Guardar nota'}
-            </button>
-          </div>
-        </div>
+      {editing?.mode === 'new' && (
+        <NoteEditor
+          body={editorBody}
+          onBodyChange={setEditorBody}
+          tag={editorTag}
+          onTagChange={setEditorTag}
+          showTags
+          saving={saving}
+          onSave={handleSave}
+          onCancel={closeEditor}
+          placeholder="Apunta lo relevante de la consulta — ajustes al plan, próximos pasos, alertas…"
+          saveLabel="Guardar nota"
+          wrapped
+        />
       )}
 
       {error && (
@@ -281,7 +206,7 @@ export function ConsultationNotesCard({
         <div style={{ padding: '20px 0', color: 'var(--ink-4)', fontSize: 12, fontFamily: 'var(--f-mono)' }}>
           cargando notas…
         </div>
-      ) : feed.length === 0 && !composing ? (
+      ) : feed.length === 0 && editing == null ? (
         <p className="fk-serif" style={{ fontSize: 15, fontWeight: 300, fontStyle: 'italic', color: 'var(--ink-4)', margin: 0, lineHeight: 1.6 }}>
           Las notas que guardes aquí solo las ves tú. Sirven para registrar ajustes al plan, recordatorios y observaciones entre consultas.
           También aparecerán aquí las notas que escribas dentro de cada cita en la agenda.
@@ -291,217 +216,224 @@ export function ConsultationNotesCard({
           {feed.map((entry) => {
             if (entry.kind === 'appointment') {
               const a = entry.data
-              const isEditingAppt = editingApptId === a.appointment_id
+              const isEditing = editing?.mode === 'appointment' && editing.appointmentId === a.appointment_id
               return (
-                <div
+                <NoteCard
                   key={`appt-${a.appointment_id}`}
-                  style={{
-                    padding: 14,
-                    borderRadius: 10,
-                    border: '1px solid var(--ink-7)',
-                    background: isEditingAppt ? 'var(--paper)' : '#fff',
-                    borderLeft: '3px solid var(--signal)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
-                    <span style={{
-                      padding: '3px 10px',
-                      borderRadius: 999,
-                      background: 'var(--signal-soft)',
-                      color: 'var(--signal)',
-                      fontSize: 10,
-                      fontFamily: 'var(--f-sans)',
-                      fontWeight: 500,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}>
+                  borderColor="var(--signal)"
+                  isEditing={isEditing}
+                  header={(
+                    <span style={chipStyle('var(--signal)', 'var(--signal-soft)')}>
                       Cita · {fmtShortDateTime(a.starts_at)}
                     </span>
-                    {!isEditingAppt && (
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button
-                          onClick={() => startEditAppt(a)}
-                          style={{ padding: '4px 10px', background: 'transparent', border: 'none', fontSize: 11, color: 'var(--ink-4)', cursor: 'pointer', fontFamily: 'var(--f-sans)' }}
-                        >
-                          editar
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAppt(a.appointment_id)}
-                          style={{ padding: '4px 10px', background: 'transparent', border: 'none', fontSize: 11, color: 'var(--berry)', cursor: 'pointer', fontFamily: 'var(--f-sans)' }}
-                        >
-                          eliminar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {isEditingAppt ? (
-                    <>
-                      <textarea
-                        value={editApptBody}
-                        onChange={(e) => setEditApptBody(e.target.value)}
-                        rows={4}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: 8,
-                          border: '1px solid var(--ink-7)',
-                          background: '#fff',
-                          fontFamily: 'var(--f-sans)',
-                          fontSize: 14,
-                          lineHeight: 1.5,
-                          resize: 'vertical',
-                        }}
-                      />
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
-                        <button
-                          onClick={() => setEditingApptId(null)}
-                          style={{ padding: '6px 14px', borderRadius: 999, border: 'none', background: 'transparent', fontSize: 12, color: 'var(--ink-4)', cursor: 'pointer' }}
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          onClick={() => handleSaveEditAppt(a.appointment_id)}
-                          disabled={!editApptBody.trim() || saving}
-                          style={{
-                            padding: '6px 14px', borderRadius: 999, border: 'none',
-                            background: 'var(--ink)', color: 'var(--paper)', fontSize: 12, fontWeight: 500,
-                            cursor: !editApptBody.trim() || saving ? 'not-allowed' : 'pointer',
-                            opacity: !editApptBody.trim() || saving ? 0.5 : 1,
-                          }}
-                        >
-                          {saving ? 'Guardando…' : 'Guardar'}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
-                      {a.body}
-                    </p>
                   )}
-                </div>
+                  body={a.body}
+                  onEdit={() => openEditAppt(a)}
+                  onDelete={() => handleDeleteAppt(a.appointment_id)}
+                  editor={isEditing && (
+                    <NoteEditor
+                      body={editorBody}
+                      onBodyChange={setEditorBody}
+                      tag={null}
+                      onTagChange={() => {}}
+                      showTags={false}
+                      saving={saving}
+                      onSave={handleSave}
+                      onCancel={closeEditor}
+                    />
+                  )}
+                />
               )
             }
             const n = entry.data
-            const isEditing = editingId === n.id
+            const isEditing = editing?.mode === 'manual' && editing.id === n.id
             const primaryMeta = n.tags.length > 0 ? getTagMeta(n.tags[0]) : getTagMeta('observacion')
             const headerLabel = n.tags.length > 0 ? primaryMeta.n : 'Nota'
             return (
-              <div
+              <NoteCard
                 key={n.id}
-                style={{
-                  padding: 14,
-                  borderRadius: 10,
-                  border: '1px solid var(--ink-7)',
-                  background: isEditing ? 'var(--paper)' : '#fff',
-                  borderLeft: `3px solid ${primaryMeta.c}`,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{
-                    padding: '3px 10px',
-                    borderRadius: 999,
-                    background: primaryMeta.bg,
-                    color: primaryMeta.c,
-                    fontSize: 10,
-                    fontFamily: 'var(--f-sans)',
-                    fontWeight: 500,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                  }}>
+                borderColor={primaryMeta.c}
+                isEditing={isEditing}
+                header={(
+                  <span style={chipStyle(primaryMeta.c, primaryMeta.bg)}>
                     {headerLabel} · {fmtShortDate(n.note_date)}
                   </span>
-                  {!isEditing && (
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button
-                        onClick={() => startEdit(n)}
-                        style={{ padding: '4px 10px', background: 'transparent', border: 'none', fontSize: 11, color: 'var(--ink-4)', cursor: 'pointer', fontFamily: 'var(--f-sans)' }}
-                      >
-                        editar
-                      </button>
-                      <button
-                        onClick={() => handleDelete(n.id)}
-                        style={{ padding: '4px 10px', background: 'transparent', border: 'none', fontSize: 11, color: 'var(--berry)', cursor: 'pointer', fontFamily: 'var(--f-sans)' }}
-                      >
-                        eliminar
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {isEditing ? (
-                  <>
-                    <textarea
-                      value={editBody}
-                      onChange={(e) => setEditBody(e.target.value)}
-                      rows={4}
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: 8,
-                        border: '1px solid var(--ink-7)',
-                        background: '#fff',
-                        fontFamily: 'var(--f-sans)',
-                        fontSize: 14,
-                        lineHeight: 1.5,
-                        resize: 'vertical',
-                      }}
-                    />
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                      {TAG_OPTIONS.map((t) => {
-                        const active = editTags.includes(t.k)
-                        return (
-                          <button
-                            key={t.k}
-                            onClick={() => selectEditTag(t.k)}
-                            style={{
-                              padding: '5px 12px',
-                              borderRadius: 999,
-                              border: active ? `1px solid ${t.c}` : '1px solid var(--ink-7)',
-                              background: active ? t.bg : '#fff',
-                              color: active ? t.c : 'var(--ink-4)',
-                              fontSize: 11,
-                              fontFamily: 'var(--f-sans)',
-                              fontWeight: 500,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {t.n}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        style={{ padding: '6px 14px', borderRadius: 999, border: 'none', background: 'transparent', fontSize: 12, color: 'var(--ink-4)', cursor: 'pointer' }}
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={() => handleSaveEdit(n.id)}
-                        disabled={!editBody.trim() || saving}
-                        style={{
-                          padding: '6px 14px', borderRadius: 999, border: 'none',
-                          background: 'var(--ink)', color: 'var(--paper)', fontSize: 12, fontWeight: 500,
-                          cursor: !editBody.trim() || saving ? 'not-allowed' : 'pointer',
-                          opacity: !editBody.trim() || saving ? 0.5 : 1,
-                        }}
-                      >
-                        {saving ? 'Guardando…' : 'Guardar'}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
-                      {n.body}
-                    </p>
-                  </>
                 )}
-              </div>
+                body={n.body}
+                onEdit={() => openEditManual(n)}
+                onDelete={() => handleDeleteManual(n.id)}
+                editor={isEditing && (
+                  <NoteEditor
+                    body={editorBody}
+                    onBodyChange={setEditorBody}
+                    tag={editorTag}
+                    onTagChange={setEditorTag}
+                    showTags
+                    saving={saving}
+                    onSave={handleSave}
+                    onCancel={closeEditor}
+                  />
+                )}
+              />
             )
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+function chipStyle(c: string, bg: string): React.CSSProperties {
+  return {
+    padding: '3px 10px', borderRadius: 999, background: bg, color: c,
+    fontSize: 10, fontFamily: 'var(--f-sans)', fontWeight: 500,
+    textTransform: 'uppercase', letterSpacing: '0.05em',
+  }
+}
+
+function NoteCard({
+  borderColor, isEditing, header, body, onEdit, onDelete, editor,
+}: {
+  borderColor: string
+  isEditing: boolean
+  header: React.ReactNode
+  body: string
+  onEdit: () => void
+  onDelete: () => void
+  editor: React.ReactNode
+}) {
+  return (
+    <div
+      style={{
+        padding: 14, borderRadius: 10,
+        border: '1px solid var(--ink-7)',
+        background: isEditing ? 'var(--paper)' : '#fff',
+        borderLeft: `3px solid ${borderColor}`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
+        {header}
+        {!isEditing && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              onClick={onEdit}
+              style={{ padding: '4px 10px', background: 'transparent', border: 'none', fontSize: 11, color: 'var(--ink-4)', cursor: 'pointer', fontFamily: 'var(--f-sans)' }}
+            >
+              editar
+            </button>
+            <button
+              onClick={onDelete}
+              style={{ padding: '4px 10px', background: 'transparent', border: 'none', fontSize: 11, color: 'var(--berry)', cursor: 'pointer', fontFamily: 'var(--f-sans)' }}
+            >
+              eliminar
+            </button>
+          </div>
+        )}
+      </div>
+      {isEditing ? editor : (
+        <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
+          {body}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Editor de nota reutilizable. `wrapped` agrega el card de fondo + padding
+ * (usado para el composer "nueva nota"); en modo edición inline el wrapper
+ * lo provee `NoteCard`.
+ */
+function NoteEditor({
+  body, onBodyChange, tag, onTagChange, showTags, saving, onSave, onCancel,
+  placeholder = '', saveLabel = 'Guardar', wrapped = false,
+}: {
+  body: string
+  onBodyChange: (v: string) => void
+  tag: ConsultationNoteTag | null
+  onTagChange: (t: ConsultationNoteTag | null) => void
+  showTags: boolean
+  saving: boolean
+  onSave: () => void
+  onCancel: () => void
+  placeholder?: string
+  saveLabel?: string
+  wrapped?: boolean
+}) {
+  const canSave = body.trim().length > 0 && !saving
+  const content = (
+    <>
+      <textarea
+        value={body}
+        onChange={(e) => onBodyChange(e.target.value)}
+        placeholder={placeholder}
+        rows={4}
+        style={{
+          width: '100%', padding: '10px 12px', borderRadius: 8,
+          border: '1px solid var(--ink-7)', background: '#fff',
+          fontFamily: 'var(--f-sans)', fontSize: 14, lineHeight: 1.5, resize: 'vertical',
+        }}
+      />
+      {showTags && (
+        <TagChips selected={tag} onChange={onTagChange} />
+      )}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: wrapped ? 12 : 10 }}>
+        <button
+          onClick={onCancel}
+          style={{ padding: '6px 14px', borderRadius: 999, border: 'none', background: 'transparent', fontSize: 12, color: 'var(--ink-4)', cursor: 'pointer' }}
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={onSave}
+          disabled={!canSave}
+          style={{
+            padding: '6px 14px', borderRadius: 999, border: 'none',
+            background: 'var(--ink)', color: 'var(--paper)', fontSize: 12, fontWeight: 500,
+            cursor: canSave ? 'pointer' : 'not-allowed',
+            opacity: canSave ? 1 : 0.5,
+          }}
+        >
+          {saving ? 'Guardando…' : saveLabel}
+        </button>
+      </div>
+    </>
+  )
+  if (!wrapped) return content
+  return (
+    <div style={{ marginBottom: 18, padding: 14, background: 'var(--paper)', borderRadius: 10, border: '1px solid var(--ink-7)' }}>
+      {content}
+    </div>
+  )
+}
+
+function TagChips({
+  selected, onChange,
+}: {
+  selected: ConsultationNoteTag | null
+  onChange: (t: ConsultationNoteTag | null) => void
+}) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+      {TAG_OPTIONS.map((t) => {
+        const active = selected === t.k
+        return (
+          <button
+            key={t.k}
+            onClick={() => onChange(active ? null : t.k)}
+            style={{
+              padding: '5px 12px', borderRadius: 999,
+              border: active ? `1px solid ${t.c}` : '1px solid var(--ink-7)',
+              background: active ? t.bg : '#fff',
+              color:      active ? t.c  : 'var(--ink-4)',
+              fontSize: 11, fontFamily: 'var(--f-sans)', fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            {t.n}
+          </button>
+        )
+      })}
     </div>
   )
 }
