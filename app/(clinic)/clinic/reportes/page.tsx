@@ -308,41 +308,52 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
       {/* Bento: fila superior 3 tarjetas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
 
-        {/* Pacientes con licencia activa */}
-        {(() => {
-          const pct = kpis.total_linked > 0
-            ? Math.round((kpis.active_patients / kpis.total_linked) * 100)
-            : 100
-          const accentColor = pct === 100 ? 'var(--leaf)' : pct >= 70 ? 'var(--honey)' : 'var(--signal)'
-          return (
-            <Card style={{ padding: '22px 24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div className="fk-eyebrow">Pacientes con licencia activa</div>
-                <Semaforo value={pct} lo={70} hi={100} size={9} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-                <div>
-                  <span className="fk-serif" style={{
-                    fontSize: 44, fontWeight: 300,
-                    letterSpacing: '-0.02em', lineHeight: 1,
-                  }}>
-                    {kpis.active_patients}
-                  </span>
-                  <div style={{ fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', marginTop: 8 }}>
-                    {`de ${kpis.total_linked} vinculados · `}
-                    <span style={{ color: accentColor, fontWeight: 600 }}>{pct}%</span>
+        {/* Pacientes activos */}
+        <Card style={{ padding: '22px 24px' }}>
+          <div className="fk-eyebrow">Pacientes con licencia activa</div>
+          <div style={{ marginTop: 10 }}>
+            {/* Número + fracción */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span className="fk-serif" style={{
+                fontSize: 44, fontWeight: 300,
+                letterSpacing: '-0.02em', lineHeight: 1,
+              }}>
+                {kpis.active_patients}
+              </span>
+              <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', fontWeight: 400 }}>
+                / {kpis.total_linked}
+              </span>
+            </div>
+
+            {/* Porcentaje en barra + número */}
+            {kpis.total_linked > 0 && (() => {
+              const pct = Math.round((kpis.active_patients / kpis.total_linked) * 100)
+              const color = pct === 100 ? 'var(--leaf)' : pct >= 70 ? 'var(--honey)' : 'var(--signal)'
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                      vinculados totales
+                    </span>
+                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color }}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
                   </div>
                 </div>
-              </div>
-            </Card>
-          )
-        })()}
+              )
+            })()}
+
+          </div>
+        </Card>
 
         {/* Nuevos este mes */}
         <Card style={{ padding: '22px 24px' }}>
           <div className="fk-eyebrow">Nuevos este mes</div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-            <div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span className="fk-serif" style={{
                 fontSize: 44, fontWeight: 300,
                 letterSpacing: '-0.02em', lineHeight: 1,
@@ -350,40 +361,66 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
               }}>
                 {kpis.new_patients_month}
               </span>
-              <div style={{ fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', marginTop: 8 }}>
-                {kpis.new_patients_month === 0 ? 'sin altas este mes' : `en ${monthLabel}`}
-              </div>
+              <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                / {kpis.active_patients}
+              </span>
             </div>
-            {kpis.new_patients_month > 0 && (
-              <div style={{
-                width: 40, height: 40, borderRadius: '50%',
-                background: 'var(--leaf-soft)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, color: 'var(--leaf)', fontWeight: 300, flexShrink: 0,
-              }}>
-                ↑
-              </div>
-            )}
+            {kpis.active_patients > 0 && (() => {
+              const pct = Math.round((kpis.new_patients_month / kpis.active_patients) * 100)
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                      de pacientes activos
+                    </span>
+                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color: pct > 0 ? 'var(--leaf)' : 'var(--ink-4)' }}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: 'var(--leaf)', borderRadius: 999 }} />
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </Card>
 
         {/* Invitaciones pendientes */}
         <Card style={{ padding: '22px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div className="fk-eyebrow">Invitaciones pendientes</div>
-            <Semaforo value={kpis.pending_invites} lo={1} hi={0} reverse size={9} />
-          </div>
+          <div className="fk-eyebrow">Invitaciones pendientes</div>
           <div style={{ marginTop: 10 }}>
-            <span className="fk-serif" style={{
-              fontSize: 44, fontWeight: 300,
-              letterSpacing: '-0.02em', lineHeight: 1,
-              color: kpis.pending_invites > 0 ? 'var(--honey)' : 'var(--ink)',
-            }}>
-              {kpis.pending_invites}
-            </span>
-            <div style={{ fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', marginTop: 8 }}>
-              {kpis.pending_invites === 0 ? 'todos vinculados' : 'esperando respuesta'}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span className="fk-serif" style={{
+                fontSize: 44, fontWeight: 300,
+                letterSpacing: '-0.02em', lineHeight: 1,
+                color: kpis.pending_invites > 0 ? 'var(--honey)' : 'var(--ink)',
+              }}>
+                {kpis.pending_invites}
+              </span>
+              <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                / {kpis.total_linked}
+              </span>
             </div>
+            {kpis.total_linked > 0 && (() => {
+              const pct = Math.round((kpis.pending_invites / kpis.total_linked) * 100)
+              const color = pct === 0 ? 'var(--leaf)' : pct <= 30 ? 'var(--honey)' : 'var(--berry)'
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                      de vinculados totales
+                    </span>
+                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color }}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </Card>
       </div>
