@@ -2,15 +2,6 @@
 
 import { useEffect, type ReactNode, type CSSProperties } from 'react'
 
-/**
- * Primitivos compartidos por los modales del portal clínico.
- *
- * Por qué este shape:
- * - Overlay con ESC + click-outside automáticos, evita repetir useEffect+addEventListener
- * - ModalBtn unificado con todas las variantes vistas en producción
- *   (secondary / primary-signal / danger-soft / danger-solid / warning)
- */
-
 export function ModalShell({
   onClose,
   maxWidth = 440,
@@ -65,15 +56,15 @@ export function ModalClose({ onClick }: { onClick: () => void }) {
 }
 
 export type ModalBtnVariant =
-  | 'secondary'
-  | 'primary'
-  | 'danger-soft'    // texto rojo sobre bg muy ligero — "Sí, cancelar"
-  | 'danger-solid'   // bg rojo + texto blanco — acción destructiva prominente
-  | 'warning'        // signal/orange — para reagendar y similares
+  | 'secondary'    // borde gris, bg paper — Cancelar/Volver
+  | 'signal'       // signal-soft — confirmación neutra ("Confirmar y notificar")
+  | 'danger-soft'  // berry text sobre bg ligero — "Sí, cancelar"
+  | 'danger-solid' // bg rojo + texto blanco — acción destructiva prominente
+  | 'warning'      // orange — reagendar
 
 const MODAL_BTN_STYLES: Record<ModalBtnVariant, CSSProperties> = {
   secondary:     { border: '1px solid var(--ink-6)',         background: 'var(--paper)',         color: 'var(--ink-2)'  },
-  primary:       { border: '1px solid var(--signal)',        background: 'var(--signal-soft)',   color: 'var(--signal)' },
+  signal:        { border: '1px solid var(--signal)',        background: 'var(--signal-soft)',   color: 'var(--signal)' },
   'danger-soft': { border: '1px solid rgba(180,30,30,0.28)', background: 'rgba(180,30,30,0.06)', color: 'var(--berry)'  },
   'danger-solid':{ border: '1px solid rgba(180,30,30,0.7)',  background: 'rgba(180,30,30,0.85)', color: '#fff'          },
   warning:       { border: '1px solid rgba(230,81,0,0.3)',   background: 'rgba(230,81,0,0.06)',  color: '#e65100'       },

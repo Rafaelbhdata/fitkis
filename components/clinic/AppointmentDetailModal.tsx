@@ -154,7 +154,7 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
                 <ModalBtn variant="secondary" onClick={() => { setRescheduleOpen(false); setRescheduleReason(null); setRescheduleMessage('') }} disabled={rescheduleSaving}>
                   Cancelar
                 </ModalBtn>
-                <ModalBtn variant="primary" onClick={handleRescheduleConfirm} disabled={!canConfirmReschedule}>
+                <ModalBtn variant="signal" onClick={handleRescheduleConfirm} disabled={!canConfirmReschedule}>
                   {rescheduleSaving ? 'Enviando…' : 'Confirmar y notificar'}
                 </ModalBtn>
               </>

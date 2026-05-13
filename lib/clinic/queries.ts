@@ -1030,10 +1030,20 @@ export async function loadPracticeKPIs(
   const cutoff60ISO = cutoff60.toISOString().split('T')[0]
   const next7 = new Date(now); next7.setDate(next7.getDate() + 7)
 
-  const { data: relsRaw, error: relErr } = await supabase
-    .rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never)
-  if (relErr) throw new Error(relErr.message)
-  const relations = (relsRaw ?? []) as GetPractitionerPatientsRow[]
+  // Independientes: relaciones (lista de pacientes) y appointments próximos
+  // — appointments solo filtra por practitioner_id, no necesita activeIds
+  const [relsRes, apptRes] = await Promise.all([
+    supabase.rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never),
+    supabase.from('appointments').select('id')
+      .eq('practitioner_id', practitionerId)
+      .gte('starts_at', now.toISOString())
+      .lt('starts_at', next7.toISOString())
+      .not('status', 'in', '("cancelled","no_show")'),
+  ])
+  if (relsRes.error) throw new Error(relsRes.error.message)
+  if (apptRes.error) throw new Error(apptRes.error.message)
+  const relations = (relsRes.data ?? []) as GetPractitionerPatientsRow[]
+  const apptRows  = apptRes.data ?? []
   const activeRels = relations.filter(r => r.status === 'active')
   const activeIds  = activeRels.map(r => r.patient_id)
 
@@ -1042,35 +1052,30 @@ export async function loadPracticeKPIs(
       active_patients: 0,
       pending_invites: relations.filter(r => r.status === 'pending').length,
       avg_adherence: null,
-      appointments_next_7d: 0,
+      appointments_next_7d: apptRows.length,
       patients_needing_attention: [],
       weight_trend: [],
     }
   }
 
-  const [
-    { data: foodRows },
-    { data: gymRows },
-    { data: weightRows },
-    { data: weightTrendRows },
-    { data: apptRows },
-  ] = await Promise.all([
+  const [foodRes, gymRes, weightRes, weightTrendRes] = await Promise.all([
     supabase.from('food_logs')   .select('user_id, date').in('user_id', activeIds).gte('date', cutoff30ISO),
     supabase.from('gym_sessions').select('user_id, date').in('user_id', activeIds).gte('date', cutoff30ISO),
     supabase.from('weight_logs') .select('user_id, date').in('user_id', activeIds).gte('date', cutoff30ISO),
     supabase.from('weight_logs') .select('date, weight_kg').in('user_id', activeIds).gte('date', cutoff60ISO).not('weight_kg', 'is', null),
-    supabase.from('appointments').select('id')
-      .eq('practitioner_id', practitionerId)
-      .gte('starts_at', now.toISOString())
-      .lt('starts_at', next7.toISOString())
-      .not('status', 'in', '("cancelled","no_show")'),
   ])
+  for (const r of [foodRes, gymRes, weightRes, weightTrendRes]) {
+    if (r.error) throw new Error(r.error.message)
+  }
+  const foodRows        = foodRes.data        ?? []
+  const gymRows         = gymRes.data         ?? []
+  const weightRows      = weightRes.data      ?? []
+  const weightTrendRows = weightTrendRes.data ?? []
 
-  // Agrupa fechas de actividad por paciente
   const activityDates: Record<string, Set<string>> = {}
-  for (const r of (foodRows   ?? []) as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
-  for (const r of (gymRows    ?? []) as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
-  for (const r of (weightRows ?? []) as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
+  for (const r of foodRows   as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
+  for (const r of gymRows    as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
+  for (const r of weightRows as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
 
   // Adherencia + alerta por paciente activo
   type AttentionPatient = PracticeKPIs['patients_needing_attention'][number]
@@ -1102,9 +1107,8 @@ export async function loadPracticeKPIs(
   }
   needAttention.sort((a, b) => (a.adherence ?? 0) - (b.adherence ?? 0))
 
-  // Tendencia de peso del grupo (60 días)
   const byDate: Record<string, { sum: number; count: number }> = {}
-  for (const r of (weightTrendRows ?? []) as { date: string; weight_kg: number }[]) {
+  for (const r of weightTrendRows as { date: string; weight_kg: number }[]) {
     if (r.weight_kg == null) continue
     const slot = byDate[r.date] ??= { sum: 0, count: 0 }
     slot.sum += r.weight_kg
@@ -1120,7 +1124,7 @@ export async function loadPracticeKPIs(
     avg_adherence: adherenceList.length
       ? Math.round(adherenceList.reduce((a, b) => a + b, 0) / adherenceList.length)
       : null,
-    appointments_next_7d: (apptRows ?? []).length,
+    appointments_next_7d: apptRows.length,
     patients_needing_attention: needAttention.slice(0, 10),
     weight_trend: weightTrend,
   }

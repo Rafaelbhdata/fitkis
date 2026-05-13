@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSupabase } from '@/lib/hooks'
 import { fmtShortDate, fmtShortDateTime } from '@/lib/clinic/calendar-utils'
+import { chipStyle } from '@/components/clinic/ui/Chip'
 import {
   loadConsultationNotes,
   loadAppointmentNotesForPatient,
@@ -35,10 +36,6 @@ function getTagMeta(k: ConsultationNoteTag) {
   return TAG_OPTIONS.find((o) => o.k === k) ?? TAG_OPTIONS[4]
 }
 
-/**
- * Estado de edición unificado. Solo una nota puede estar en edición a la vez,
- * sea nota manual nueva, nota manual existente o nota de cita.
- */
 type Editing =
   | { mode: 'new' }
   | { mode: 'manual'; id: string }
@@ -181,19 +178,18 @@ export function ConsultationNotesCard({
       </div>
 
       {editing?.mode === 'new' && (
-        <NoteEditor
-          body={editorBody}
-          onBodyChange={setEditorBody}
-          tag={editorTag}
-          onTagChange={setEditorTag}
-          showTags
-          saving={saving}
-          onSave={handleSave}
-          onCancel={closeEditor}
-          placeholder="Apunta lo relevante de la consulta — ajustes al plan, próximos pasos, alertas…"
-          saveLabel="Guardar nota"
-          wrapped
-        />
+        <div style={{ marginBottom: 18, padding: 14, background: 'var(--paper)', borderRadius: 10, border: '1px solid var(--ink-7)' }}>
+          <NoteEditor
+            body={editorBody}
+            onBodyChange={setEditorBody}
+            tags={{ selected: editorTag, onChange: setEditorTag }}
+            saving={saving}
+            onSave={handleSave}
+            onCancel={closeEditor}
+            placeholder="Apunta lo relevante de la consulta — ajustes al plan, próximos pasos, alertas…"
+            saveLabel="Guardar nota"
+          />
+        </div>
       )}
 
       {error && (
@@ -227,22 +223,21 @@ export function ConsultationNotesCard({
                       Cita · {fmtShortDateTime(a.starts_at)}
                     </span>
                   )}
-                  body={a.body}
                   onEdit={() => openEditAppt(a)}
                   onDelete={() => handleDeleteAppt(a.appointment_id)}
-                  editor={isEditing && (
+                >
+                  {isEditing ? (
                     <NoteEditor
                       body={editorBody}
                       onBodyChange={setEditorBody}
-                      tag={null}
-                      onTagChange={() => {}}
-                      showTags={false}
                       saving={saving}
                       onSave={handleSave}
                       onCancel={closeEditor}
                     />
+                  ) : (
+                    <NoteBody body={a.body} />
                   )}
-                />
+                </NoteCard>
               )
             }
             const n = entry.data
@@ -259,22 +254,22 @@ export function ConsultationNotesCard({
                     {headerLabel} · {fmtShortDate(n.note_date)}
                   </span>
                 )}
-                body={n.body}
                 onEdit={() => openEditManual(n)}
                 onDelete={() => handleDeleteManual(n.id)}
-                editor={isEditing && (
+              >
+                {isEditing ? (
                   <NoteEditor
                     body={editorBody}
                     onBodyChange={setEditorBody}
-                    tag={editorTag}
-                    onTagChange={setEditorTag}
-                    showTags
+                    tags={{ selected: editorTag, onChange: setEditorTag }}
                     saving={saving}
                     onSave={handleSave}
                     onCancel={closeEditor}
                   />
+                ) : (
+                  <NoteBody body={n.body} />
                 )}
-              />
+              </NoteCard>
             )
           })}
         </div>
@@ -283,24 +278,15 @@ export function ConsultationNotesCard({
   )
 }
 
-function chipStyle(c: string, bg: string): React.CSSProperties {
-  return {
-    padding: '3px 10px', borderRadius: 999, background: bg, color: c,
-    fontSize: 10, fontFamily: 'var(--f-sans)', fontWeight: 500,
-    textTransform: 'uppercase', letterSpacing: '0.05em',
-  }
-}
-
 function NoteCard({
-  borderColor, isEditing, header, body, onEdit, onDelete, editor,
+  borderColor, isEditing, header, onEdit, onDelete, children,
 }: {
   borderColor: string
-  isEditing: boolean
-  header: React.ReactNode
-  body: string
-  onEdit: () => void
-  onDelete: () => void
-  editor: React.ReactNode
+  isEditing:   boolean
+  header:      React.ReactNode
+  onEdit:      () => void
+  onDelete:    () => void
+  children:    React.ReactNode
 }) {
   return (
     <div
@@ -330,38 +316,34 @@ function NoteCard({
           </div>
         )}
       </div>
-      {isEditing ? editor : (
-        <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
-          {body}
-        </p>
-      )}
+      {children}
     </div>
   )
 }
 
-/**
- * Editor de nota reutilizable. `wrapped` agrega el card de fondo + padding
- * (usado para el composer "nueva nota"); en modo edición inline el wrapper
- * lo provee `NoteCard`.
- */
+function NoteBody({ body }: { body: string }) {
+  return (
+    <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
+      {body}
+    </p>
+  )
+}
+
 function NoteEditor({
-  body, onBodyChange, tag, onTagChange, showTags, saving, onSave, onCancel,
-  placeholder = '', saveLabel = 'Guardar', wrapped = false,
+  body, onBodyChange, tags, saving, onSave, onCancel,
+  placeholder = '', saveLabel = 'Guardar',
 }: {
-  body: string
+  body:         string
   onBodyChange: (v: string) => void
-  tag: ConsultationNoteTag | null
-  onTagChange: (t: ConsultationNoteTag | null) => void
-  showTags: boolean
-  saving: boolean
-  onSave: () => void
-  onCancel: () => void
+  tags?:        { selected: ConsultationNoteTag | null; onChange: (t: ConsultationNoteTag | null) => void }
+  saving:       boolean
+  onSave:       () => void
+  onCancel:     () => void
   placeholder?: string
-  saveLabel?: string
-  wrapped?: boolean
+  saveLabel?:   string
 }) {
   const canSave = body.trim().length > 0 && !saving
-  const content = (
+  return (
     <>
       <textarea
         value={body}
@@ -374,10 +356,8 @@ function NoteEditor({
           fontFamily: 'var(--f-sans)', fontSize: 14, lineHeight: 1.5, resize: 'vertical',
         }}
       />
-      {showTags && (
-        <TagChips selected={tag} onChange={onTagChange} />
-      )}
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: wrapped ? 12 : 10 }}>
+      {tags && <TagChips selected={tags.selected} onChange={tags.onChange} />}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
         <button
           onClick={onCancel}
           style={{ padding: '6px 14px', borderRadius: 999, border: 'none', background: 'transparent', fontSize: 12, color: 'var(--ink-4)', cursor: 'pointer' }}
@@ -398,12 +378,6 @@ function NoteEditor({
         </button>
       </div>
     </>
-  )
-  if (!wrapped) return content
-  return (
-    <div style={{ marginBottom: 18, padding: 14, background: 'var(--paper)', borderRadius: 10, border: '1px solid var(--ink-7)' }}>
-      {content}
-    </div>
   )
 }
 

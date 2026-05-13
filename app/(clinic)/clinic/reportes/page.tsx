@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from '@/components/clinic/Ic'
 import { BigSpark } from '@/components/clinic/BigSpark'
+import { chipStyle } from '@/components/clinic/ui/Chip'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
@@ -191,17 +192,7 @@ export default function ReportesPage() {
                       </div>
                     </div>
                     {alertMeta && (
-                      <span style={{
-                        padding: '4px 10px',
-                        borderRadius: 999,
-                        background: alertMeta.bg,
-                        color: alertMeta.color,
-                        fontSize: 10,
-                        fontFamily: 'var(--f-sans)',
-                        fontWeight: 500,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                      }}>
+                      <span style={chipStyle(alertMeta.color, alertMeta.bg)}>
                         {alertMeta.text}
                       </span>
                     )}
