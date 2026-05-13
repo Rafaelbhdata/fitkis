@@ -328,19 +328,18 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
             {/* Porcentaje en barra + número */}
             {kpis.total_linked > 0 && (() => {
               const pct = Math.round((kpis.active_patients / kpis.total_linked) * 100)
-              const color = pct === 100 ? 'var(--leaf)' : pct >= 70 ? 'var(--honey)' : 'var(--signal)'
               return (
                 <div style={{ marginTop: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                     <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
                       vinculados totales
                     </span>
-                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color }}>
+                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color: 'var(--sky)' }}>
                       {pct}%
                     </span>
                   </div>
                   <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
+                    <div style={{ width: `${pct}%`, height: '100%', background: 'var(--sky)', borderRadius: 999 }} />
                   </div>
                 </div>
               )
@@ -401,8 +400,8 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
               <span className="fk-serif" style={{
                 fontSize: 44, fontWeight: 300,
                 letterSpacing: '-0.02em', lineHeight: 1,
-                color: kpis.patients_without_upcoming_appt === 0 ? 'var(--ink)'
-                  : kpis.patients_without_upcoming_appt <= Math.ceil(kpis.active_patients / 2) ? 'var(--honey)'
+                color: kpis.patients_without_upcoming_appt === 0 ? 'var(--leaf)'
+                  : kpis.patients_without_upcoming_appt <= Math.ceil(kpis.active_patients / 2) ? 'var(--signal)'
                   : 'var(--berry)',
               }}>
                 {kpis.patients_without_upcoming_appt}
@@ -413,7 +412,7 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
             </div>
             {kpis.active_patients > 0 && (() => {
               const pct   = Math.round((kpis.patients_without_upcoming_appt / kpis.active_patients) * 100)
-              const color = pct === 0 ? 'var(--leaf)' : pct <= 50 ? 'var(--honey)' : 'var(--berry)'
+              const color = pct === 0 ? 'var(--leaf)' : pct <= 50 ? 'var(--signal)' : 'var(--berry)'
               return (
                 <div style={{ marginTop: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
