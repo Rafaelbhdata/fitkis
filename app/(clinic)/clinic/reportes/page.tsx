@@ -16,14 +16,14 @@ import {
   type Appointment,
 } from '@/lib/clinic/queries'
 import { getTodayInTimezone } from '@/lib/utils'
-import { fmtLongDate, fmtShortDateTime, MONTHS_CAP } from '@/lib/clinic/calendar-utils'
+import { fmtLongDate, MONTHS_CAP } from '@/lib/clinic/calendar-utils'
 
 // ─── Helpers de presentación ────────────────────────────────────────────────
 
 function apptStatusMeta(appt: Appointment): { label: string; color: string; bg: string } {
-  if (appt.status === 'cancelled')    return { label: 'Cancelada',       color: 'var(--ink-4)',  bg: 'var(--ink-8)' }
+  if (appt.status === 'cancelled')    return { label: 'Cancelada',       color: 'var(--ink-4)',  bg: 'var(--paper-3)' }
   if (appt.status === 'no_show')      return { label: 'No se presentó',  color: 'var(--honey)',  bg: 'var(--honey-soft)' }
-  if (appt.status === 'rescheduling') return { label: 'Reagendando',     color: 'var(--signal)', bg: '#fff3f0' }
+  if (appt.status === 'rescheduling') return { label: 'Reagendando',     color: 'var(--signal)', bg: 'var(--signal-soft)' }
   if (isCompletedAppointment(appt))   return { label: 'Completada',      color: 'var(--leaf)',   bg: 'var(--leaf-soft)' }
   return { label: 'Programada', color: 'var(--sky)', bg: 'var(--sky-soft)' }
 }
@@ -66,13 +66,13 @@ function KPITile({
     <div style={{
       background: '#fff',
       border: '1px solid var(--ink-7)',
-      borderRadius: 12,
-      padding: '20px 22px',
+      borderRadius: 14,
+      padding: '22px 24px',
     }}>
-      <div className="fk-eyebrow" style={{ color: 'var(--ink-4)' }}>{label}</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 10 }}>
+      <div className="fk-eyebrow">{label}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 10 }}>
         <span className="fk-serif" style={{
-          fontSize: 40,
+          fontSize: 44,
           fontWeight: 300,
           letterSpacing: '-0.02em',
           lineHeight: 1,
@@ -81,13 +81,13 @@ function KPITile({
           {value}
         </span>
         {unit && (
-          <span style={{ fontSize: 13, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+          <span style={{ fontSize: 14, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
             {unit}
           </span>
         )}
       </div>
       {sub && (
-        <div style={{ marginTop: 6, fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
           {sub}
         </div>
       )}
@@ -195,14 +195,14 @@ function PlatformCalculator({ activePatients }: { activePatients: number }) {
               placeholder="0.00"
               style={{
                 width: 120,
-                padding: '10px 14px',
+                padding: '11px 14px',
                 fontFamily: 'var(--f-mono)',
                 fontSize: 18,
                 fontWeight: 600,
                 color: 'var(--ink)',
-                background: 'var(--paper)',
-                border: '1.5px solid var(--ink-6)',
-                borderRadius: 8,
+                background: '#fff',
+                border: '1px solid var(--ink-7)',
+                borderRadius: 10,
                 outline: 'none',
               }}
             />
@@ -226,10 +226,10 @@ function PlatformCalculator({ activePatients }: { activePatients: number }) {
                 fontSize: 18,
                 fontWeight: 600,
                 fontFamily: 'var(--f-mono)',
-                padding: '10px 14px',
+                padding: '11px 14px',
                 background: 'var(--paper)',
-                border: '1.5px solid var(--ink-6)',
-                borderRadius: 8,
+                border: '1px solid var(--ink-7)',
+                borderRadius: 10,
                 color: 'var(--ink)',
               }}>
                 {activePatients}
@@ -240,7 +240,7 @@ function PlatformCalculator({ activePatients }: { activePatients: number }) {
               color: 'var(--ink-5)',
               fontFamily: 'var(--f-mono)',
               alignSelf: 'flex-end',
-              paddingBottom: 8,
+              paddingBottom: 10,
             }}>
               =
             </div>
@@ -250,10 +250,10 @@ function PlatformCalculator({ activePatients }: { activePatients: number }) {
                 fontSize: 18,
                 fontWeight: 700,
                 fontFamily: 'var(--f-mono)',
-                padding: '10px 14px',
-                background: total > 0 ? '#f0fdf4' : 'var(--paper)',
-                border: `1.5px solid ${total > 0 ? 'var(--leaf)' : 'var(--ink-6)'}`,
-                borderRadius: 8,
+                padding: '11px 14px',
+                background: total > 0 ? 'var(--leaf-soft)' : 'var(--paper)',
+                border: `1px solid ${total > 0 ? 'var(--leaf)' : 'var(--ink-7)'}`,
+                borderRadius: 10,
                 color: total > 0 ? 'var(--leaf)' : 'var(--ink)',
               }}>
                 ${total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -413,9 +413,9 @@ export default function DashboardPage() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: 14,
-                      padding: '12px 16px',
-                      border: '1px solid var(--ink-7)',
-                      borderRadius: 10,
+                      padding: '12px 14px',
+                      background: 'var(--paper)',
+                      borderRadius: 8,
                       borderLeft: `3px solid ${meta.color}`,
                     }}
                   >
