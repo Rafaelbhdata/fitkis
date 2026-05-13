@@ -901,6 +901,102 @@ export async function loadNextAppointmentForPatient(
 }
 
 // =============================================================================
+// PRACTICE REPORTS — KPIs globales de la práctica
+// =============================================================================
+
+export type PracticeKPIs = {
+  active_patients:        number
+  pending_invites:        number
+  avg_adherence:          number | null  // % promedio sobre los pacientes con datos
+  appointments_next_7d:   number
+  patients_needing_attention: Array<{
+    patient_id: string
+    name: string
+    alert: AlertKind
+    days_since_activity?: number
+    adherence: number | null
+  }>
+  weight_trend: Array<{ date: string; avg_weight: number }>  // últimos 60 días, promedio diario
+}
+
+/**
+ * KPIs agregados de la práctica del nutriólogo.
+ * Reusa loadPatientsForPractitioner para evitar duplicar lógica de enriquecimiento.
+ */
+export async function loadPracticeKPIs(
+  supabase: SB,
+  practitionerId: string,
+  thresholds: { inactivityDays: number; minAdherencePct: number },
+): Promise<PracticeKPIs> {
+  const patients = await loadPatientsForPractitioner(supabase, practitionerId, thresholds)
+  const activePatients = patients.filter(p => p.status === 'active')
+
+  const adherenceVals = activePatients
+    .map(p => p.adherence)
+    .filter((v): v is number => v != null)
+  const avgAdherence = adherenceVals.length
+    ? Math.round(adherenceVals.reduce((a, b) => a + b, 0) / adherenceVals.length)
+    : null
+
+  // Citas próximas 7 días (excluyendo canceladas/no_show)
+  const now = new Date()
+  const next7 = new Date(now); next7.setDate(next7.getDate() + 7)
+  const { data: apptRows } = await supabase
+    .from('appointments')
+    .select('id')
+    .eq('practitioner_id', practitionerId)
+    .gte('starts_at', now.toISOString())
+    .lt('starts_at', next7.toISOString())
+    .not('status', 'in', '("cancelled","no_show")')
+  const appointmentsNext7d = (apptRows ?? []).length
+
+  // Pacientes que requieren atención: alerta activa o adherencia bajo umbral
+  const needAttention = activePatients
+    .filter(p => p.alert != null || (p.adherence != null && p.adherence < thresholds.minAdherencePct))
+    .map(p => ({
+      patient_id: p._patient_id ?? '',
+      name: p.name,
+      alert: p.alert,
+      days_since_activity: p.days_since_activity,
+      adherence: p.adherence,
+    }))
+    .sort((a, b) => (a.adherence ?? 0) - (b.adherence ?? 0))
+    .slice(0, 10)
+
+  // Tendencia de peso del grupo (60 días) — promedio diario de todos los pacientes activos
+  const patientIds = activePatients.map(p => p._patient_id).filter((v): v is string => !!v)
+  let weightTrend: Array<{ date: string; avg_weight: number }> = []
+  if (patientIds.length > 0) {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 60)
+    const { data: weightRows } = await supabase
+      .from('weight_logs')
+      .select('date, weight_kg')
+      .in('user_id', patientIds)
+      .gte('date', cutoff.toISOString().split('T')[0])
+      .not('weight_kg', 'is', null)
+    const byDate: Record<string, { sum: number; count: number }> = {}
+    for (const r of (weightRows ?? []) as { date: string; weight_kg: number }[]) {
+      if (r.weight_kg == null) continue
+      const slot = byDate[r.date] ??= { sum: 0, count: 0 }
+      slot.sum += r.weight_kg
+      slot.count += 1
+    }
+    weightTrend = Object.entries(byDate)
+      .map(([date, v]) => ({ date, avg_weight: Number((v.sum / v.count).toFixed(1)) }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+  }
+
+  return {
+    active_patients: activePatients.length,
+    pending_invites: patients.filter(p => p.status === 'pending').length,
+    avg_adherence: avgAdherence,
+    appointments_next_7d: appointmentsNext7d,
+    patients_needing_attention: needAttention,
+    weight_trend: weightTrend,
+  }
+}
+
+// =============================================================================
 // CONSULTATION NOTES — apuntes del nutriólogo por paciente
 // =============================================================================
 
