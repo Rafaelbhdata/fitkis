@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { Appointment } from '@/lib/clinic/queries'
 import { DAYS_LONG, MONTHS_LONG } from '@/lib/clinic/calendar-utils'
-
-type Reason = 'no_show' | 'custom'
+import type { RescheduleReason as Reason } from '@/lib/clinic/appointment-meta'
 
 type Props = {
   appt: Appointment

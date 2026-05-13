@@ -13,6 +13,7 @@
 
 import type { PatientDetail, PractitionerRecord, ConsultationNote, AppointmentNote } from '@/lib/clinic/queries'
 import { fmtShortDate, fmtShortDateTime, MONTHS_LONG } from '@/lib/clinic/calendar-utils'
+import { slugify } from '@/lib/utils'
 
 type FeedItem =
   | { kind: 'manual'; date: string; body: string; tags: string[] }
@@ -179,7 +180,7 @@ export async function generatePatientReport(args: {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `reporte-${slug(patient.name)}-${today.toISOString().split('T')[0]}.pdf`
+  a.download = `reporte-${slugify(patient.name)}-${today.toISOString().split('T')[0]}.pdf`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -197,8 +198,3 @@ function formatTag(t: string): string {
   }
 }
 
-function slug(s: string): string {
-  return s.toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-}

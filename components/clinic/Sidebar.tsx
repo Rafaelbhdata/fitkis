@@ -13,6 +13,7 @@ import {
   type PractitionerRecord,
   type Appointment,
 } from '@/lib/clinic/queries'
+import { APPOINTMENT_STATUS_LABEL } from '@/lib/clinic/appointment-meta'
 
 type Item = {
   key: string
@@ -38,12 +39,10 @@ const STATUS_BORDER: Record<string, string> = {
   rescheduling: '#e65100',
 }
 
-const STATUS_LABEL: Record<string, string | undefined> = {
-  completed:    'completada',
-  rescheduling: 'reagendando',
-  no_show:      'no asistió',
-}
-
+// El sidebar solo muestra chip de status para estados "interesantes" (no para
+// scheduled/confirmed/cancelled que son default o no-actionables). Para el
+// resto, deriva del meta compartido.
+const SIDEBAR_STATUS_VISIBLE: Set<string> = new Set(['completed', 'rescheduling', 'no_show'])
 const STATUS_LABEL_COLOR: Record<string, string> = {
   completed:    'var(--leaf)',
   rescheduling: '#e65100',
@@ -59,7 +58,9 @@ function TodayApptCard({ appt }: { appt: Appointment }) {
   })
 
   const borderColor = STATUS_BORDER[appt.status] ?? 'var(--ink-6)'
-  const statusLabel = STATUS_LABEL[appt.status]
+  const statusLabel = SIDEBAR_STATUS_VISIBLE.has(appt.status)
+    ? APPOINTMENT_STATUS_LABEL[appt.status].toLowerCase()
+    : undefined
   const statusColor = STATUS_LABEL_COLOR[appt.status]
   const dimmed      = appt.status === 'cancelled'
 

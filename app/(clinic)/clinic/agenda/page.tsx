@@ -20,6 +20,7 @@ import {
   type AppointmentStatus,
 } from '@/lib/clinic/queries'
 import { MONTHS_SHORT, todayISO, scheduleHourRange } from '@/lib/clinic/calendar-utils'
+import type { RescheduleReason } from '@/lib/clinic/appointment-meta'
 
 const DAYS_ES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -162,7 +163,7 @@ export default function AgendaPage() {
     return { error }
   }
 
-  async function handleRescheduleConfirm(reason: 'no_show' | 'custom', customMessage?: string) {
+  async function handleRescheduleConfirm(reason: RescheduleReason, customMessage?: string) {
     if (!detailAppt || !practitioner) return
     const newStatus = reason === 'no_show' ? 'no_show' : 'rescheduling'
     setAppointments(prev => prev.map(a => a.id === detailAppt.id ? { ...a, status: newStatus } : a))

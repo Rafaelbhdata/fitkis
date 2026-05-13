@@ -5,24 +5,7 @@ import Link from 'next/link'
 import type { Appointment, AppointmentStatus } from '@/lib/clinic/queries'
 import { CancelAppointmentModal } from '@/components/clinic/CancelAppointmentModal'
 import { fmtLongDate } from '@/lib/clinic/calendar-utils'
-
-const STATUS_LABEL: Record<AppointmentStatus, string> = {
-  scheduled:    'Agendada',
-  confirmed:    'Confirmada',
-  completed:    'Completada',
-  cancelled:    'Cancelada',
-  no_show:      'No asistió',
-  rescheduling: 'Reagendando',
-}
-
-const STATUS_COLOR: Record<AppointmentStatus, string> = {
-  scheduled:    'rgba(74,124,58,1)',
-  confirmed:    'rgba(74,124,58,1)',
-  completed:    'var(--leaf)',
-  cancelled:    'rgba(180,30,30,0.85)',
-  no_show:      '#8a6411',
-  rescheduling: '#e65100',
-}
+import { APPOINTMENT_STATUS_LABEL, APPOINTMENT_STATUS_COLOR, type RescheduleReason } from '@/lib/clinic/appointment-meta'
 
 function formatDateTime(iso: string, duration: number) {
   const d   = new Date(iso)
@@ -31,8 +14,6 @@ function formatDateTime(iso: string, duration: number) {
   const timeTo   = end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
   return { date: fmtLongDate(d), range: `${timeFrom} – ${timeTo}` }
 }
-
-type RescheduleReason = 'no_show' | 'custom'
 
 type Props = {
   appt: Appointment
@@ -110,8 +91,8 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
         {/* Header */}
         <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid var(--ink-7)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: STATUS_COLOR[appt.status], letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
-              {STATUS_LABEL[appt.status]}
+            <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: APPOINTMENT_STATUS_COLOR[appt.status], letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
+              {APPOINTMENT_STATUS_LABEL[appt.status]}
             </div>
             {appt.patient_id ? (
               <Link href={`/clinic/pacientes/${appt.patient_id}`} style={{ fontFamily: 'var(--f-serif)', fontSize: 20, fontWeight: 300, color: 'var(--ink)', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

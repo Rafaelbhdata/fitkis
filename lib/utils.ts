@@ -90,6 +90,13 @@ export function formatDateISO(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+/** Convierte un string a slug seguro para filenames: "Juan Pérez" → "juan-perez". */
+export function slugify(s: string): string {
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
 // Returns today's date (YYYY-MM-DD) in a specific IANA timezone.
 // Why: server routes (Vercel) run in UTC, so `new Date()` + local getters
 // would still return UTC. Use this in API routes to pin to the user's zone.
