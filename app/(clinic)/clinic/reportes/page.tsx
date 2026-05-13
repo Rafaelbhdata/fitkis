@@ -311,32 +311,57 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
         {/* Pacientes activos */}
         <Card style={{ padding: '22px 24px' }}>
           <div className="fk-eyebrow">Pacientes activos</div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-            <div>
+          <div style={{ marginTop: 10 }}>
+            {/* Número + fracción */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span className="fk-serif" style={{
                 fontSize: 44, fontWeight: 300,
                 letterSpacing: '-0.02em', lineHeight: 1,
               }}>
                 {kpis.active_patients}
               </span>
-              <div style={{ fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', marginTop: 8 }}>
-                {kpis.pending_invites > 0
-                  ? `+${kpis.pending_invites} inv. pendiente${kpis.pending_invites !== 1 ? 's' : ''}`
-                  : 'todos vinculados'}
-              </div>
+              <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', fontWeight: 400 }}>
+                / {kpis.total_linked}
+              </span>
             </div>
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              <RingChart
-                value={kpis.active_patients}
-                max={kpis.active_patients + kpis.pending_invites || 1}
-                size={52} strokeW={5} color="var(--leaf)"
-              />
-              <div style={{
-                position: 'absolute', inset: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <span style={{ fontSize: 9, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)' }}>activ.</span>
-              </div>
+
+            {/* Porcentaje en barra + número */}
+            {kpis.total_linked > 0 && (() => {
+              const pct = Math.round((kpis.active_patients / kpis.total_linked) * 100)
+              const color = pct === 100 ? 'var(--leaf)' : pct >= 70 ? 'var(--honey)' : 'var(--signal)'
+              return (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                      vinculados totales
+                    </span>
+                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color }}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Definición de activo / inactivo */}
+            <div style={{
+              marginTop: 12,
+              padding: '8px 10px',
+              background: 'var(--paper)',
+              borderRadius: 8,
+              fontSize: 10,
+              fontFamily: 'var(--f-mono)',
+              color: 'var(--ink-4)',
+              lineHeight: 1.55,
+            }}>
+              <span style={{ color: 'var(--leaf)', fontWeight: 600 }}>Activo</span> — aceptó la invitación
+              {'  ·  '}
+              <span style={{ color: 'var(--honey)', fontWeight: 600 }}>Pendiente</span> — aún no acepta
+              {'  ·  '}
+              <span style={{ color: 'var(--ink-5)', fontWeight: 600 }}>Inactivo</span> — archivado
             </div>
           </div>
         </Card>

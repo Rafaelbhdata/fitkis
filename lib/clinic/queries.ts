@@ -1029,6 +1029,7 @@ export async function deleteLibraryTemplate(
 
 export type PracticeKPIs = {
   active_patients:         number
+  total_linked:            number   // activos + pendientes + inactivos
   pending_invites:         number
   new_patients_month:      number
   avg_adherence:           number | null
@@ -1127,6 +1128,7 @@ export async function loadPracticeKPIs(
   if (activeIds.length === 0) {
     return {
       active_patients:        0,
+      total_linked:           relations.length,
       pending_invites:        relations.filter(r => r.status === 'pending').length,
       new_patients_month:     newPatientsRes.count ?? 0,
       avg_adherence:          null,
@@ -1207,6 +1209,7 @@ export async function loadPracticeKPIs(
 
   return {
     active_patients:        activeRels.length,
+    total_linked:           relations.length,
     pending_invites:        relations.filter(r => r.status === 'pending').length,
     new_patients_month:     newPatientsRes.count ?? 0,
     avg_adherence:          adherenceList.length
