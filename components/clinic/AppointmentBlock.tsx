@@ -28,7 +28,7 @@ export function AppointmentBlock({ appt, top, height, col = 0, totalCols = 1, on
   const cancelled = appt.status === 'cancelled'
 
   const timeStr = new Date(appt.starts_at).toLocaleTimeString('es-MX', {
-    hour: '2-digit', minute: '2-digit', hour12: false,
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City',
   })
 
   return (

@@ -17,6 +17,7 @@ import {
 } from '@/lib/clinic/queries'
 import type { MockPatient } from '@/lib/clinic/mock-data'
 import { InviteModal } from '@/components/clinic/InviteModal'
+import { getTodayInTimezone } from '@/lib/utils'
 
 const AVATAR_PALETTE: Array<{ bg: string; fg: string }> = [
   { bg: 'var(--leaf-soft)', fg: 'var(--leaf)' },
@@ -541,20 +542,12 @@ function EmptyState({ onInvite }: { onInvite: () => void }) {
 }
 
 function formatToday(): string {
-  const now = new Date()
+  // "DD mes YYYY" en CDMX.
+  const todayISO_CDMX = getTodayInTimezone()
+  const [y, m, d] = todayISO_CDMX.split('-').map(Number)
   const months = [
-    'enero',
-    'febrero',
-    'marzo',
-    'abril',
-    'mayo',
-    'junio',
-    'julio',
-    'agosto',
-    'septiembre',
-    'octubre',
-    'noviembre',
-    'diciembre',
+    'enero','febrero','marzo','abril','mayo','junio',
+    'julio','agosto','septiembre','octubre','noviembre','diciembre',
   ]
-  return `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`
+  return `${d} ${months[m - 1]} ${y}`
 }

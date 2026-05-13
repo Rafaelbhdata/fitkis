@@ -24,6 +24,7 @@ import {
   type GymSessionEntry,
   type Appointment,
 } from '@/lib/clinic/queries'
+import { getTodayInTimezone, getNowPartsInTimezone, shiftDateISO } from '@/lib/utils'
 
 type Tab = 'resumen' | 'antropo' | 'alim' | 'gym' | 'plan' | 'msg'
 
@@ -469,17 +470,21 @@ const MEAL_LABEL: Record<string, string> = {
 const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 function getMonday(offsetWeeks = 0): Date {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const day = today.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  const monday = new Date(today)
-  monday.setDate(today.getDate() + diff + offsetWeeks * 7)
-  return monday
+  // Lunes de la semana actual en CDMX, devuelto como Date anclado a mediodía UTC
+  // para que los siguientes `.setDate(... + i)` y `getDate()` se mantengan consistentes.
+  const { dayOfWeek, date: todayISO } = getNowPartsInTimezone()
+  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+  const mondayISO = shiftDateISO(todayISO, diff + offsetWeeks * 7)
+  const [y, m, d] = mondayISO.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d, 12))
 }
 
 function toISO(d: Date): string {
-  return d.toISOString().split('T')[0]
+  // Date anclado a mediodía UTC: en CDMX (-6) sigue siendo el mismo día.
+  const y = d.getUTCFullYear()
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(d.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function fmtDuration(s: number): string {
@@ -723,7 +728,7 @@ function TabAlimentacion({
           {DAY_LABELS.map((d, i) => (
             <div key={d} style={{ textAlign: 'center' }}>
               <div className="fk-eyebrow" style={{ marginBottom: 3 }}>{d}</div>
-              <div className="fk-mono" style={{ fontSize: 11, color: toISO(weekDates[i]) === toISO(new Date()) ? 'var(--signal)' : 'var(--ink-5)' }}>
+              <div className="fk-mono" style={{ fontSize: 11, color: toISO(weekDates[i]) === getTodayInTimezone() ? 'var(--signal)' : 'var(--ink-5)' }}>
                 {weekDates[i].getDate()}
               </div>
             </div>
@@ -1416,31 +1421,27 @@ function formatAppointmentDate(isoString: string): string {
   const d = new Date(isoString)
   const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
   const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]}`
+  const TZ = 'America/Mexico_City'
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, weekday: 'short', month: '2-digit', day: '2-digit',
+  }).formatToParts(d)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  const dayMap: Record<string, number> = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }
+  return `${days[dayMap[get('weekday')] ?? 0]} ${Number(get('day'))} ${months[Number(get('month')) - 1]}`
 }
 
 function formatAppointmentTime(isoString: string): string {
-  const d = new Date(isoString)
-  const h = d.getHours().toString().padStart(2, '0')
-  const m = d.getMinutes().toString().padStart(2, '0')
-  return `${h}:${m}`
+  return new Date(isoString).toLocaleTimeString('es-MX', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City',
+  })
 }
 
 function formatDateShort(isoDate: string): string {
-  const d = new Date(isoDate + 'T00:00:00')
+  // isoDate es YYYY-MM-DD: parseo manual sin TZ ambigua.
+  const [, m, d] = isoDate.split('-').map(Number)
   const months = [
-    'ene',
-    'feb',
-    'mar',
-    'abr',
-    'may',
-    'jun',
-    'jul',
-    'ago',
-    'sep',
-    'oct',
-    'nov',
-    'dic',
+    'ene','feb','mar','abr','may','jun',
+    'jul','ago','sep','oct','nov','dic',
   ]
-  return `${d.getDate()} ${months[d.getMonth()]}`
+  return `${d} ${months[m - 1]}`
 }

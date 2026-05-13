@@ -116,6 +116,11 @@ Recientes (Fase 3):
 
 **Modales:** `components/clinic/ui/Modal.tsx` expone `ModalShell/Close/Btn` con 5 variants (`secondary | signal | danger-soft | danger-solid | warning`).
 
+**Zona horaria CDMX (forzada):** todo cálculo y formato de fecha/hora del portal se pinea a `America/Mexico_City` (UTC-6) vía helpers centralizados en `lib/utils.ts`:
+- `APP_TZ`, `getTodayInTimezone()`, `formatDateISOInTimezone()`, `shiftDateISO()`
+- `getNowPartsInTimezone()` (hour/minute/dayOfWeek), `getHourMinuteInTimezone()`, `getDayOfWeekInTimezone()`, `fmtTimeCDMX()`
+Crítico porque Vercel corre en UTC: `new Date().getHours()` o `.toISOString().split('T')[0]` server-side daban "mañana" después de las 18:00 CDMX. Filtros Supabase contra `timestamptz` usan offset explícito `-06:00`.
+
 ---
 
 ## Issues conocidos (no rompen build)

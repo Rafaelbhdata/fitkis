@@ -16,6 +16,7 @@ import {
   type PatientDetail,
   type PractitionerRecord,
 } from '@/lib/clinic/queries'
+import { getTodayInTimezone, getNowPartsInTimezone, shiftDateISO } from '@/lib/utils'
 
 type GroupKey = 'verdura' | 'fruta' | 'carb' | 'proteina' | 'grasa' | 'leguminosa'
 type MealKey = 'desayuno' | 'snack1' | 'comida' | 'snack2' | 'cena' | 'snack3'
@@ -141,51 +142,32 @@ function mealsFromSnapshot(snap: ActiveDietSnapshot | undefined): Record<MealKey
 }
 
 function todayIso(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  return getTodayInTimezone()
 }
 
 function nextMondayIso(): string {
-  const d = new Date()
-  const day = d.getDay() // 0=Sun..6=Sat
-  const offset = day === 0 ? 1 : 8 - day
-  d.setDate(d.getDate() + offset)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${dd}`
+  // Próximo lunes en CDMX. Si hoy es domingo → mañana; si no → 8 - dayOfWeek.
+  const { dayOfWeek, date: today } = getNowPartsInTimezone()
+  const offset = dayOfWeek === 0 ? 1 : 8 - dayOfWeek
+  return shiftDateISO(today, offset)
 }
 
 function tomorrowIso(): string {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${dd}`
+  return shiftDateISO(getTodayInTimezone(), 1)
 }
 
 function formatEffectiveDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00')
+  // `iso` es YYYY-MM-DD: parseo manual sin TZ ambigua.
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d, 12))
   const days = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
   const months = [
-    'enero',
-    'febrero',
-    'marzo',
-    'abril',
-    'mayo',
-    'junio',
-    'julio',
-    'agosto',
-    'septiembre',
-    'octubre',
-    'noviembre',
-    'diciembre',
+    'enero','febrero','marzo','abril','mayo','junio',
+    'julio','agosto','septiembre','octubre','noviembre','diciembre',
   ]
-  return `${days[d.getDay()]} ${d.getDate()} de ${months[d.getMonth()]}, ${d.getFullYear()}`
+  const w = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', weekday: 'short' }).format(dt)
+  const dow = ({ Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 } as Record<string, number>)[w] ?? 0
+  return `${days[dow]} ${d} de ${months[m - 1]}, ${y}`
 }
 
 export default function PlanEditorPage({ params }: { params: { id: string } }) {

@@ -4,6 +4,7 @@ import {
   DEFAULT_WEEK_SCHEDULE, dateToDayKey, minToTime, generateSlots,
 } from '@/lib/clinic/calendar-utils'
 import type { WeekSchedule } from '@/lib/clinic/calendar-utils'
+import { formatDateISOInTimezone, getHourMinuteInTimezone } from '@/lib/utils'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,9 +48,9 @@ export async function POST(req: Request) {
   const duration_minutes: number = (prac.default_duration as number) ?? 60
   const weekSchedule: WeekSchedule = (prac.schedule as WeekSchedule) ?? DEFAULT_WEEK_SCHEDULE
 
-  // Validar que el slot cae dentro del horario del día
+  // Validar que el slot cae dentro del horario del día (todo en CDMX).
   const startDt  = new Date(starts_at)
-  const dateISO  = startDt.toISOString().split('T')[0]
+  const dateISO  = formatDateISOInTimezone(startDt)
   const dayKey   = dateToDayKey(startDt)
   const daySchedule = weekSchedule[dayKey]
 
@@ -57,8 +58,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'El nutriólogo no atiende ese día.' }, { status: 400 })
   }
 
+  const { hour, minute } = getHourMinuteInTimezone(startDt)
   const validSlots = generateSlots(dateISO, duration_minutes, daySchedule)
-  const slotLocal  = `${dateISO}T${minToTime(startDt.getHours() * 60 + startDt.getMinutes())}:00`
+  const slotLocal  = `${dateISO}T${minToTime(hour * 60 + minute)}:00`
   const isValidSlot = validSlots.includes(slotLocal)
 
   if (!isValidSlot) {

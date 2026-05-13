@@ -7,7 +7,7 @@ import {
   ROUTINES,
   ROUTINE_SCHEDULE,
 } from '@/lib/constants'
-import { getTodayInTimezone } from '@/lib/utils'
+import { getTodayInTimezone, getNowPartsInTimezone } from '@/lib/utils'
 import type { FoodGroup, MealType } from '@/types'
 import { getAuthedUser } from '@/lib/api-auth'
 
@@ -577,7 +577,7 @@ async function executeTool(
     }
 
     case 'get_today_routine': {
-      const dayOfWeek = new Date().getDay()
+      const { dayOfWeek } = getNowPartsInTimezone()
       const routineType = ROUTINE_SCHEDULE[dayOfWeek]
       if (routineType === 'rest') {
         return JSON.stringify({ type: 'rest', message: 'Hoy es día de descanso' })

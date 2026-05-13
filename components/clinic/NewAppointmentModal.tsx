@@ -8,6 +8,7 @@ import {
   MONTHS_CAP, WEEK_LABELS, DURATIONS,
   todayISO, isoDate, firstDayOfMonth, daysInMonth,
   fmtTime, generateSlots, dateToDayKey,
+  fmtShortDate, fmtLongDate,
   type WeekSchedule,
 } from '@/lib/clinic/calendar-utils'
 
@@ -225,7 +226,7 @@ export function NewAppointmentModal({ practitionerId, defaultDuration, schedule,
               <div style={{background:'var(--signal-soft)',borderRadius:10,padding:'10px 14px'}}>
                 <div style={{fontFamily:'var(--f-mono)',fontSize:13,color:'var(--signal)',fontWeight:600}}>{fmtTime(slot)}</div>
                 <div style={{fontFamily:'var(--f-sans)',fontSize:12,color:'var(--ink-3)',marginTop:2}}>
-                  {new Date(date+'T00:00:00').toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'})} · {duration} min
+                  {fmtShortDate(date)} · {duration} min
                 </div>
               </div>
             )}
@@ -271,7 +272,7 @@ export function NewAppointmentModal({ practitionerId, defaultDuration, schedule,
               {date && (
                 <div style={{flex:1,borderLeft:'1px solid var(--ink-7)',paddingLeft:16,display:'flex',flexDirection:'column',minHeight:0}}>
                   <label style={{...lbl,marginBottom:10,display:'block',flexShrink:0}}>
-                    {new Date(date+'T00:00:00').toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})}
+                    {fmtLongDate(date)}
                   </label>
                   <div style={{display:'flex',flexDirection:'column',gap:6,flex:1,overflowY:'auto',minHeight:0}}>
                     {slots.map(s=>{

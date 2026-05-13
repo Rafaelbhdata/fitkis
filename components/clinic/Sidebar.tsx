@@ -14,6 +14,7 @@ import {
   type Appointment,
 } from '@/lib/clinic/queries'
 import { APPOINTMENT_STATUS_LABEL } from '@/lib/clinic/appointment-meta'
+import { getTodayInTimezone } from '@/lib/utils'
 
 type Item = {
   key: string
@@ -54,7 +55,7 @@ function TodayApptCard({ appt }: { appt: Appointment }) {
   const router = useRouter()
 
   const timeStr = new Date(appt.starts_at).toLocaleTimeString('es-MX', {
-    hour: '2-digit', minute: '2-digit', hour12: false,
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City',
   })
 
   const borderColor = STATUS_BORDER[appt.status] ?? 'var(--ink-6)'
@@ -390,7 +391,7 @@ export function ClinicSidebar() {
     loadPractitionerByUser(supabase, user.id).then((p) => {
       setPractitioner(p)
       if (!p) return
-      const today = new Date().toISOString().slice(0, 10)
+      const today = getTodayInTimezone()
       loadAppointmentsForDay(supabase, p.id, today).then(setTodayAppts)
     })
   }, [user, supabase])

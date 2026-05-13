@@ -7,6 +7,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Zona horaria canónica del proyecto. Toda fecha/hora visible al usuario
+// se pinea a CDMX, independientemente de la TZ del navegador o de Vercel (UTC).
+export const APP_TZ = 'America/Mexico_City'
+
 // Parse a date input as a LOCAL date.
 // Why: `new Date("2026-04-22")` is parsed as UTC midnight, which in CDMX (UTC-6)
 // renders as April 21 — shifting headings by one day. Detect plain YYYY-MM-DD
@@ -19,26 +23,30 @@ export function parseLocalDate(date: Date | string): Date {
 }
 
 export function formatDate(date: Date | string): string {
+  const isDateOnly = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
   return parseLocalDate(date).toLocaleDateString('es-MX', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
+    ...(isDateOnly ? {} : { timeZone: APP_TZ }),
   })
 }
 
 export function formatShortDate(date: Date | string): string {
+  const isDateOnly = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
   return parseLocalDate(date).toLocaleDateString('es-MX', {
     day: 'numeric',
     month: 'short',
+    ...(isDateOnly ? {} : { timeZone: APP_TZ }),
   })
 }
 
 export function getToday(): string {
-  return formatDateISO(new Date())
+  return getTodayInTimezone()
 }
 
 export function getDayOfWeek(): number {
-  return new Date().getDay()
+  return getNowPartsInTimezone().dayOfWeek
 }
 
 export function getRoutineForDay(dayOfWeek: number): RoutineType | null {
@@ -100,8 +108,70 @@ export function slugify(s: string): string {
 // Returns today's date (YYYY-MM-DD) in a specific IANA timezone.
 // Why: server routes (Vercel) run in UTC, so `new Date()` + local getters
 // would still return UTC. Use this in API routes to pin to the user's zone.
-export function getTodayInTimezone(timezone = 'America/Mexico_City'): string {
+export function getTodayInTimezone(timezone = APP_TZ): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
+}
+
+// YYYY-MM-DD para cualquier Date, fijado a una TZ específica (CDMX por defecto).
+export function formatDateISOInTimezone(date: Date, timezone = APP_TZ): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(date)
+}
+
+// Aritmética de días sobre un YYYY-MM-DD sin riesgo de drift por TZ.
+// Útil para calcular cutoffs ("hace 30 días en CDMX") y comparar contra columnas DATE.
+export function shiftDateISO(isoDate: string, days: number): string {
+  const [y, m, d] = isoDate.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + days)
+  const yy = dt.getUTCFullYear()
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(dt.getUTCDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
+// Hora, minuto y día de la semana de "ahora" en una TZ específica.
+// Usar en API routes (Vercel = UTC) en lugar de `new Date().getHours()/getDay()`.
+export function getNowPartsInTimezone(timezone = APP_TZ): {
+  hour: number; minute: number; dayOfWeek: number; date: string
+} {
+  const now = new Date()
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, hour12: false, weekday: 'short',
+    hour: '2-digit', minute: '2-digit',
+  }).formatToParts(now)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  const hour = parseInt(get('hour'), 10) % 24
+  const minute = parseInt(get('minute'), 10)
+  const dayMap: Record<string, number> = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }
+  const dayOfWeek = dayMap[get('weekday')] ?? 0
+  return { hour, minute, dayOfWeek, date: formatDateISOInTimezone(now, timezone) }
+}
+
+// Hora y minuto de un timestamp ISO en una TZ específica.
+// Usar para posicionar bloques de cita o extraer la hora local del slot.
+export function getHourMinuteInTimezone(input: Date | string, timezone = APP_TZ): {
+  hour: number; minute: number
+} {
+  const d = typeof input === 'string' ? new Date(input) : input
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, hour12: false, hour: '2-digit', minute: '2-digit',
+  }).formatToParts(d)
+  const get = (t: string) => parseInt(parts.find(p => p.type === t)?.value ?? '0', 10)
+  return { hour: get('hour') % 24, minute: get('minute') }
+}
+
+// Día de la semana (0=Dom, 6=Sáb) de cualquier Date en una TZ específica.
+export function getDayOfWeekInTimezone(date: Date, timezone = APP_TZ): number {
+  const w = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(date)
+  return ({ Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 } as Record<string, number>)[w] ?? 0
+}
+
+// Formato HH:mm en CDMX para un timestamptz/ISO.
+export function fmtTimeCDMX(input: Date | string, timezone = APP_TZ): string {
+  const d = typeof input === 'string' ? new Date(input) : input
+  return d.toLocaleTimeString('es-MX', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone,
+  })
 }
 
 // Expand a food log into one or more entries based on special-case dual-group foods.

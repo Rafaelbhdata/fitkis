@@ -20,6 +20,7 @@ import type { WeightLog } from '@/types'
 import type { AlertKind, MockPatient, PatientStatus } from './mock-data'
 import type { WeekSchedule } from './calendar-utils'
 import { DEFAULT_WEEK_SCHEDULE } from './calendar-utils'
+import { getTodayInTimezone, shiftDateISO } from '@/lib/utils'
 
 /**
  * Tipo permisivo. La Database está tipada pero las RPCs (`get_practitioner_patients`,
@@ -145,9 +146,7 @@ export async function loadPatientsForPractitioner(
 
   const patientIds = relations.map((r) => r.patient_id)
 
-  const cutoff30 = new Date()
-  cutoff30.setDate(cutoff30.getDate() - 30)
-  const cutoffISO = cutoff30.toISOString().split('T')[0]
+  const cutoffISO = shiftDateISO(getTodayInTimezone(), -30)
 
   // Bulk-fetch food/gym dates for last 30 days — 2 queries total regardless of list size
   const [{ data: foodRows }, { data: gymRows }] = await Promise.all([
@@ -243,7 +242,7 @@ async function enrichPatient(
   const displayName = rel.patient_name || rel.patient_email || `Paciente ${rel.patient_id.slice(0, 6)}`
 
   // Merge weight dates (last 30 days) with food/gym dates for adherence + streak
-  const cutoffISO = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0] })()
+  const cutoffISO = shiftDateISO(getTodayInTimezone(), -30)
   const allDates = new Set(activityDates)
   for (const w of weightHistory) {
     if (w.date >= cutoffISO) allDates.add(w.date)
@@ -345,10 +344,10 @@ export async function loadPatientDetail(
   // Pre-fetch 90 días de actividad y la última cita en paralelo; la ventana real
   // de adherencia se calcula al resolver lastAppt (puede ser 30d rolling).
   const MAX_WINDOW_DAYS = 90
+  // `today` se usa para aritmética epoch (getTime) y para comparaciones de fechas-CDMX vía shiftDateISO.
   const today = new Date()
-  const widestCutoff = new Date(today)
-  widestCutoff.setDate(widestCutoff.getDate() - MAX_WINDOW_DAYS)
-  const widestCutoffISO = widestCutoff.toISOString().split('T')[0]
+  const todayISO_CDMX = getTodayInTimezone()
+  const widestCutoffISO = shiftDateISO(todayISO_CDMX, -MAX_WINDOW_DAYS)
 
   const [{ data: profile }, { data: weights }, { data: diet }, { data: patientRow }, { data: foodDates }, { data: gymDates }, lastAppt] =
     await Promise.all([
@@ -405,8 +404,10 @@ export async function loadPatientDetail(
     windowStart = new Date(today)
     windowStart.setDate(windowStart.getDate() - 30)
   }
-  const cutoffISO = windowStart.toISOString().split('T')[0]
-  const windowDays = Math.max(1, Math.floor((today.getTime() - windowStart.getTime()) / 86_400_000))
+  // El cutoff es la fecha (CDMX) del windowStart, computada con shiftDateISO desde hoy-CDMX.
+  const daysFromToday = Math.floor((today.getTime() - windowStart.getTime()) / 86_400_000)
+  const cutoffISO = shiftDateISO(todayISO_CDMX, -daysFromToday)
+  const windowDays = Math.max(1, daysFromToday)
 
   const profileWithName = profile as { height_cm?: number; goal_weight_kg?: number; display_name?: string } | null
   const patient = patientRow as { patient_email: string | null; patient_name: string | null } | null
@@ -647,11 +648,9 @@ function isStagnant(weightHistory: WeightLog[]): boolean {
 
 function computeStreak(dates: Set<string>): number {
   let streak = 0
-  const today = new Date()
+  const today = getTodayInTimezone()
   for (let i = 0; i < 60; i++) {
-    const d = new Date(today)
-    d.setDate(d.getDate() - i)
-    if (dates.has(d.toISOString().split('T')[0])) streak++
+    if (dates.has(shiftDateISO(today, -i))) streak++
     else break
   }
   return streak
@@ -729,20 +728,20 @@ export type Appointment = {
   created_at: string
 }
 
-/** Citas de la semana que empieza en weekStart (ISO date string 'YYYY-MM-DD') */
+/** Citas de la semana que empieza en weekStart (ISO date string 'YYYY-MM-DD' en CDMX) */
 export async function loadAppointmentsForWeek(
   supabase: SB,
   practitionerId: string,
   weekStart: string,   // 'YYYY-MM-DD'
 ): Promise<Appointment[]> {
-  const end = new Date(weekStart + 'T00:00:00')
-  end.setDate(end.getDate() + 7)
+  // Comparar timestamptz contra date-only requiere fijar el offset CDMX (-06:00).
+  const endDateISO = shiftDateISO(weekStart, 7)
   const { data } = await supabase
     .from('appointments')
     .select('*')
     .eq('practitioner_id', practitionerId)
-    .gte('starts_at', weekStart + 'T00:00:00')
-    .lt('starts_at', end.toISOString())
+    .gte('starts_at', `${weekStart}T00:00:00-06:00`)
+    .lt('starts_at',  `${endDateISO}T00:00:00-06:00`)
     .order('starts_at', { ascending: true })
   return (data ?? []) as Appointment[]
 }
@@ -815,14 +814,13 @@ export async function loadAppointmentsForDay(
   practitionerId: string,
   date: string,   // 'YYYY-MM-DD' en la zona local
 ): Promise<Appointment[]> {
-  const next = new Date(date + 'T00:00:00')
-  next.setDate(next.getDate() + 1)
+  const nextISO = shiftDateISO(date, 1)
   const { data } = await supabase
     .from('appointments')
     .select('*')
     .eq('practitioner_id', practitionerId)
-    .gte('starts_at', date + 'T00:00:00')
-    .lt('starts_at', next.toISOString())
+    .gte('starts_at', `${date}T00:00:00-06:00`)
+    .lt('starts_at',  `${nextISO}T00:00:00-06:00`)
     .not('status', 'in', '("cancelled","no_show")')
     .order('starts_at', { ascending: true })
   return (data ?? []) as Appointment[]
@@ -1024,10 +1022,9 @@ export async function loadPracticeKPIs(
   thresholds: { inactivityDays: number; minAdherencePct: number },
 ): Promise<PracticeKPIs> {
   const now = new Date()
-  const cutoff30 = new Date(now); cutoff30.setDate(cutoff30.getDate() - 30)
-  const cutoff30ISO = cutoff30.toISOString().split('T')[0]
-  const cutoff60 = new Date(now); cutoff60.setDate(cutoff60.getDate() - 60)
-  const cutoff60ISO = cutoff60.toISOString().split('T')[0]
+  const todayCDMX = getTodayInTimezone()
+  const cutoff30ISO = shiftDateISO(todayCDMX, -30)
+  const cutoff60ISO = shiftDateISO(todayCDMX, -60)
   const next7 = new Date(now); next7.setDate(next7.getDate() + 7)
 
   // Independientes: relaciones (lista de pacientes) y appointments próximos
@@ -1227,7 +1224,7 @@ export async function createConsultationNote(
       body: payload.body.trim(),
       tags: payload.tags ?? [],
       appointment_id: payload.appointment_id ?? null,
-      note_date: payload.note_date ?? new Date().toISOString().split('T')[0],
+      note_date: payload.note_date ?? getTodayInTimezone(),
     } as never)
     .select()
     .single()
@@ -1396,9 +1393,7 @@ export async function loadPatientFoodLogs(
   patientId: string,
   days = 30
 ): Promise<FoodLogEntry[]> {
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - days)
-  const cutoffStr = cutoff.toISOString().split('T')[0]
+  const cutoffStr = shiftDateISO(getTodayInTimezone(), -days)
 
   const { data, error } = await supabase
     .from('food_logs')

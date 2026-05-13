@@ -11,8 +11,8 @@ import { ModalShell, ModalClose, ModalBtn } from '@/components/clinic/ui/Modal'
 function formatDateTime(iso: string, duration: number) {
   const d   = new Date(iso)
   const end = new Date(d.getTime() + duration * 60_000)
-  const timeFrom = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
-  const timeTo   = end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const timeFrom = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City' })
+  const timeTo   = end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City' })
   return { date: fmtLongDate(d), range: `${timeFrom} – ${timeTo}` }
 }
 

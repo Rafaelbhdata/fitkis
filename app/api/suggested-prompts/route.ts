@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAuthedUser } from '@/lib/api-auth'
 import { ROUTINE_SCHEDULE, DAILY_BUDGET } from '@/lib/constants'
-import { getTodayInTimezone } from '@/lib/utils'
+import { getNowPartsInTimezone } from '@/lib/utils'
 import type { FoodGroup } from '@/types'
 
 interface SuggestedPrompt {
@@ -17,8 +17,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const today = getTodayInTimezone()
-    const hour = new Date().getHours()
+    const { hour, dayOfWeek, date: today } = getNowPartsInTimezone()
 
     // Get today's food logs
     const { data: foodLogs } = await supabase
@@ -77,8 +76,7 @@ export async function GET(request: Request) {
       grasa: budget.grasa - progress.grasa,
     }
 
-    // Get today's routine
-    const dayOfWeek = new Date().getDay()
+    // Get today's routine (dayOfWeek ya está en CDMX por getNowPartsInTimezone)
     const routineType = ROUTINE_SCHEDULE[dayOfWeek]
     const isGymDay = routineType !== 'rest'
 

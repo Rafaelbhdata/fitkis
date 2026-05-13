@@ -12,8 +12,18 @@ type Props = {
 
 function formatDateTime(iso: string) {
   const d = new Date(iso)
-  const time = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
-  return `${DAYS_LONG[d.getDay()]} ${d.getDate()} de ${MONTHS_LONG[d.getMonth()]}, ${time}`
+  const TZ = 'America/Mexico_City'
+  const time = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: TZ })
+  // Día y mes en CDMX (evita drift cuando server o navegador están en otra TZ).
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, weekday: 'short', month: '2-digit', day: '2-digit',
+  }).formatToParts(d)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  const dayMap: Record<string, number> = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }
+  const dow = dayMap[get('weekday')] ?? 0
+  const day = Number(get('day'))
+  const month = Number(get('month')) - 1
+  return `${DAYS_LONG[dow]} ${day} de ${MONTHS_LONG[month]}, ${time}`
 }
 
 export function CancelAppointmentModal({ appt, onConfirm, onClose }: Props) {

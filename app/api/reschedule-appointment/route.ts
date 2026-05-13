@@ -11,11 +11,20 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.app'
 
 const MONTHS_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+const APP_TZ = 'America/Mexico_City'
 
 function formatDate(iso: string): string {
+  // Server-side (Vercel = UTC): forzamos CDMX explícito o el email mostraría hora UTC.
   const d = new Date(iso)
-  const time = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
-  return `${d.getDate()} de ${MONTHS_ES[d.getMonth()]} a las ${time}`
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TZ, month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  const day = Number(get('day'))
+  const mon = Number(get('month')) - 1
+  const time = `${get('hour')}:${get('minute')}`
+  return `${day} de ${MONTHS_ES[mon]} a las ${time}`
 }
 
 /**

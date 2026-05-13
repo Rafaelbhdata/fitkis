@@ -20,6 +20,7 @@ import {
   type AppointmentStatus,
 } from '@/lib/clinic/queries'
 import { MONTHS_SHORT, todayISO, scheduleHourRange } from '@/lib/clinic/calendar-utils'
+import { getNowPartsInTimezone, getHourMinuteInTimezone, formatDateISOInTimezone, shiftDateISO } from '@/lib/utils'
 import type { RescheduleReason } from '@/lib/clinic/appointment-meta'
 
 const DAYS_ES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -33,31 +34,29 @@ const ZOOM_LEVELS = [
 type ZoomIdx = 0 | 1 | 2
 
 function getWeekStart(offset: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + offset * 7)
-  return d.toISOString().split('T')[0]
+  // Inicio de semana (lunes) en CDMX, independiente de la TZ del navegador.
+  const { dayOfWeek, date: today } = getNowPartsInTimezone()
+  const daysBack = (dayOfWeek + 6) % 7  // 0 = lunes
+  return shiftDateISO(today, -daysBack + offset * 7)
 }
 
 function getDays(weekStart: string): Date[] {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart + 'T00:00:00')
-    d.setDate(d.getDate() + i)
-    return d
-  })
+  // Cada día se ancla a mediodía UTC para que `getDate()` con TZ devuelva el día correcto.
+  const [y, m, d] = weekStart.split('-').map(Number)
+  return Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(y, m - 1, d + i, 12)))
 }
 
-function isoDate(d: Date): string { return d.toISOString().split('T')[0] }
+function isoDate(d: Date): string { return formatDateISOInTimezone(d) }
 
 function formatWeekRange(weekStart: string): string {
-  const s = new Date(weekStart + 'T00:00:00')
-  const e = new Date(weekStart + 'T00:00:00')
-  e.setDate(e.getDate() + 6)
-  return `${s.getDate()} – ${e.getDate()} ${MONTHS_SHORT[e.getMonth()]} ${e.getFullYear()}`
+  const sd = Number(weekStart.split('-')[2])
+  const [ey, em, ed] = shiftDateISO(weekStart, 6).split('-').map(Number)
+  return `${sd} – ${ed} ${MONTHS_SHORT[em - 1]} ${ey}`
 }
 
 function apptTop(appt: Appointment, startHour: number, rowH: number): number {
-  const d = new Date(appt.starts_at)
-  return Math.max(0, ((d.getHours() - startHour) * 60 + d.getMinutes()) / 60 * rowH)
+  const { hour, minute } = getHourMinuteInTimezone(appt.starts_at)
+  return Math.max(0, ((hour - startHour) * 60 + minute) / 60 * rowH)
 }
 
 function apptHeight(appt: Appointment, rowH: number): number {
@@ -131,8 +130,8 @@ export default function AgendaPage() {
   const hours     = Array.from({ length: endHour - startHour }, (_, i) => startHour + i)
   const totalH    = hours.length * rowH
 
-  const now    = new Date()
-  const nowTop = ((now.getHours() - startHour) * 60 + now.getMinutes()) / 60 * rowH
+  const { hour: nowHour, minute: nowMinute } = getNowPartsInTimezone()
+  const nowTop = ((nowHour - startHour) * 60 + nowMinute) / 60 * rowH
   const showNow = nowTop >= 0 && nowTop <= totalH
 
   const fetchAppts = useCallback(async () => {
@@ -373,7 +372,7 @@ export default function AgendaPage() {
                 {days.map((day) => {
                   const key = isoDate(day); const isToday = key === today
                   const layout = (layoutsByDay[key] ?? []).filter(({ appt: a }) => {
-                    const h = new Date(a.starts_at).getHours()
+                    const { hour: h } = getHourMinuteInTimezone(a.starts_at)
                     return h >= startHour && h < endHour
                   })
                   return (

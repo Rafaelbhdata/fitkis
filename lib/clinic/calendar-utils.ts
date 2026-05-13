@@ -1,5 +1,7 @@
 /** Shared calendar/slot utilities — used by booking page and NewAppointmentModal */
 
+import { getTodayInTimezone, getHourMinuteInTimezone, getDayOfWeekInTimezone, APP_TZ } from '@/lib/utils'
+
 export const MONTHS_CAP = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
@@ -15,26 +17,56 @@ export const DAYS_LONG  = ['domingo','lunes','martes','miércoles','jueves','vie
 export const DAYS_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
 export const WEEK_LABELS = ['Lu','Ma','Mi','Ju','Vi','Sá','Do']
 
-/** "13 may 2026" — date-only ISO ('YYYY-MM-DD') o Date. */
+/** "13 may 2026" — date-only ISO ('YYYY-MM-DD') o Date. Pineado a CDMX. */
 export function fmtShortDate(input: string | Date): string {
-  const d = typeof input === 'string' ? new Date(input + 'T00:00:00') : input
-  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`
+  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    const [y, m, d] = input.split('-').map(Number)
+    return `${d} ${MONTHS_SHORT[m - 1]} ${y}`
+  }
+  const d = typeof input === 'string' ? new Date(input) : input
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(d)
+  const get = (t: string) => Number(parts.find(p => p.type === t)?.value ?? '0')
+  return `${get('day')} ${MONTHS_SHORT[get('month') - 1]} ${get('year')}`
 }
 
-/** "13 may 2026 · 14:30" — ISO datetime o Date. */
+/** "13 may 2026 · 14:30" — ISO datetime o Date. Pineado a CDMX. */
 export function fmtShortDateTime(input: string | Date): string {
   const d = typeof input === 'string' ? new Date(input) : input
-  const h = d.getHours().toString().padStart(2, '0')
-  const m = d.getMinutes().toString().padStart(2, '0')
-  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()} · ${h}:${m}`
+  // Para timestamps usamos partes en CDMX; para Date crudo asumimos también CDMX.
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  const y = Number(get('year'))
+  const mo = Number(get('month')) - 1
+  const da = Number(get('day'))
+  const h = get('hour')
+  const mi = get('minute')
+  return `${da} ${MONTHS_SHORT[mo]} ${y} · ${h}:${mi}`
 }
 
-/** "miércoles 13 de mayo de 2026" — para headers de modales y reportes. */
+/** "miércoles 13 de mayo de 2026" — para headers de modales y reportes. Pineado a CDMX. */
 export function fmtLongDate(input: string | Date): string {
-  const d = typeof input === 'string'
-    ? (input.length === 10 ? new Date(input + 'T00:00:00') : new Date(input))
-    : input
-  return `${DAYS_LONG[d.getDay()]} ${d.getDate()} de ${MONTHS_LONG[d.getMonth()]} de ${d.getFullYear()}`
+  // Date-only string: parse manual sin TZ ambigua.
+  if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    const [y, m, d] = input.split('-').map(Number)
+    const dt = new Date(Date.UTC(y, m - 1, d, 12)) // mediodía UTC: mismo día en CDMX
+    const dow = getDayOfWeekInTimezone(dt, APP_TZ)
+    return `${DAYS_LONG[dow]} ${d} de ${MONTHS_LONG[m - 1]} de ${y}`
+  }
+  const d = typeof input === 'string' ? new Date(input) : input
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(d)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  const y = Number(get('year'))
+  const mo = Number(get('month')) - 1
+  const da = Number(get('day'))
+  const dow = getDayOfWeekInTimezone(d, APP_TZ)
+  return `${DAYS_LONG[dow]} ${da} de ${MONTHS_LONG[mo]} de ${y}`
 }
 export const DURATIONS   = [15, 30, 45, 60] as const
 export type DurationMin  = typeof DURATIONS[number]
@@ -47,7 +79,7 @@ export type DayKey = 'lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom'
 const JS_DAY_TO_KEY: DayKey[] = ['dom','lun','mar','mie','jue','vie','sab']
 
 export function dateToDayKey(date: Date): DayKey {
-  return JS_DAY_TO_KEY[date.getDay()]
+  return JS_DAY_TO_KEY[getDayOfWeekInTimezone(date, APP_TZ)]
 }
 
 export type Break = { start: string; end: string }  // "HH:MM"
@@ -123,7 +155,7 @@ export const TIME_OPTIONS: string[] = Array.from(
 // ─── Date helpers ──────────────────────────────────────────────────────────────
 
 export function todayISO(): string {
-  return new Date().toISOString().split('T')[0]
+  return getTodayInTimezone()
 }
 
 export function isoDate(y: number, m: number, d: number): string {
@@ -173,11 +205,14 @@ export function generateSlots(
 }
 
 export function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const { hour, minute } = getHourMinuteInTimezone(iso, APP_TZ)
+  return `${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}`
 }
 
 export function fmtDateShort(iso: string): string {
-  const DAYS_LONG = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
-  const d = new Date(iso + 'T00:00:00')
-  return `${DAYS_LONG[d.getDay()]} ${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+  // iso es YYYY-MM-DD; lo tratamos como fecha pura sin TZ.
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d, 12))
+  const dow = getDayOfWeekInTimezone(dt, APP_TZ)
+  return `${DAYS_LONG[dow]} ${d} ${MONTHS_SHORT[m - 1]}`
 }

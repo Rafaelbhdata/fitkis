@@ -13,7 +13,7 @@
 
 import type { PatientDetail, PractitionerRecord, ConsultationNote, AppointmentNote } from '@/lib/clinic/queries'
 import { fmtShortDate, fmtShortDateTime, MONTHS_LONG } from '@/lib/clinic/calendar-utils'
-import { slugify } from '@/lib/utils'
+import { slugify, getTodayInTimezone } from '@/lib/utils'
 
 type FeedItem =
   | { kind: 'manual'; date: string; body: string; tags: string[] }
@@ -60,8 +60,10 @@ export async function generatePatientReport(args: {
       body: a.body,
     })),
   ].sort((a, b) => b.date.localeCompare(a.date))
-  const today = new Date()
-  const fechaReporte = `${today.getDate()} de ${MONTHS_LONG[today.getMonth()]} de ${today.getFullYear()}`
+  // Fecha del reporte fijada a CDMX (el PDF puede generarse server-side en UTC).
+  const todayISO_CDMX = getTodayInTimezone()
+  const [yISO, mISO, dISO] = todayISO_CDMX.split('-').map(Number)
+  const fechaReporte = `${dISO} de ${MONTHS_LONG[mISO - 1]} de ${yISO}`
 
   const ws = patient.weight_history.map(r => r.weight_kg).filter((v): v is number => v != null)
   const pesoActual = ws.length ? ws[ws.length - 1] : null
@@ -180,7 +182,7 @@ export async function generatePatientReport(args: {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `reporte-${slugify(patient.name)}-${today.toISOString().split('T')[0]}.pdf`
+  a.download = `reporte-${slugify(patient.name)}-${todayISO_CDMX}.pdf`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
