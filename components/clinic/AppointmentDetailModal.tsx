@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { Appointment, AppointmentStatus } from '@/lib/clinic/queries'
 import { CancelAppointmentModal } from '@/components/clinic/CancelAppointmentModal'
 import { fmtLongDate } from '@/lib/clinic/calendar-utils'
 import { APPOINTMENT_STATUS_LABEL, APPOINTMENT_STATUS_COLOR, type RescheduleReason } from '@/lib/clinic/appointment-meta'
+import { ModalShell, ModalClose, ModalBtn } from '@/components/clinic/ui/Modal'
 
 function formatDateTime(iso: string, duration: number) {
   const d   = new Date(iso)
@@ -36,16 +37,14 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
   const active = appt.status === 'scheduled' || appt.status === 'confirmed'
   const { date, range } = formatDateTime(appt.starts_at, appt.duration_minutes)
 
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        if (rescheduleOpen) { setRescheduleOpen(false); setRescheduleReason(null); setRescheduleMessage('') }
-        else onClose()
-      }
+  // ESC: cierra primero la sección de reagendamiento (si abierta), después el modal
+  const handleShellClose = useCallback(() => {
+    if (rescheduleOpen) {
+      setRescheduleOpen(false); setRescheduleReason(null); setRescheduleMessage('')
+    } else {
+      onClose()
     }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [onClose, rescheduleOpen])
+  }, [rescheduleOpen, onClose])
 
   function handleNotesChange(value: string) {
     setNotes(value)
@@ -70,25 +69,8 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
     (rescheduleReason !== 'custom' || rescheduleMessage.trim() !== '')
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 200,
-        background: 'rgba(0,0,0,0.38)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 20,
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440,
-          border: '1px solid rgba(0,0,0,0.06)',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.12), 0 4px 16px rgba(0,0,0,0.06)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Header */}
+    <>
+      <ModalShell onClose={handleShellClose} maxWidth={440} zIndex={200}>
         <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid var(--ink-7)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: APPOINTMENT_STATUS_COLOR[appt.status], letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
@@ -110,7 +92,6 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
           <ModalClose onClick={onClose} />
         </div>
 
-        {/* Notas */}
         <div style={{ padding: '20px 24px', borderBottom: rescheduleOpen ? '1px solid var(--ink-7)' : 'none' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Notas</div>
@@ -129,7 +110,6 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
           />
         </div>
 
-        {/* Sección de reagendamiento — se expande al hacer click en "Reagendar" */}
         {rescheduleOpen && (
           <div style={{ padding: '20px 24px' }}>
             <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>
@@ -167,7 +147,6 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
           </div>
         )}
 
-        {/* Footer */}
         {active && (
           <div style={{ padding: '4px 24px 22px', display: 'flex', gap: 10 }}>
             {rescheduleOpen ? (
@@ -182,12 +161,12 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
             ) : (
               <>
                 <ModalBtn variant="warning" onClick={() => setRescheduleOpen(true)}>Reagendar</ModalBtn>
-                <ModalBtn variant="danger" onClick={() => setCancelOpen(true)}>Cancelar cita</ModalBtn>
+                <ModalBtn variant="danger-solid" onClick={() => setCancelOpen(true)}>Cancelar cita</ModalBtn>
               </>
             )}
           </div>
         )}
-      </div>
+      </ModalShell>
 
       {cancelOpen && (
         <CancelAppointmentModal
@@ -196,7 +175,7 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
           onConfirm={() => { onStatusChange(appt.id, 'cancelled'); setCancelOpen(false); onClose() }}
         />
       )}
-    </div>
+    </>
   )
 }
 
@@ -213,28 +192,6 @@ function OptionCard({ selected, onClick, title, description }: { selected: boole
         <div style={{ fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500, color: 'var(--ink)', marginBottom: 2 }}>{title}</div>
         <div style={{ fontFamily: 'var(--f-sans)', fontSize: 12, color: 'var(--ink-4)', lineHeight: 1.45 }}>{description}</div>
       </div>
-    </button>
-  )
-}
-
-function ModalClose({ onClick }: { onClick: () => void }) {
-  return (
-    <button onClick={onClick} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-5)', width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18, padding: 0 }}>
-      ×
-    </button>
-  )
-}
-
-function ModalBtn({ onClick, variant, disabled, children }: { onClick: () => void; variant: 'secondary' | 'primary' | 'danger' | 'warning'; disabled?: boolean; children: React.ReactNode }) {
-  const v: Record<string, React.CSSProperties> = {
-    secondary: { border: '1px solid var(--ink-6)',         background: 'var(--paper)',         color: 'var(--ink-2)'  },
-    primary:   { border: '1px solid var(--signal)',        background: 'var(--signal-soft)',   color: 'var(--signal)' },
-    danger:    { border: '1px solid rgba(180,30,30,0.7)',   background: 'rgba(180,30,30,0.85)', color: '#fff'          },
-    warning:   { border: '1px solid rgba(230,81,0,0.3)',   background: 'rgba(230,81,0,0.06)',  color: '#e65100'       },
-  }
-  return (
-    <button onClick={onClick} disabled={disabled} style={{ flex: 1, ...v[variant], borderRadius: 8, padding: '10px 16px', fontSize: 13, fontFamily: 'var(--f-sans)', fontWeight: 500, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, transition: 'opacity 0.1s' }}>
-      {children}
     </button>
   )
 }
