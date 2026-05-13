@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type { Appointment, AppointmentStatus } from '@/lib/clinic/queries'
 import { CancelAppointmentModal } from '@/components/clinic/CancelAppointmentModal'
 import { fmtLongDate } from '@/lib/clinic/calendar-utils'
-import { displayAppointmentStatus, type RescheduleReason } from '@/lib/clinic/appointment-meta'
+import { APPOINTMENT_STATUS_LABEL, APPOINTMENT_STATUS_COLOR, type RescheduleReason } from '@/lib/clinic/appointment-meta'
 import { ModalShell, ModalClose, ModalBtn } from '@/components/clinic/ui/Modal'
 
 function formatDateTime(iso: string, duration: number) {
@@ -34,10 +34,10 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const debounceRef               = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Una cita es "accionable" (reagendar / cancelar) solo si sigue scheduled
-  // y aún no ha terminado. Las completadas (scheduled + ya pasaron) son inmutables.
-  const display = displayAppointmentStatus(appt)
-  const active = appt.status === 'scheduled' && !display.isCompleted
+  // Permitir reagendar/cancelar siempre que la cita esté en `scheduled`,
+  // incluso si ya pasó (la nutrióloga puede querer corregir un no-show tardío
+  // o cancelar retroactivamente).
+  const active = appt.status === 'scheduled'
   const { date, range } = formatDateTime(appt.starts_at, appt.duration_minutes)
 
   // ESC: cierra primero la sección de reagendamiento (si abierta), después el modal
@@ -76,8 +76,8 @@ export function AppointmentDetailModal({ appt, onClose, onStatusChange, onNotesC
       <ModalShell onClose={handleShellClose} maxWidth={440} zIndex={200}>
         <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid var(--ink-7)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: display.color, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
-              {display.label}
+            <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: APPOINTMENT_STATUS_COLOR[appt.status], letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
+              {APPOINTMENT_STATUS_LABEL[appt.status]}
             </div>
             {appt.patient_id ? (
               <Link href={`/clinic/pacientes/${appt.patient_id}`} style={{ fontFamily: 'var(--f-serif)', fontSize: 20, fontWeight: 300, color: 'var(--ink)', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

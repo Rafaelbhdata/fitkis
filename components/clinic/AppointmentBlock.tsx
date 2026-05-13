@@ -1,19 +1,13 @@
 'use client'
 
 import type { Appointment, AppointmentStatus } from '@/lib/clinic/queries'
-import { isCompletedAppointment } from '@/lib/clinic/queries'
 
-type StyleCfg = { bg: string; border: string; timeColor: string }
-
-const STATUS_CFG: Record<AppointmentStatus, StyleCfg> = {
+const STATUS_CFG: Record<AppointmentStatus, { bg: string; border: string; timeColor: string }> = {
   scheduled:    { bg: 'rgba(178,255,153,0.18)', border: 'rgba(74,124,58,0.55)',  timeColor: 'rgba(74,124,58,0.9)'    },
   cancelled:    { bg: 'rgba(200,30,30,0.07)',   border: 'rgba(200,30,30,0.3)',   timeColor: 'rgba(180,30,30,0.5)'    },
   no_show:      { bg: 'rgba(180,0,0,0.12)',      border: 'rgba(180,0,0,0.75)',    timeColor: 'rgba(180,0,0,0.85)'     },
   rescheduling: { bg: '#fff3e0',                border: '#e65100',               timeColor: '#e65100'                },
 }
-
-// Estilo para citas ya completadas (scheduled + pasadas): gris tenue.
-const COMPLETED_CFG: StyleCfg = { bg: 'rgba(40,40,40,0.12)', border: 'rgba(40,40,40,0.6)', timeColor: 'rgba(40,40,40,0.75)' }
 
 type Props = {
   appt: Appointment
@@ -25,7 +19,7 @@ type Props = {
 }
 
 export function AppointmentBlock({ appt, top, height, col = 0, totalCols = 1, onOpen }: Props) {
-  const cfg      = isCompletedAppointment(appt) ? COMPLETED_CFG : STATUS_CFG[appt.status]
+  const cfg      = STATUS_CFG[appt.status]
   const colW     = 100 / totalCols
   const leftPct  = col * colW
   const widthPct = colW

@@ -13,7 +13,7 @@ import {
   type PractitionerRecord,
   type Appointment,
 } from '@/lib/clinic/queries'
-import { displayAppointmentStatus } from '@/lib/clinic/appointment-meta'
+import { APPOINTMENT_STATUS_LABEL, APPOINTMENT_STATUS_COLOR } from '@/lib/clinic/appointment-meta'
 import { getTodayInTimezone } from '@/lib/utils'
 
 type Item = {
@@ -31,19 +31,16 @@ const ITEMS: Item[] = [
   { key: 'ajustes',   href: '/clinic/ajustes',   label: 'Ajustes',    icon: Ic.settings },
 ]
 
-// Borde por status (scheduled futura = leaf; scheduled pasada = gris vía COMPLETED_BORDER).
 const STATUS_BORDER: Record<string, string> = {
   scheduled:    'var(--leaf)',
   cancelled:    'var(--ink-6)',
   no_show:      'var(--honey)',
   rescheduling: '#e65100',
 }
-const COMPLETED_BORDER = 'var(--ink-5)'
 
-// Estados "interesantes" cuyo chip mostramos en el sidebar.
-// `scheduled` futura es el default (sin chip); cancelada queda sin chip (tachado basta).
-// Completada (derivada) sí muestra chip.
-const SIDEBAR_STATUS_VISIBLE: Set<string> = new Set(['rescheduling', 'no_show', 'completed'])
+// Estados cuyo chip mostramos en el sidebar. `scheduled` es default (sin chip);
+// `cancelled` queda sin chip (el tachado basta).
+const SIDEBAR_STATUS_VISIBLE: Set<string> = new Set(['rescheduling', 'no_show'])
 
 function TodayApptCard({ appt }: { appt: Appointment }) {
   const [hover, setHover] = useState(false)
@@ -53,15 +50,11 @@ function TodayApptCard({ appt }: { appt: Appointment }) {
     hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City',
   })
 
-  const display = displayAppointmentStatus(appt)
-  const effectiveKey = display.isCompleted ? 'completed' : appt.status
-  const borderColor = display.isCompleted
-    ? COMPLETED_BORDER
-    : (STATUS_BORDER[appt.status] ?? 'var(--ink-6)')
-  const statusLabel = SIDEBAR_STATUS_VISIBLE.has(effectiveKey)
-    ? display.label.toLowerCase()
+  const borderColor = STATUS_BORDER[appt.status] ?? 'var(--ink-6)'
+  const statusLabel = SIDEBAR_STATUS_VISIBLE.has(appt.status)
+    ? APPOINTMENT_STATUS_LABEL[appt.status].toLowerCase()
     : undefined
-  const statusColor = display.color
+  const statusColor = APPOINTMENT_STATUS_COLOR[appt.status]
   const dimmed      = appt.status === 'cancelled'
 
   return (
