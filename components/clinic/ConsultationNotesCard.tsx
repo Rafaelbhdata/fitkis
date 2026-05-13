@@ -91,11 +91,12 @@ export function ConsultationNotesCard({
     ...apptNotes.map((a): FeedEntry => ({ kind: 'appointment', data: a })),
   ].sort((a, b) => entrySortKey(b).localeCompare(entrySortKey(a)))
 
-  function toggleDraftTag(t: ConsultationNoteTag) {
-    setDraftTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t])
+  // Comportamiento radio: solo un badge por nota. Click en el activo lo deselecciona.
+  function selectDraftTag(t: ConsultationNoteTag) {
+    setDraftTags((prev) => (prev[0] === t ? [] : [t]))
   }
-  function toggleEditTag(t: ConsultationNoteTag) {
-    setEditTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t])
+  function selectEditTag(t: ConsultationNoteTag) {
+    setEditTags((prev) => (prev[0] === t ? [] : [t]))
   }
 
   async function handleCreate() {
@@ -203,7 +204,7 @@ export function ConsultationNotesCard({
               return (
                 <button
                   key={t.k}
-                  onClick={() => toggleDraftTag(t.k)}
+                  onClick={() => selectDraftTag(t.k)}
                   style={{
                     padding: '5px 12px',
                     borderRadius: 999,
@@ -390,7 +391,7 @@ export function ConsultationNotesCard({
                         return (
                           <button
                             key={t.k}
-                            onClick={() => toggleEditTag(t.k)}
+                            onClick={() => selectEditTag(t.k)}
                             style={{
                               padding: '5px 12px',
                               borderRadius: 999,
@@ -434,29 +435,6 @@ export function ConsultationNotesCard({
                     <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
                       {n.body}
                     </p>
-                    {n.tags.length > 1 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                        {n.tags.slice(1).map((t) => {
-                          const meta = getTagMeta(t)
-                          return (
-                            <span
-                              key={t}
-                              style={{
-                                padding: '3px 10px',
-                                borderRadius: 999,
-                                background: meta.bg,
-                                color: meta.c,
-                                fontSize: 10,
-                                fontFamily: 'var(--f-sans)',
-                                fontWeight: 500,
-                              }}
-                            >
-                              {meta.n}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    )}
                   </>
                 )}
               </div>
