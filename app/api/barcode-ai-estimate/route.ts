@@ -9,7 +9,7 @@
 // user's typed text, which varies.
 
 import { NextResponse } from 'next/server'
-import { getAuthedUser } from '@/lib/api-auth'
+import { getAuthedUser, requireProTier } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 import type { FoodGroup } from '@/types'
 
@@ -58,9 +58,16 @@ type EstimateItem = {
 }
 
 export async function POST(request: Request) {
-  const { user } = await getAuthedUser(request)
-  if (!user) {
+  const { user, supabase } = await getAuthedUser(request)
+  if (!user || !supabase) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const tierCheck = await requireProTier(supabase, user.id)
+  if (!tierCheck.ok) {
+    return NextResponse.json(
+      { error: 'Feature requiere plan Pro', code: 'tier_required', tier: tierCheck.tier },
+      { status: 403 }
+    )
   }
 
   const body = (await request.json().catch(() => ({}))) as Partial<Body>

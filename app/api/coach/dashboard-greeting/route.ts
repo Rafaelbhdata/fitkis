@@ -9,7 +9,7 @@
 // Cost: 1 Haiku call per user per day.
 
 import { NextResponse } from 'next/server'
-import { getAuthedUser } from '@/lib/api-auth'
+import { getAuthedUser, requireProTier } from '@/lib/api-auth'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { getTodayInTimezone } from '@/lib/utils'
@@ -98,9 +98,16 @@ function buildUserPrompt(ctx: Body['context']): string {
 }
 
 export async function POST(request: Request) {
-  const { user } = await getAuthedUser(request)
-  if (!user) {
+  const { user, supabase } = await getAuthedUser(request)
+  if (!user || !supabase) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const tierCheck = await requireProTier(supabase, user.id)
+  if (!tierCheck.ok) {
+    return NextResponse.json(
+      { error: 'Feature requiere plan Pro', code: 'tier_required', tier: tierCheck.tier },
+      { status: 403 }
+    )
   }
 
   const today = getTodayInTimezone('America/Mexico_City')

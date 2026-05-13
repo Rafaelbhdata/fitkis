@@ -224,12 +224,17 @@ export interface ActiveMeals {
   snack3: boolean
 }
 
+// User tier. Drives feature gating for AI endpoints. 'pro' = full
+// access. 'lite' = no AI. Default 'pro' until we have a paid signup.
+export type UserTier = 'lite' | 'pro'
+
 export interface UserProfile {
   id: string
   user_id: string
   height_cm?: number
   goal_weight_kg?: number
   role: UserRole
+  tier: UserTier
   created_at: string
   updated_at: string
 }

@@ -52,3 +52,21 @@ export async function getAuthedUser(
 
   return { user: null, supabase: null }
 }
+
+// requireProTier: helper for AI endpoints. Loads the user's tier from
+// user_profiles and returns { ok: true } only when tier === 'pro'.
+// Endpoints should reject with 403 + a clear error code if !ok so the
+// mobile client can surface an upgrade CTA later.
+export async function requireProTier(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ ok: true } | { ok: false; tier: string }> {
+  const { data } = await supabase
+    .from('user_profiles')
+    .select('tier')
+    .eq('user_id', userId)
+    .maybeSingle()
+  const tier = (data as { tier?: string } | null)?.tier ?? 'pro'
+  if (tier === 'pro') return { ok: true }
+  return { ok: false, tier }
+}

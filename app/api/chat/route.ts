@@ -9,7 +9,7 @@ import {
 } from '@/lib/constants'
 import { getTodayInTimezone, getNowPartsInTimezone } from '@/lib/utils'
 import type { FoodGroup, MealType } from '@/types'
-import { getAuthedUser } from '@/lib/api-auth'
+import { getAuthedUser, requireProTier } from '@/lib/api-auth'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -925,6 +925,13 @@ export async function POST(request: Request) {
     const { user, supabase } = await getAuthedUser(request)
     if (!user || !supabase) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+    const tierCheck = await requireProTier(supabase, user.id)
+    if (!tierCheck.ok) {
+      return NextResponse.json(
+        { error: 'Feature requiere plan Pro', code: 'tier_required', tier: tierCheck.tier },
+        { status: 403 }
+      )
     }
 
     const { messages } = await request.json()

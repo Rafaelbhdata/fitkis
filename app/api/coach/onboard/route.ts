@@ -11,7 +11,7 @@
 
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { getAuthedUser } from '@/lib/api-auth'
+import { getAuthedUser, requireProTier } from '@/lib/api-auth'
 
 type Goal = 'lose_weight' | 'gain_muscle' | 'strength' | 'maintain'
 type Experience = 'new' | 'returning' | 'intermediate' | 'advanced'
@@ -68,6 +68,10 @@ export async function POST(request: Request) {
     if (!user || !supabase) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
+    // For onboard we DON'T 403 Lite users — they still need a routine.
+    // We just skip the Claude call and fall through to rule-based pick.
+    const tierCheck = await requireProTier(supabase, user.id)
+    const skipAI = !tierCheck.ok
 
     const input = (await request.json()) as OnboardInput
 
@@ -241,6 +245,9 @@ Recomiéndame un plan.`
 
     let aiResult: OnboardOutput | null = null
     try {
+      // Skip the Anthropic call entirely for Lite tier — rule-based
+      // fallback below produces a valid (less personalized) result.
+      if (skipAI) throw new Error('lite_tier_skip')
       const response = await callClaudeWithFallback({
         max_tokens: 1024,
         system: systemPrompt,
