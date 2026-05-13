@@ -1204,7 +1204,7 @@ export async function loadPracticeKPIs(
       ? 'inactividad'
       : null
 
-    if (alert != null || (adherence != null && adherence < thresholds.minAdherencePct)) {
+    if (alert === 'inactividad') {
       needAttention.push({
         patient_id: rel.patient_id,
         name: rel.patient_name || rel.patient_email || `Paciente ${rel.patient_id.slice(0, 6)}`,

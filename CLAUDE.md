@@ -1,4 +1,4 @@
-# FitLife — CLAUDE.md
+# Fitkis — CLAUDE.md
 
 Este archivo es la fuente de verdad del proyecto.
 **Regla #1:** Antes de escribir cualquier código, leer este archivo completo Y el `context.md`.
@@ -21,20 +21,20 @@ Estado actual del proyecto en `context.md`.
 
 ## 🎯 Qué es este proyecto
 
-App web personal de fitness y salud para un usuario que está bajando de peso.
-Se usa principalmente desde el celular (diseño mobile-first).
-Cuatro módulos principales: Gym Tracker, Alimentación por Equivalentes, Peso Corporal y Hábitos.
+Portal web para nutriólogas. Permite gestionar pacientes, agenda, notas de consulta, biblioteca de recursos y reportes PDF. Diseño "Paper & Pulse" (tipografía editorial, paleta paper/ink/signal).
+
+El repo también expone los endpoints `/api/*` que consume `fitkis-mobile` (app del paciente). Ambos comparten la misma BD Supabase.
 
 ---
 
-## 🧑 Perfil del usuario
+## 🚀 Comandos
 
-- Hombre, 86 kg al inicio, 163 cm
-- Meta: bajar de peso de forma sostenible
-- IMC inicial: 32.4 (obesidad grado I)
-- Entrena 4 días/semana con pesas (rutina Upper/Lower)
-- Nivel: principiante retomando
-- Gimnasio con: mancuernas, barra libre, máquinas guiadas, poleas/cables
+```bash
+npm run dev      # Desarrollo local — http://localhost:3000
+npm run build    # Build de producción
+npm run lint     # ESLint
+npm test         # Jest
+```
 
 ---
 
@@ -42,56 +42,62 @@ Cuatro módulos principales: Gym Tracker, Alimentación por Equivalentes, Peso C
 
 - **Framework:** Next.js 14 (App Router)
 - **Lenguaje:** TypeScript
-- **UI:** Tailwind CSS
+- **UI:** Tailwind CSS + sistema de tokens "Paper & Pulse" en `globals.css`
 - **Base de datos:** Supabase (Postgres + Auth)
-- **Deploy:** Vercel
+- **Deploy:** Vercel — producción en `fitkis.com`
 - **Auth:** Supabase Auth (email/password)
-- **Repo:** GitHub (rama principal: `main`)
+- **Repo:** GitHub (rama principal: `master`)
 
 ---
 
-## 📁 Estructura de carpetas
+## 📁 Estructura de carpetas (estado actual)
 
 ```
-fitlife/
-├── CLAUDE.md                  # Este archivo — no modificar sin razón
-├── context.md                 # Estado actual del proyecto — actualizar siempre
+fitkis/
+├── CLAUDE.md                  # Este archivo
+├── context.md                 # Estado actual — actualizar siempre
 ├── .env.local                 # Variables de entorno — nunca commitear
 ├── .env.example               # Template de variables requeridas
 ├── app/
-│   ├── (auth)/
-│   │   ├── login/page.tsx
-│   │   └── register/page.tsx
-│   ├── (app)/
-│   │   ├── layout.tsx         # Nav bottom mobile (4 tabs)
-│   │   ├── dashboard/page.tsx
-│   │   ├── gym/
-│   │   │   ├── page.tsx               # Rutina del día
-│   │   │   ├── session/[id]/page.tsx  # Tracker activo
-│   │   │   └── history/page.tsx       # Historial y gráficas
-│   │   ├── food/
-│   │   │   ├── page.tsx               # Log del día por equivalentes
-│   │   │   └── favorites/page.tsx     # Comidas favoritas guardadas
-│   │   ├── weight/
-│   │   │   └── page.tsx               # Registro y gráfica de peso
-│   │   └── habits/
-│   │       └── page.tsx               # Hábitos diarios y gráficas
+│   ├── (auth)/login/          # Login del portal clínico
+│   ├── (clinic)/clinic/       # Portal clínico (rutas protegidas)
+│   │   ├── page.tsx           # Dashboard KPIs
+│   │   ├── agenda/            # Gestión de citas
+│   │   ├── pacientes/         # Lista y perfil de pacientes
+│   │   ├── reportes/          # Reportes y métricas
+│   │   ├── biblioteca/        # Recursos para pacientes
+│   │   └── ajustes/           # Configuración de la cuenta
+│   ├── api/                   # Endpoints REST — consumidos por fitkis-mobile
+│   │   └── auth/google-calendar/  # OAuth Google Calendar (connect/callback/status/disconnect)
+│   ├── agendar/               # Página pública de agendamiento (pacientes)
+│   ├── privacy/               # Política de privacidad (pública)
+│   ├── terms/                 # Términos de uso (públicos)
+│   └── download/              # Redirect para usuarios no-nutriólogas
 ├── components/
-│   ├── ui/                    # Componentes base reutilizables
-│   ├── gym/                   # Componentes del módulo gym
-│   ├── food/                  # Componentes del módulo alimentación
-│   └── habits/                # Componentes del módulo hábitos
+│   ├── ui/                    # Componentes base (Button, Input, Card, etc.)
+│   └── clinic/                # Componentes del portal clínico
+│       ├── Sidebar.tsx / Topbar.tsx
+│       ├── AppointmentDetailModal.tsx / NewAppointmentModal.tsx
+│       ├── ConsultationNotesCard.tsx
+│       ├── PatientReportPDF.tsx
+│       └── AddToCalendar.tsx
 ├── lib/
-│   ├── supabase.ts            # Cliente de Supabase
+│   ├── supabase.ts            # Cliente Supabase (browser)
 │   ├── utils.ts               # Helpers generales
-│   └── constants.ts           # Datos estáticos (equivalentes, ejercicios, rutina)
-└── types/
-    └── index.ts               # Tipos TypeScript globales
+│   ├── constants.ts           # Datos estáticos (equivalentes, ejercicios)
+│   └── clinic/
+│       ├── queries.ts         # Queries Supabase del portal clínico
+│       ├── google-calendar.ts # Lógica OAuth y consulta de disponibilidad
+│       ├── calendar-utils.ts  # Helpers de calendario y slots
+│       └── appointment-meta.ts # Tipos y constantes de citas
+└── legacy/                    # Rutas del paciente congeladas (fuera del build)
 ```
 
 ---
 
 ## 🗄️ Schema de base de datos (Supabase/Postgres)
+
+> Las tablas de abajo incluyen tanto las del portal clínico como las de `fitkis-mobile`. Los endpoints `/api/*` de este repo son los que consume la app móvil — están activos en producción aunque no se acceden desde la UI web.
 
 ```sql
 -- Sesiones de gym
@@ -177,6 +183,10 @@ CREATE TABLE habit_logs (
 **RLS (Row Level Security):** Habilitar en todas las tablas. Cada usuario solo puede SELECT/INSERT/UPDATE/DELETE sus propios registros (WHERE user_id = auth.uid()).
 
 ---
+
+## 📱 Módulos del paciente — Lógica de negocio (para `fitkis-mobile` y APIs compartidas)
+
+> Estas secciones documentan la lógica de negocio de la app móvil del paciente. No hay UI web para estos módulos — viven en `fitkis-mobile`. Se documentan aquí porque los endpoints `/api/*` de este repo los sirven y comparten la misma BD.
 
 ## 🏋️ Módulo Gym — Lógica de negocio
 
@@ -569,9 +579,16 @@ URL Vercel: [url]
 ## 🔧 Variables de entorno requeridas
 
 ```
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
+
+# Google Calendar OAuth (integración de disponibilidad para nutriólogas)
+GOOGLE_CALENDAR_CLIENT_ID=
+GOOGLE_CALENDAR_CLIENT_SECRET=
+GOOGLE_CALENDAR_REDIRECT_URI=https://fitkis.com/api/auth/google-calendar/callback
+# En desarrollo usar: http://localhost:3000/api/auth/google-calendar/callback
 ```
 
 Crear `.env.local` con estos valores. **Nunca commitear este archivo** (incluirlo en `.gitignore`).
@@ -584,5 +601,39 @@ Crear `.env.local` con estos valores. **Nunca commitear este archivo** (incluirl
 - **Supabase:** Auth + Postgres + SDK en un solo servicio, tier gratuito generoso
 - **Datos estáticos en constants.ts:** Equivalentes y ejercicios no cambian frecuentemente, no necesitan DB
 - **RLS en Supabase:** Seguridad a nivel de base de datos, cada usuario solo ve sus datos
-- **Mobile-first:** El usuario usa la app en el gym desde el celular — prioridad absoluta
+- **API compartida:** Los endpoints `/api/*` de este repo sirven tanto al portal web como a `fitkis-mobile` — no duplicar lógica en el repo móvil
+- **Google Calendar:** scope `calendar.freebusy` — solo libre/ocupado, nunca contenido de eventos. Token almacenado en Supabase por nutrióloga
 - **Sistema de agentes:** Separación de responsabilidades, cada agente lee contexto antes de actuar y documenta al terminar, garantizando que el proyecto pueda retomarse en cualquier momento sin perder estado
+
+---
+
+## ⏳ Pendientes operativos (mayo 2026)
+
+Tareas fuera del código que bloquean funcionalidad en producción. Deben hacerse en este orden:
+
+### 1. Dar de alta correo `hola@fitkis.com`
+- Servicio elegido: Zoho Mail (plan gratuito si disponible en MX, si no ~$1/mes)
+- Alternativa: ImprovMX a $2.50/mes (reenvío + SMTP conectado a Gmail)
+- DNS en GoDaddy — agregar registros MX y SPF según el proveedor elegido
+- **Bloquea:** el paso 2 (Google pide correo de contacto para el OAuth Consent Screen)
+
+### 2. Completar OAuth Consent Screen en Google Cloud Console
+- Dominio `fitkis.com` ya verificado ✅
+- Falta agregar: correo de contacto, URL de privacy policy (`https://fitkis.com/privacy`), scopes (`calendar.freebusy`)
+- **Requiere:** paso 1 (correo activo)
+- **Bloquea:** el paso 3
+
+### 3. Enviar app a verificación de Google
+- En Google Cloud Console: OAuth Consent Screen → "Submit for verification"
+- Tiempo estimado: 2 a 6 semanas
+- Se necesita video demostrando el flujo completo de OAuth + uso del permiso
+- **Requiere:** paso 2 completo
+
+### 4. Probar integración de Google Calendar en desarrollo
+- El flujo OAuth de Calendar nunca se ha probado en localhost ni en producción
+- Probar: conectar cuenta → verificar que se guarda el token → verificar que bloquea slots ocupados
+- **Nota:** mientras la app esté en modo "Testing" en Google, solo usuarios agregados como testers pueden probarlo
+
+### 5. Verificar funcionamiento en producción (`fitkis.com`)
+- Dominio ya apunta a Vercel ✅
+- Verificar el flujo completo de Calendar en producción una vez que pasen los pasos 1–4

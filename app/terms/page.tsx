@@ -9,7 +9,7 @@ export const metadata = {
   description: 'Reglas para usar FitKis.',
 }
 
-const LAST_UPDATED = '7 de mayo de 2026'
+const LAST_UPDATED = '13 de mayo de 2026'
 
 export default function TermsPage() {
   return (
@@ -147,7 +147,7 @@ export default function TermsPage() {
           <section>
             <h2 className="fk-eyebrow text-ink-4 mb-3">10 · CONTACTO</h2>
             <p className="leading-relaxed">
-              Cualquier duda: <a href="mailto:hola@fitkis.app" className="text-signal underline">hola@fitkis.app</a>.
+              Cualquier duda: <a href="mailto:info@fitkis.com" className="text-signal underline">info@fitkis.com</a>.
             </p>
           </section>
         </div>

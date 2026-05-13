@@ -170,11 +170,21 @@ function numPct(n: number, total: number) {
 
 // ─── Tarjeta base ─────────────────────────────────────────────────────────────
 
-function Card({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function Card({ children, style, accent, accentBg }: {
+  children: React.ReactNode
+  style?: React.CSSProperties
+  accent?: string
+  accentBg?: string
+}) {
   return (
     <div style={{
-      background: '#fff', border: '1px solid var(--ink-7)',
-      borderRadius: 14, ...style,
+      background: '#fff',
+      borderTop: '1px solid var(--ink-7)',
+      borderRight: '1px solid var(--ink-7)',
+      borderBottom: '1px solid var(--ink-7)',
+      borderLeft: accent ? `4px solid ${accent}` : '1px solid var(--ink-7)',
+      borderRadius: 14,
+      ...style,
     }}>
       {children}
     </div>
@@ -192,51 +202,62 @@ function TodaySection({ appts }: { appts: Appointment[] }) {
     : completed === total ? 'var(--leaf)'
     : 'var(--sky)'
 
+  const todayAccent  = total === 0 ? 'var(--ink-5)' : ringColor
+  const todayAccentBg = ringColor === 'var(--leaf)' ? 'var(--leaf-soft)'
+    : ringColor === 'var(--sky)' ? 'var(--sky-soft)'
+    : '#fff'
+
+  const stats = [
+    { n: total,     label: 'citas',      color: 'var(--ink)'  },
+    { n: completed, label: 'completadas', color: 'var(--leaf)' },
+    { n: pending,   label: 'pendientes',  color: 'var(--sky)'  },
+    { n: cancelled, label: 'canceladas',  color: cancelled > 0 ? 'var(--berry)' : 'var(--ink-5)' },
+  ]
+
   return (
-    <Card style={{ padding: '24px 28px' }}>
-      <div className="fk-eyebrow" style={{ marginBottom: 20 }}>
-        {`HOY · ${fmtLongDate(getTodayInTimezone()).toUpperCase()}`}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 24 }}>
-        {/* Stats */}
-        <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-          {[
-            { n: total,     label: 'citas',       color: 'var(--ink)'  },
-            { n: completed, label: 'completadas',  color: 'var(--leaf)' },
-            { n: pending,   label: 'pendientes',   color: 'var(--sky)'  },
-            { n: cancelled, label: 'canceladas',   color: cancelled > 0 ? 'var(--berry)' : 'var(--ink-5)' },
-          ].map(s => (
-            <div key={s.label}>
-              <div className="fk-serif" style={{
-                fontSize: 40, fontWeight: 300,
-                letterSpacing: '-0.03em', lineHeight: 1, color: s.color,
-              }}>
-                {s.n}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', marginTop: 5 }}>
-                {s.label}
-              </div>
-            </div>
-          ))}
+    <Card style={{ padding: '24px 28px' }} accent="var(--ink)">
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div className="fk-eyebrow">
+          {`HOY · ${fmtLongDate(getTodayInTimezone()).toUpperCase()}`}
         </div>
-
-        {/* Anillo de progreso del día */}
         {total > 0 && (
           <div style={{ position: 'relative', flexShrink: 0 }}>
-            <RingChart value={completed} max={total} size={72} strokeW={7} color={ringColor} />
+            <RingChart value={completed} max={total} size={52} strokeW={5} color={ringColor} />
             <div style={{
               position: 'absolute', inset: 0,
               display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center',
             }}>
-              <span className="fk-serif" style={{ fontSize: 18, fontWeight: 300, lineHeight: 1, color: ringColor }}>
+              <span className="fk-serif" style={{ fontSize: 13, fontWeight: 300, lineHeight: 1, color: ringColor }}>
                 {Math.round((completed / total) * 100)}
               </span>
-              <span style={{ fontSize: 9, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)' }}>%</span>
+              <span style={{ fontSize: 8, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)' }}>%</span>
             </div>
           </div>
         )}
+      </div>
+
+      {/* Stats — 4 columnas iguales con separadores */}
+      <div style={{ display: 'flex' }}>
+        {stats.map((s, i) => (
+          <div key={s.label} style={{
+            flex: 1,
+            paddingLeft: i > 0 ? 28 : 0,
+            paddingRight: i < stats.length - 1 ? 28 : 0,
+            borderLeft: i > 0 ? '1px solid var(--ink-7)' : 'none',
+          }}>
+            <div className="fk-serif" style={{
+              fontSize: 44, fontWeight: 300,
+              letterSpacing: '-0.03em', lineHeight: 1, color: s.color,
+            }}>
+              {s.n}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', marginTop: 6 }}>
+              {s.label}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Lista de citas */}
@@ -285,10 +306,11 @@ function TodaySection({ appts }: { appts: Appointment[] }) {
 
 // ─── Sección 2: Consultoría ───────────────────────────────────────────────────
 
-function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
+function ConsultoriaSection({ kpis, monthLabel, monthTotal, alertPatients }: {
   kpis: PracticeKPIs
   monthLabel: string
   monthTotal: number
+  alertPatients: PracticeKPIs['patients_needing_attention']
 }) {
   const cancelledPct = numPct(kpis.appointments_month.cancelled, monthTotal)
   const noShowPct    = numPct(kpis.appointments_month.no_show, monthTotal)
@@ -309,7 +331,7 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
 
         {/* Pacientes activos */}
-        <Card style={{ padding: '22px 24px' }}>
+        <Card style={{ padding: '22px 24px' }} accent="var(--sky)" accentBg="var(--sky-soft)">
           <div className="fk-eyebrow">Pacientes con licencia activa</div>
           <div style={{ marginTop: 10 }}>
             {/* Número + fracción */}
@@ -350,8 +372,8 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
         </Card>
 
         {/* Nuevos este mes */}
-        <Card style={{ padding: '22px 24px' }}>
-          <div className="fk-eyebrow">Nuevos este mes</div>
+        <Card style={{ padding: '22px 24px' }} accent="var(--leaf)" accentBg="var(--leaf-soft)">
+          <div className="fk-eyebrow">Pacientes nuevos este mes</div>
           <div style={{ marginTop: 10 }}>
             {(() => {
               const prev      = kpis.active_patients - kpis.new_patients_month
@@ -393,49 +415,55 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
           </div>
         </Card>
 
-        {/* Sin cita próxima */}
-        <Card style={{ padding: '22px 24px' }}>
-          <div className="fk-eyebrow">Sin cita · próximos 30 días</div>
-          <div style={{ marginTop: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span className="fk-serif" style={{
-                fontSize: 44, fontWeight: 300,
-                letterSpacing: '-0.02em', lineHeight: 1,
-                color: kpis.patients_without_upcoming_appt === 0 ? 'var(--leaf)'
-                  : kpis.patients_without_upcoming_appt <= Math.ceil(kpis.active_patients / 2) ? 'var(--signal)'
-                  : 'var(--berry)',
+        {/* Requieren atención */}
+        <Card
+          style={{ padding: '22px 24px' }}
+          accent="var(--honey)"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="fk-eyebrow">Pacientes inactivos</div>
+            {alertPatients.length > 0 && (
+              <span style={{
+                fontSize: 11, color: 'var(--berry)', fontFamily: 'var(--f-mono)',
+                background: 'var(--berry-soft)', padding: '3px 10px', borderRadius: 20,
               }}>
-                {kpis.patients_without_upcoming_appt}
+                {alertPatients.length}
               </span>
-              <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
-                / {kpis.active_patients}
-              </span>
-            </div>
-            {kpis.active_patients > 0 && (() => {
-              const pct   = Math.round((kpis.patients_without_upcoming_appt / kpis.active_patients) * 100)
-              const color = pct === 0 ? 'var(--leaf)' : pct <= 50 ? 'var(--signal)' : 'var(--berry)'
-              return (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
-                      de pacientes activos
+            )}
+          </div>
+          <div style={{ marginTop: 10 }}>
+            {alertPatients.length === 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 6 }}>
+                <Semaforo value={100} lo={60} hi={80} size={9} />
+                <span style={{ fontSize: 12, color: 'var(--leaf)', fontFamily: 'var(--f-mono)' }}>todo activo</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 4 }}>
+                {alertPatients.slice(0, 4).map(p => (
+                  <Link key={p.patient_id} href={`/clinic/pacientes/${p.patient_id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+                    <span style={{ fontSize: 13, fontFamily: 'var(--f-sans)', color: 'var(--ink)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.name}
                     </span>
-                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color }}>
-                      {pct}%
+                    <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', flexShrink: 0 }}>
+                      {p.days_since_activity != null ? `${p.days_since_activity}d` : 'sin reg.'}
                     </span>
-                  </div>
-                  <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 999 }} />
-                  </div>
-                </div>
-              )
-            })()}
+                  </Link>
+                ))}
+                {alertPatients.length > 4 && (
+                  <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                    +{alertPatients.length - 4} más
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </Card>
+
       </div>
 
-      {/* Fila inferior: tarjeta ancha — bullet bars de citas */}
-      <Card style={{ padding: '24px 28px' }}>
+      {/* Fila inferior: citas (2/3) + sin cita (1/3) */}
+      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12 }}>
+      <Card style={{ padding: '24px 28px' }} accent="var(--ink-5)">
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 32, alignItems: 'center' }}>
 
           {/* Número grande de total */}
@@ -505,6 +533,50 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
           )}
         </div>
       </Card>
+
+      {/* Sin cita próxima */}
+      {(() => {
+        const sinCitaColor = 'var(--berry)'
+        const pct = kpis.active_patients > 0
+          ? Math.round((kpis.patients_without_upcoming_appt / kpis.active_patients) * 100)
+          : 0
+        return (
+          <Card style={{ padding: '22px 24px' }} accent="var(--berry)">
+            <div className="fk-eyebrow">Pacientes sin cita · próximos 30 días</div>
+            <div style={{ marginTop: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span className="fk-serif" style={{
+                  fontSize: 44, fontWeight: 300,
+                  letterSpacing: '-0.02em', lineHeight: 1,
+                  color: sinCitaColor,
+                }}>
+                  {kpis.patients_without_upcoming_appt}
+                </span>
+                <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                  / {kpis.active_patients}
+                </span>
+              </div>
+              {kpis.active_patients > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                      de pacientes activos
+                    </span>
+                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color: sinCitaColor }}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: sinCitaColor, borderRadius: 999 }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        )
+      })()}
+
+      </div>
     </div>
   )
 }
@@ -518,9 +590,10 @@ function ProgressSection({ kpis, practitioner }: {
   const avg    = kpis.avg_adherence
   const minPct = practitioner?.min_adherence_pct ?? 60
   const color  = avg == null ? 'var(--ink-5)' : avg >= 80 ? 'var(--leaf)' : avg >= 60 ? 'var(--honey)' : 'var(--signal)'
+  const progressBg = avg == null ? '#fff' : avg >= 80 ? 'var(--leaf-soft)' : avg >= 60 ? 'var(--honey-soft)' : 'var(--signal-soft)'
 
   return (
-    <Card style={{ padding: '24px 28px' }}>
+    <Card style={{ padding: '24px 28px' }} accent={color} accentBg={progressBg}>
       <div className="fk-eyebrow" style={{ marginBottom: 24 }}>
         PROGRESO CLÍNICO · ÚLTIMOS 30 DÍAS
       </div>
@@ -577,8 +650,13 @@ const ALERT_META: Record<string, { text: string; color: string; bg: string }> = 
 }
 
 function AlertsSection({ patients }: { patients: PracticeKPIs['patients_needing_attention'] }) {
+  const hasAlerts = patients.length > 0
   return (
-    <Card style={{ padding: '24px 28px' }}>
+    <Card
+      style={{ padding: '24px 28px' }}
+      accent={hasAlerts ? 'var(--berry)' : 'var(--leaf)'}
+      accentBg={hasAlerts ? 'var(--berry-soft)' : 'var(--leaf-soft)'}
+    >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
         <div className="fk-eyebrow">REQUIEREN ATENCIÓN</div>
         {patients.length > 0 ? (
@@ -669,7 +747,7 @@ function PlatformSection({ activePatients }: { activePatients: number }) {
   const total   = !isNaN(numCost) && numCost > 0 ? numCost * activePatients : null
 
   return (
-    <Card style={{ padding: '24px 28px' }}>
+    <Card style={{ padding: '24px 28px' }} accent="var(--honey)" accentBg="var(--honey-soft)">
       <div className="fk-eyebrow" style={{ marginBottom: 20 }}>PLATAFORMA · FITKIS</div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -794,9 +872,8 @@ export default function DashboardPage() {
 
       <div style={{ padding: '24px 40px 48px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <TodaySection    appts={todayAppts} />
-        <ConsultoriaSection kpis={kpis} monthLabel={monthLabel} monthTotal={monthTotal} />
+        <ConsultoriaSection kpis={kpis} monthLabel={monthLabel} monthTotal={monthTotal} alertPatients={kpis.patients_needing_attention} />
         <ProgressSection kpis={kpis} practitioner={practitioner} />
-        <AlertsSection   patients={kpis.patients_needing_attention} />
         <PlatformSection activePatients={kpis.active_patients} />
       </div>
     </div>

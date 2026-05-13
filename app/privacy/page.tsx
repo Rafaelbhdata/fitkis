@@ -1,7 +1,7 @@
 // app/privacy/page.tsx
 //
-// Privacy Policy for FitKis. Required by App Store + Play Store.
-// Editorial typography to match the rest of the marketing site.
+// Privacy Policy for FitKis. Required by Google OAuth verification,
+// App Store, and Play Store. Covers calendar.freebusy scope explicitly.
 
 import Link from 'next/link'
 
@@ -10,7 +10,7 @@ export const metadata = {
   description: 'Cómo FitKis maneja tus datos.',
 }
 
-const LAST_UPDATED = '7 de mayo de 2026'
+const LAST_UPDATED = '13 de mayo de 2026'
 
 export default function PrivacyPage() {
   return (
@@ -33,21 +33,22 @@ export default function PrivacyPage() {
           <section>
             <h2 className="fk-eyebrow text-ink-4 mb-3">1 · QUIÉNES SOMOS</h2>
             <p className="leading-relaxed">
-              FitKis es una aplicación de seguimiento de salud personal — peso, alimentación,
-              hábitos y entrenamiento. Esta política describe cómo recolectamos, usamos y
-              protegemos tu información cuando usas la app móvil o el sitio web.
+              FitKis es una plataforma de salud que conecta a nutriólogas con sus pacientes.
+              Incluye un portal web para profesionales de nutrición y una app móvil para
+              pacientes. Esta política describe cómo recolectamos, usamos y protegemos tu
+              información cuando usas cualquiera de los dos productos.
             </p>
           </section>
 
           <section>
             <h2 className="fk-eyebrow text-ink-4 mb-3">2 · QUÉ DATOS RECOLECTAMOS</h2>
             <p className="leading-relaxed mb-3">
-              Para que la app funcione, guardamos lo siguiente vinculado a tu cuenta:
+              Guardamos lo siguiente vinculado a tu cuenta:
             </p>
             <ul className="space-y-2 list-none pl-0">
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Identidad básica:</strong> tu correo electrónico (para login) y el nombre que tú elijas mostrar.</span>
+                <span><strong>Identidad básica:</strong> correo electrónico (para login) y el nombre que elijas mostrar.</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
@@ -67,11 +68,15 @@ export default function PrivacyPage() {
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Fotos:</strong> fotos de comida (para análisis con IA), fotos de progreso corporal y reportes InBody que tú subes voluntariamente.</span>
+                <span><strong>Fotos:</strong> fotos de comida (análisis con IA), fotos de progreso corporal y reportes InBody subidos voluntariamente.</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Conversaciones con Coach Fit:</strong> los mensajes que envías al chat de coaching son procesados por IA para generar respuestas personalizadas.</span>
+                <span><strong>Conversaciones con Coach Fit:</strong> mensajes procesados por IA para generar respuestas personalizadas.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
+                <span><strong>Disponibilidad en Google Calendar (nutriólogas):</strong> si conectas tu cuenta de Google, leemos únicamente los periodos de libre/ocupado de tu calendario para evitar conflictos al agendar citas. No leemos el título, descripción ni asistentes de ningún evento.</span>
               </li>
             </ul>
           </section>
@@ -88,11 +93,15 @@ export default function PrivacyPage() {
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span>Generar recomendaciones personalizadas (rutinas de gym, mensajes del coach, equivalentes nutricionales).</span>
+                <span>Generar recomendaciones personalizadas (rutinas, mensajes del coach, equivalentes nutricionales).</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span>Procesar fotos con IA (Anthropic Claude) cuando tú subes una foto de comida o de tu InBody.</span>
+                <span>Procesar fotos con IA (Anthropic Claude) cuando subes una foto de comida o de tu InBody.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
+                <span>Verificar disponibilidad en Google Calendar para evitar citas en horarios ya ocupados.</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
@@ -107,14 +116,61 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="fk-eyebrow text-ink-4 mb-3">4 · CON QUIÉN LOS COMPARTIMOS</h2>
+            <h2 className="fk-eyebrow text-ink-4 mb-3">4 · GOOGLE CALENDAR — ACCESO Y USO</h2>
+            <p className="leading-relaxed mb-4">
+              Esta sección describe en detalle el acceso que FitKis solicita a Google Calendar,
+              de acuerdo con las políticas de datos de usuario de Google API Services.
+            </p>
+            <ul className="space-y-3 list-none pl-0">
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
+                <span><strong>Qué accedemos:</strong> únicamente la información de libre/ocupado (<code>calendar.freebusy</code>). Esto significa que sabemos si tienes un evento en un horario, pero no su nombre, descripción, ubicación ni participantes.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
+                <span><strong>Por qué lo usamos:</strong> para que el sistema de agendamiento de Fitkis bloquee automáticamente los horarios donde ya tienes compromisos, evitando citas dobles sin que tengas que gestionar dos calendarios.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
+                <span><strong>Quién puede conectar su calendario:</strong> solo las nutriólogas que usan el portal web de Fitkis. Los pacientes no tienen este acceso.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
+                <span><strong>Almacenamiento:</strong> guardamos el token de acceso de Google de forma segura en nuestra base de datos (Supabase) para consultas futuras de disponibilidad. Nunca almacenamos el contenido de los eventos.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
+                <span><strong>No compartimos:</strong> los datos de disponibilidad de Google Calendar no se comparten con ningún tercero, no se usan para publicidad y no se transfieren fuera del servicio de Fitkis.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
+                <span><strong>Cómo revocar el acceso:</strong> puedes desconectar tu Google Calendar en cualquier momento desde Configuración → Integraciones → Google Calendar → Desconectar. También puedes revocar el acceso directamente desde <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-signal underline">myaccount.google.com/permissions</a>.</span>
+              </li>
+            </ul>
+            <p className="leading-relaxed mt-4 text-sm text-ink-4">
+              El uso de FitKis de los datos obtenidos mediante las APIs de Google se rige
+              por la{' '}
+              <a
+                href="https://developers.google.com/terms/api-services-user-data-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                Política de datos de usuario de Google API Services
+              </a>
+              , incluidos los requisitos de uso limitado.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="fk-eyebrow text-ink-4 mb-3">5 · CON QUIÉN COMPARTIMOS TUS DATOS</h2>
             <p className="leading-relaxed mb-3">
               Para hacer funcionar la app necesitamos algunos servicios de infraestructura:
             </p>
             <ul className="space-y-2 list-none pl-0">
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Supabase</strong> — base de datos y autenticación (datos almacenados en su infraestructura).</span>
+                <span><strong>Supabase</strong> — base de datos y autenticación.</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
@@ -122,7 +178,11 @@ export default function PrivacyPage() {
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Vercel</strong> — hosting del backend.</span>
+                <span><strong>Vercel</strong> — hosting del backend y portal web.</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
+                <span><strong>Google (Calendar API)</strong> — consulta de disponibilidad cuando la nutrióloga conecta su cuenta de Google. Ver sección 4 para detalle completo.</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
@@ -136,16 +196,17 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="fk-eyebrow text-ink-4 mb-3">5 · CUÁNTO TIEMPO LOS GUARDAMOS</h2>
+            <h2 className="fk-eyebrow text-ink-4 mb-3">6 · CUÁNTO TIEMPO GUARDAMOS TUS DATOS</h2>
             <p className="leading-relaxed">
               Mantenemos tus datos mientras tu cuenta esté activa. Si decides eliminar tu
               cuenta desde Ajustes → Borrar cuenta, todos tus datos se borran de forma
-              permanente en un máximo de 30 días.
+              permanente en un máximo de 30 días. Los tokens de Google Calendar se eliminan
+              inmediatamente al desconectar la integración o al borrar la cuenta.
             </p>
           </section>
 
           <section>
-            <h2 className="fk-eyebrow text-ink-4 mb-3">6 · TUS DERECHOS</h2>
+            <h2 className="fk-eyebrow text-ink-4 mb-3">7 · TUS DERECHOS</h2>
             <p className="leading-relaxed mb-3">Tienes derecho a:</p>
             <ul className="space-y-2 list-none pl-0">
               <li className="flex gap-3">
@@ -162,13 +223,17 @@ export default function PrivacyPage() {
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
+                <span>Revocar el acceso a Google Calendar en cualquier momento sin eliminar tu cuenta (ver sección 4).</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="text-signal">·</span>
                 <span>Pedir aclaración sobre cualquier punto de esta política.</span>
               </li>
             </ul>
           </section>
 
           <section>
-            <h2 className="fk-eyebrow text-ink-4 mb-3">7 · MENORES DE EDAD</h2>
+            <h2 className="fk-eyebrow text-ink-4 mb-3">8 · MENORES DE EDAD</h2>
             <p className="leading-relaxed">
               FitKis no está dirigida a menores de 13 años. No recolectamos datos de
               forma intencionada de menores de esa edad.
@@ -176,7 +241,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="fk-eyebrow text-ink-4 mb-3">8 · CAMBIOS EN ESTA POLÍTICA</h2>
+            <h2 className="fk-eyebrow text-ink-4 mb-3">9 · CAMBIOS EN ESTA POLÍTICA</h2>
             <p className="leading-relaxed">
               Si cambia algo importante, te avisamos en la app antes de que entren en
               vigor los cambios. La fecha de última actualización está al inicio de
@@ -185,9 +250,12 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="fk-eyebrow text-ink-4 mb-3">9 · CONTACTO</h2>
+            <h2 className="fk-eyebrow text-ink-4 mb-3">10 · CONTACTO</h2>
             <p className="leading-relaxed">
-              Cualquier duda: <a href="mailto:hola@fitkis.app" className="text-signal underline">hola@fitkis.app</a>.
+              Cualquier duda sobre esta política o sobre tus datos:{' '}
+              <a href="mailto:info@fitkis.com" className="text-signal underline">
+                hola@fitkis.com
+              </a>.
             </p>
           </section>
         </div>

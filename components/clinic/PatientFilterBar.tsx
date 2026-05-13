@@ -19,7 +19,7 @@ const FILTER_TABS: TabDef[] = [
   { k: 'todos',    n: 'Todos',              icon: Ic.grid              },
   { k: 'atencion', n: 'Requieren atención', icon: Ic.alert },
   { k: 'pending',  n: 'Pendientes',         icon: (p) => <MailOpen size={12} {...p} /> },
-  { k: 'archivo',  n: 'Archivo',            icon: Ic.book              },
+  { k: 'archivo',  n: 'Inactivos',            icon: Ic.book              },
 ]
 
 type Props = {
