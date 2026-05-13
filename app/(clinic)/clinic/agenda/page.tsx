@@ -27,7 +27,7 @@ const DAYS_ES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 // Zoom levels: row height per hour + whether to show 30-min sub-rows
 const ZOOM_LEVELS = [
-  { rowH: 80,  halfHour: false }, // default (1×)
+  { rowH: 88,  halfHour: false }, // default (1×)
   { rowH: 120, halfHour: true  }, // zoom in 1 (2×)
   { rowH: 160, halfHour: true  }, // zoom in máximo (3×)
 ] as const
