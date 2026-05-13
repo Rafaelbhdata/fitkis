@@ -437,7 +437,7 @@ export function ClinicSidebar() {
               <span>{it.label}</span>
               {active && (
                 <span style={{ marginLeft: 'auto', display: 'inline-flex' }}>
-                  <PulseLine w={20} h={6} color="var(--signal)" strokeWidth={1.2} active />
+                  <PulseLine w={20} h={6} color="var(--signal)" strokeWidth={1.2} />
                 </span>
               )}
             </Link>
