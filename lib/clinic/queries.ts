@@ -901,6 +901,98 @@ export async function loadNextAppointmentForPatient(
 }
 
 // =============================================================================
+// LIBRARY TEMPLATES — biblioteca del nutriólogo
+// =============================================================================
+
+export type LibraryTemplateKind = 'plan' | 'mensaje' | 'receta'
+
+export type LibraryPlanEquivs = {
+  verdura: number
+  fruta: number
+  carb: number
+  leguminosa: number
+  proteina: number
+  grasa: number
+}
+
+export type LibraryTemplate = {
+  id: string
+  practitioner_id: string
+  kind: LibraryTemplateKind
+  title: string
+  body: string
+  plan_equivs: LibraryPlanEquivs | null
+  created_at: string
+  updated_at: string
+}
+
+export async function loadLibraryTemplates(
+  supabase: SB,
+  practitionerId: string,
+  kind?: LibraryTemplateKind,
+): Promise<LibraryTemplate[]> {
+  let q = supabase
+    .from('library_templates')
+    .select('*')
+    .eq('practitioner_id', practitionerId)
+    .order('updated_at', { ascending: false })
+  if (kind) q = q.eq('kind', kind)
+  const { data } = await q
+  return (data ?? []) as LibraryTemplate[]
+}
+
+export async function createLibraryTemplate(
+  supabase: SB,
+  payload: {
+    practitioner_id: string
+    kind: LibraryTemplateKind
+    title: string
+    body?: string
+    plan_equivs?: LibraryPlanEquivs | null
+  }
+): Promise<{ data: LibraryTemplate | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('library_templates')
+    .insert({
+      practitioner_id: payload.practitioner_id,
+      kind: payload.kind,
+      title: payload.title.trim(),
+      body: (payload.body ?? '').trim(),
+      plan_equivs: payload.plan_equivs ?? null,
+    } as never)
+    .select()
+    .single()
+  return { data: data as LibraryTemplate | null, error: error?.message ?? null }
+}
+
+export async function updateLibraryTemplate(
+  supabase: SB,
+  id: string,
+  patch: { title?: string; body?: string; plan_equivs?: LibraryPlanEquivs | null }
+): Promise<{ error: string | null }> {
+  const update: Record<string, unknown> = {}
+  if (patch.title !== undefined)       update.title = patch.title.trim()
+  if (patch.body !== undefined)        update.body = patch.body.trim()
+  if (patch.plan_equivs !== undefined) update.plan_equivs = patch.plan_equivs
+  const { error } = await supabase
+    .from('library_templates')
+    .update(update as never)
+    .eq('id', id)
+  return { error: error?.message ?? null }
+}
+
+export async function deleteLibraryTemplate(
+  supabase: SB,
+  id: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('library_templates')
+    .delete()
+    .eq('id', id)
+  return { error: error?.message ?? null }
+}
+
+// =============================================================================
 // PRACTICE REPORTS — KPIs globales de la práctica
 // =============================================================================
 
