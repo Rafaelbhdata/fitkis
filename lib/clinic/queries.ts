@@ -350,7 +350,7 @@ export async function loadPatientDetail(
   widestCutoff.setDate(widestCutoff.getDate() - MAX_WINDOW_DAYS)
   const widestCutoffISO = widestCutoff.toISOString().split('T')[0]
 
-  const [{ data: profile }, { data: weights }, { data: diet }, { data: relsRaw }, { data: foodDates }, { data: gymDates }, lastAppt] =
+  const [{ data: profile }, { data: weights }, { data: diet }, { data: patientRow }, { data: foodDates }, { data: gymDates }, lastAppt] =
     await Promise.all([
       supabase
         .from('user_profiles')
@@ -371,11 +371,11 @@ export async function loadPatientDetail(
         .order('effective_date', { ascending: false })
         .limit(1)
         .maybeSingle(),
-      // `auth.users.email` no es accesible vía RLS desde el cliente. Reusamos
-      // `get_practitioner_patients` que ya nos devuelve email + nombre. Ineficiente
-      // (trae toda la lista de pacientes para encontrar uno) pero correcto.
+      // `auth.users.email` no es accesible vía RLS desde el cliente; RPC dedicada
+      // (migración 036) que valida ownership y devuelve solo este paciente.
       supabase
-        .rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never),
+        .rpc('get_patient_for_practitioner' as never, { practitioner_uuid: practitionerId, patient_uuid: patientId } as never)
+        .maybeSingle(),
       supabase
         .from('food_logs')
         .select('date')
@@ -409,12 +409,11 @@ export async function loadPatientDetail(
   const windowDays = Math.max(1, Math.floor((today.getTime() - windowStart.getTime()) / 86_400_000))
 
   const profileWithName = profile as { height_cm?: number; goal_weight_kg?: number; display_name?: string } | null
-  const rels = (relsRaw ?? []) as GetPractitionerPatientsRow[]
-  const myRel = rels.find((r) => r.patient_id === patientId)
+  const patient = patientRow as { patient_email: string | null; patient_name: string | null } | null
 
-  const email = myRel?.patient_email ?? ''
+  const email = patient?.patient_email ?? ''
   const displayName =
-    myRel?.patient_name ||
+    patient?.patient_name ||
     profileWithName?.display_name ||
     email ||
     `Paciente ${patientId.slice(0, 6)}`
@@ -1013,77 +1012,116 @@ export type PracticeKPIs = {
 
 /**
  * KPIs agregados de la práctica del nutriólogo.
- * Reusa loadPatientsForPractitioner para evitar duplicar lógica de enriquecimiento.
+ *
+ * No reusa loadPatientsForPractitioner porque aquella hace 3 queries por
+ * paciente (history de peso, plan vigente, perfil) que no necesitamos para
+ * agregados. En su lugar: 5 queries en paralelo independientes del tamaño
+ * de la práctica.
  */
 export async function loadPracticeKPIs(
   supabase: SB,
   practitionerId: string,
   thresholds: { inactivityDays: number; minAdherencePct: number },
 ): Promise<PracticeKPIs> {
-  const patients = await loadPatientsForPractitioner(supabase, practitionerId, thresholds)
-  const activePatients = patients.filter(p => p.status === 'active')
-
-  const adherenceVals = activePatients
-    .map(p => p.adherence)
-    .filter((v): v is number => v != null)
-  const avgAdherence = adherenceVals.length
-    ? Math.round(adherenceVals.reduce((a, b) => a + b, 0) / adherenceVals.length)
-    : null
-
-  // Citas próximas 7 días (excluyendo canceladas/no_show)
   const now = new Date()
+  const cutoff30 = new Date(now); cutoff30.setDate(cutoff30.getDate() - 30)
+  const cutoff30ISO = cutoff30.toISOString().split('T')[0]
+  const cutoff60 = new Date(now); cutoff60.setDate(cutoff60.getDate() - 60)
+  const cutoff60ISO = cutoff60.toISOString().split('T')[0]
   const next7 = new Date(now); next7.setDate(next7.getDate() + 7)
-  const { data: apptRows } = await supabase
-    .from('appointments')
-    .select('id')
-    .eq('practitioner_id', practitionerId)
-    .gte('starts_at', now.toISOString())
-    .lt('starts_at', next7.toISOString())
-    .not('status', 'in', '("cancelled","no_show")')
-  const appointmentsNext7d = (apptRows ?? []).length
 
-  // Pacientes que requieren atención: alerta activa o adherencia bajo umbral
-  const needAttention = activePatients
-    .filter(p => p.alert != null || (p.adherence != null && p.adherence < thresholds.minAdherencePct))
-    .map(p => ({
-      patient_id: p._patient_id ?? '',
-      name: p.name,
-      alert: p.alert,
-      days_since_activity: p.days_since_activity,
-      adherence: p.adherence,
-    }))
-    .sort((a, b) => (a.adherence ?? 0) - (b.adherence ?? 0))
-    .slice(0, 10)
+  const { data: relsRaw, error: relErr } = await supabase
+    .rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never)
+  if (relErr) throw new Error(relErr.message)
+  const relations = (relsRaw ?? []) as GetPractitionerPatientsRow[]
+  const activeRels = relations.filter(r => r.status === 'active')
+  const activeIds  = activeRels.map(r => r.patient_id)
 
-  // Tendencia de peso del grupo (60 días) — promedio diario de todos los pacientes activos
-  const patientIds = activePatients.map(p => p._patient_id).filter((v): v is string => !!v)
-  let weightTrend: Array<{ date: string; avg_weight: number }> = []
-  if (patientIds.length > 0) {
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 60)
-    const { data: weightRows } = await supabase
-      .from('weight_logs')
-      .select('date, weight_kg')
-      .in('user_id', patientIds)
-      .gte('date', cutoff.toISOString().split('T')[0])
-      .not('weight_kg', 'is', null)
-    const byDate: Record<string, { sum: number; count: number }> = {}
-    for (const r of (weightRows ?? []) as { date: string; weight_kg: number }[]) {
-      if (r.weight_kg == null) continue
-      const slot = byDate[r.date] ??= { sum: 0, count: 0 }
-      slot.sum += r.weight_kg
-      slot.count += 1
+  if (activeIds.length === 0) {
+    return {
+      active_patients: 0,
+      pending_invites: relations.filter(r => r.status === 'pending').length,
+      avg_adherence: null,
+      appointments_next_7d: 0,
+      patients_needing_attention: [],
+      weight_trend: [],
     }
-    weightTrend = Object.entries(byDate)
-      .map(([date, v]) => ({ date, avg_weight: Number((v.sum / v.count).toFixed(1)) }))
-      .sort((a, b) => a.date.localeCompare(b.date))
   }
 
+  const [
+    { data: foodRows },
+    { data: gymRows },
+    { data: weightRows },
+    { data: weightTrendRows },
+    { data: apptRows },
+  ] = await Promise.all([
+    supabase.from('food_logs')   .select('user_id, date').in('user_id', activeIds).gte('date', cutoff30ISO),
+    supabase.from('gym_sessions').select('user_id, date').in('user_id', activeIds).gte('date', cutoff30ISO),
+    supabase.from('weight_logs') .select('user_id, date').in('user_id', activeIds).gte('date', cutoff30ISO),
+    supabase.from('weight_logs') .select('date, weight_kg').in('user_id', activeIds).gte('date', cutoff60ISO).not('weight_kg', 'is', null),
+    supabase.from('appointments').select('id')
+      .eq('practitioner_id', practitionerId)
+      .gte('starts_at', now.toISOString())
+      .lt('starts_at', next7.toISOString())
+      .not('status', 'in', '("cancelled","no_show")'),
+  ])
+
+  // Agrupa fechas de actividad por paciente
+  const activityDates: Record<string, Set<string>> = {}
+  for (const r of (foodRows   ?? []) as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
+  for (const r of (gymRows    ?? []) as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
+  for (const r of (weightRows ?? []) as { user_id: string; date: string }[]) (activityDates[r.user_id] ??= new Set()).add(r.date)
+
+  // Adherencia + alerta por paciente activo
+  type AttentionPatient = PracticeKPIs['patients_needing_attention'][number]
+  const adherenceList: number[] = []
+  const needAttention: AttentionPatient[] = []
+
+  for (const rel of activeRels) {
+    const dates = activityDates[rel.patient_id] ?? new Set<string>()
+    const adherence = dates.size > 0 ? Math.round((dates.size / 30) * 100) : null
+    if (adherence != null) adherenceList.push(adherence)
+
+    // Days since last activity (sin stagnation: stagnation requiere weight_history per-paciente)
+    const sortedDates = Array.from(dates).sort().reverse()
+    const lastDateStr = sortedDates[0]
+    const daysSinceActivity = lastDateStr != null ? daysBetween(lastDateStr) : undefined
+    const alert: AlertKind = (daysSinceActivity == null || daysSinceActivity >= thresholds.inactivityDays)
+      ? 'inactividad'
+      : null
+
+    if (alert != null || (adherence != null && adherence < thresholds.minAdherencePct)) {
+      needAttention.push({
+        patient_id: rel.patient_id,
+        name: rel.patient_name || rel.patient_email || `Paciente ${rel.patient_id.slice(0, 6)}`,
+        alert,
+        days_since_activity: daysSinceActivity,
+        adherence,
+      })
+    }
+  }
+  needAttention.sort((a, b) => (a.adherence ?? 0) - (b.adherence ?? 0))
+
+  // Tendencia de peso del grupo (60 días)
+  const byDate: Record<string, { sum: number; count: number }> = {}
+  for (const r of (weightTrendRows ?? []) as { date: string; weight_kg: number }[]) {
+    if (r.weight_kg == null) continue
+    const slot = byDate[r.date] ??= { sum: 0, count: 0 }
+    slot.sum += r.weight_kg
+    slot.count += 1
+  }
+  const weightTrend = Object.entries(byDate)
+    .map(([date, v]) => ({ date, avg_weight: Number((v.sum / v.count).toFixed(1)) }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
   return {
-    active_patients: activePatients.length,
-    pending_invites: patients.filter(p => p.status === 'pending').length,
-    avg_adherence: avgAdherence,
-    appointments_next_7d: appointmentsNext7d,
-    patients_needing_attention: needAttention,
+    active_patients: activeRels.length,
+    pending_invites: relations.filter(r => r.status === 'pending').length,
+    avg_adherence: adherenceList.length
+      ? Math.round(adherenceList.reduce((a, b) => a + b, 0) / adherenceList.length)
+      : null,
+    appointments_next_7d: (apptRows ?? []).length,
+    patients_needing_attention: needAttention.slice(0, 10),
     weight_trend: weightTrend,
   }
 }
