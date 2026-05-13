@@ -27,6 +27,11 @@ export function AppointmentBlock({ appt, top, height, col = 0, totalCols = 1, on
   const widthPct = colW
   const cancelled = appt.status === 'cancelled'
 
+  // Modo compacto: el bloque es muy bajo para apilar hora + nombre en dos líneas
+  // (ocurre con citas de 15 min en zoom 1x/2x, donde rowH=80/120 da height=28).
+  // En 3x rowH=160 → height=36, suficiente para layout normal.
+  const compact = height < 36
+
   const timeStr = new Date(appt.starts_at).toLocaleTimeString('es-MX', {
     hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City',
   })
@@ -40,7 +45,7 @@ export function AppointmentBlock({ appt, top, height, col = 0, totalCols = 1, on
         width: `calc(${widthPct}% - ${totalCols > 1 ? 4 : 6}px)`,
         top, height,
         borderRadius: 6,
-        padding: '4px 7px',
+        padding: compact ? '2px 7px' : '4px 7px',
         background: cfg.bg,
         borderLeft: `3px solid ${cfg.border}`,
         overflow: 'hidden',
@@ -48,9 +53,10 @@ export function AppointmentBlock({ appt, top, height, col = 0, totalCols = 1, on
         zIndex: 1,
         userSelect: 'none',
         display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        gap: 1,
+        flexDirection: compact ? 'row' : 'column',
+        alignItems: compact ? 'center' : 'stretch',
+        justifyContent: compact ? 'flex-start' : 'center',
+        gap: compact ? 6 : 1,
       }}
     >
       <span style={{
@@ -58,6 +64,7 @@ export function AppointmentBlock({ appt, top, height, col = 0, totalCols = 1, on
         color: cfg.timeColor, letterSpacing: '0.03em',
         textDecoration: cancelled ? 'line-through' : 'none',
         lineHeight: 1,
+        flexShrink: 0,
       }}>
         {timeStr}
       </span>
@@ -67,6 +74,8 @@ export function AppointmentBlock({ appt, top, height, col = 0, totalCols = 1, on
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         textDecoration: cancelled ? 'line-through' : 'none',
         lineHeight: 1.2,
+        minWidth: 0,
+        flex: compact ? 1 : undefined,
       }}>
         {appt.patient_name}
       </span>
