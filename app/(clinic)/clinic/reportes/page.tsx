@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from '@/components/clinic/Ic'
+import { BigSpark } from '@/components/clinic/BigSpark'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
@@ -29,37 +30,6 @@ function KPICard({ label, value, unit, sub }: { label: string; value: string; un
       </div>
       {sub && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>{sub}</div>}
     </div>
-  )
-}
-
-function WeightTrendChart({ points }: { points: Array<{ date: string; avg_weight: number }> }) {
-  if (points.length < 2) {
-    return (
-      <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-5)', fontFamily: 'var(--f-mono)', fontSize: 12 }}>
-        sin datos suficientes para tendencia
-      </div>
-    )
-  }
-  const w = 800, h = 200
-  const values = points.map(p => p.avg_weight)
-  const min = Math.min(...values), max = Math.max(...values), r = max - min || 1
-  const pts = points.map((p, i) => [(i / (points.length - 1)) * (w - 40) + 20, h - ((p.avg_weight - min) / r) * (h - 50) - 20])
-  const d = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ')
-  const area = `${d} L${pts[pts.length-1][0]} ${h - 4} L${pts[0][0]} ${h - 4} Z`
-  return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`}>
-      <defs>
-        <linearGradient id="rep-trend" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="var(--leaf)" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="var(--leaf)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill="url(#rep-trend)" />
-      <path d={d} stroke="var(--leaf)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      {pts.map((p, i) => (
-        <circle key={i} cx={p[0]} cy={p[1]} r={i === pts.length - 1 ? 3.5 : 1.5} fill={i === pts.length - 1 ? 'var(--leaf)' : '#fff'} stroke="var(--leaf)" strokeWidth="1.2" />
-      ))}
-    </svg>
   )
 }
 
@@ -167,7 +137,13 @@ export default function ReportesPage() {
               {kpis.weight_trend.length} día{kpis.weight_trend.length === 1 ? '' : 's'} con registro
             </span>
           </div>
-          <WeightTrendChart points={kpis.weight_trend} />
+          <BigSpark
+            values={kpis.weight_trend.map(p => p.avg_weight)}
+            color="var(--leaf)"
+            label="practice-weight-trend"
+            h={200}
+            emptyText="sin datos suficientes para tendencia"
+          />
         </div>
 
         {/* Pacientes que requieren atención */}
