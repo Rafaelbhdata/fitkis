@@ -319,6 +319,11 @@ export function ConsultationNotesCard({
             }
             const n = entry.data
             const isEditing = editingId === n.id
+            // Color del borde y chip = primer tag (o neutro si no hay)
+            const primaryMeta = n.tags.length > 0
+              ? getTagMeta(n.tags[0])
+              : { k: 'observacion' as ConsultationNoteTag, n: 'Nota', c: 'var(--ink-3)', bg: 'var(--paper-3)' }
+            const headerLabel = n.tags.length > 0 ? primaryMeta.n : 'Nota'
             return (
               <div
                 key={n.id}
@@ -327,11 +332,22 @@ export function ConsultationNotesCard({
                   borderRadius: 10,
                   border: '1px solid var(--ink-7)',
                   background: isEditing ? 'var(--paper)' : '#fff',
+                  borderLeft: `3px solid ${primaryMeta.c}`,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, gap: 10 }}>
-                  <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    {formatNoteDate(n.note_date)}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
+                  <span style={{
+                    padding: '3px 10px',
+                    borderRadius: 999,
+                    background: primaryMeta.bg,
+                    color: primaryMeta.c,
+                    fontSize: 10,
+                    fontFamily: 'var(--f-sans)',
+                    fontWeight: 500,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}>
+                    {headerLabel} · {formatNoteDate(n.note_date)}
                   </span>
                   {!isEditing && (
                     <div style={{ display: 'flex', gap: 4 }}>
@@ -418,9 +434,9 @@ export function ConsultationNotesCard({
                     <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
                       {n.body}
                     </p>
-                    {n.tags.length > 0 && (
+                    {n.tags.length > 1 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-                        {n.tags.map((t) => {
+                        {n.tags.slice(1).map((t) => {
                           const meta = getTagMeta(t)
                           return (
                             <span
