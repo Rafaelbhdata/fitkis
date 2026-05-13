@@ -5,6 +5,7 @@
 - Setup ✅ · UI v5.0 "Paper & Pulse" ✅
 - **Web = portal clínico exclusivo** 🔄 EN PROGRESO — rama `clinic/v5-paper-pulse`
 - App móvil en `fitkis-mobile` (repo separado), comparte BD Supabase y endpoints `/api/*`
+- **Fase 3 ✅ completada (12 may 2026)** — ver sección abajo
 
 ---
 
@@ -19,8 +20,8 @@ app/
     clinic/pacientes/[id]/plan — Editor SMAE ✅
     clinic/agenda/             — Agenda semanal ✅ (grilla horaria 8 col, zoom, AppointmentBlock)
     clinic/ajustes/            — Ajustes ✅ (perfil, consultorio, agenda semanal, alertas)
-    clinic/reportes/           — Stub "Próximamente"
-    clinic/biblioteca/         — Stub "Próximamente"
+    clinic/reportes/           — KPIs reales (pacientes, adherencia, citas, alerta)
+    clinic/biblioteca/         — CRUD de plantillas (plan/mensaje/receta)
   agendar/[id]/                — Página pública de booking mobile-first (Calendly-style)
   onboarding/                  — Formulario para nutrióloga invitada
   admin/, admin/invite/        — Panel admin (gateado por user_profiles.role='admin')
@@ -36,8 +37,9 @@ app/
 
 components/
   clinic/  Sidebar, Topbar, Ic, MiniSpark, InviteModal, ComingSoon,
-           NewAppointmentModal, AppointmentBlock, RescheduleModal, AddToCalendar,
-           PatientFilterBar
+           NewAppointmentModal, AppointmentBlock, AppointmentDetailModal,
+           CancelAppointmentModal, RescheduleModal, AddToCalendar,
+           PatientFilterBar, ConsultationNotesCard, PatientReportPDF
   ui/      PulseLine, Fk, Btn, Card, Segments, Toast
 
 lib/
@@ -105,7 +107,12 @@ practitioners:
 
 ## Migraciones (acumulado)
 
-**Aplicadas:** 001–031 + `schedule_overrides.sql` — todas aplicadas.
+**Aplicadas:** 001–035 + `schedule_overrides.sql` — todas aplicadas.
+
+Migraciones Fase 3:
+- `033_practitioners_alert_thresholds.sql` — umbrales por practitioner
+- `034_consultation_notes.sql` — notas de consulta del nutriólogo
+- `035_library_templates.sql` — biblioteca (planes, mensajes, recetas)
 
 ---
 
@@ -115,21 +122,30 @@ practitioners:
 2. Copy engañoso en `/admin/invite` — dice "establece contraseña"; Supabase usa magic link
 3. N+1 en `loadAllProfessionals` — aceptable para MVP
 4. Round-trip extra para email del paciente en `loadPatientDetail` — crear RPC dedicada
-5. Agenda view (`clinic/agenda/page.tsx`) lee hora inicio/fin de `localStorage`; no sincroniza con el schedule del practitioner en BD — las dos fuentes son independientes por ahora
 
 ---
 
-## Pendiente · Fase 3
+## Fase 3 ✅ (completada 12 may 2026)
 
-- **Adherencia real** desde última visita (`weight_logs ∪ food_logs ∪ gym_sessions` desde appointment más reciente)
-- **Notas de consulta** — migración + card en detalle del paciente
-- **Tabs de detalle** aún stub: Antropometría, Alimentación, Entrenamiento, Conversación
-- **Reportes globales** — `/clinic/reportes`
-- **Biblioteca** — `/clinic/biblioteca` (plantillas SMAE, mensajes, recetario)
-- **Alerta de estancamiento de peso** — `computeAlert` solo marca inactividad; agregar lógica vs goal
-- **Reporte PDF** — Btn pintado en header; stack sugerido: `@react-pdf/renderer`
-- **Umbrales de alertas en BD** — actualmente en localStorage; migrar a tabla settings del practitioner
-- **Sincronizar grilla de agenda** con `practitioners.schedule` (hoy usa localStorage independiente)
+- ✅ **Adherencia desde última visita** — `loadPatientDetail` calcula ventana desde la última cita completada (≤90d), fallback a 30d. UI cambia el label según contexto
+- ✅ **Notas de consulta** — `consultation_notes` con CRUD inline en la tab Resumen, tags (ajuste_plan, recordatorio, reagenda, objetivo, observación)
+- ✅ **Tabs de detalle wireadas** — Antropometría / Alimentación / Gym ya leen de BD; Plan vigente ya editable; Conversación reorienta a Biblioteca + Notas (mensajería vive en móvil)
+- ✅ **Alerta de estancamiento** — `isStagnant`: 3+ mediciones en ≥21d con delta < 1kg
+- ✅ **Reportes globales** — KPIs (pacientes, adherencia media, citas próximas, alertas), gráfica de tendencia del grupo, lista priorizada
+- ✅ **Biblioteca** — CRUD de plantillas tipo plan/mensaje/receta, planes con equivalentes SMAE
+- ✅ **Reporte PDF** — `@react-pdf/renderer` con dynamic import, incluye métricas + plan + últimas 8 notas
+- ✅ **Umbrales en BD** — `practitioners.inactivity_threshold_days` y `min_adherence_pct`
+- ✅ **Sync agenda↔schedule** — grilla deriva inicio/fin del `practitioner.schedule`; override manual sigue disponible
+
+---
+
+## Pendiente · Fase 4
+
+- **Auto-rellenado de nombre** en plantillas tipo mensaje (`{paciente}` → nombre real)
+- **Aplicar plantilla de plan** directo al plan vigente del paciente (1 click desde Biblioteca)
+- **Export CSV/PDF mensual** desde Reportes
+- **RPC `get_patient_for_practitioner`** para evitar round-trip extra en `loadPatientDetail`
+- **savePlanDraft atómico** (RPC server-side en lugar de 2 statements desde cliente)
 
 ---
 

@@ -475,17 +475,20 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
         )}
       </div>
 
-      {/* Quick send */}
-      <div
+      {/* Quick link · Biblioteca */}
+      <Link
+        href="/clinic/biblioteca"
         style={{
+          display: 'block',
           background: 'var(--signal-soft)',
           border: '1px solid var(--signal-soft)',
           borderRadius: 14,
           padding: '18px 22px',
+          textDecoration: 'none',
         }}
       >
         <div className="fk-eyebrow" style={{ color: '#a33a0f' }}>
-          Enviar al paciente · próximamente
+          Biblioteca de plantillas
         </div>
         <div
           style={{
@@ -497,10 +500,9 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
             opacity: 0.85,
           }}
         >
-          Recetario, listas de compras y material educativo se cablean cuando esté lista la
-          Biblioteca (fase 3).
+          Reusa planes, mensajes y recetas guardadas. Ir a la biblioteca →
         </div>
-      </div>
+      </Link>
     </div>
   )
 }
@@ -1092,31 +1094,24 @@ function TabPlanVigente({ patient }: { patient: PatientDetail }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab: Conversación (placeholder Fase 3)
+// Tab: Conversación — fuera de alcance del portal web (vive en fitkis-mobile)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TabConversacion({ patient }: { patient: PatientDetail }) {
-  const previews = ['Nuevo plan alimenticio', 'Lista de compras', 'Recordatorio consulta', 'Material educativo']
+  void patient
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ background: 'var(--ink)', color: 'var(--paper)', borderRadius: 14, padding: '36px 32px' }}>
-        <div className="fk-eyebrow" style={{ color: 'var(--signal)', marginBottom: 12 }}>Conversación · fase 3</div>
+        <div className="fk-eyebrow" style={{ color: 'var(--signal)', marginBottom: 12 }}>Conversación · vive en la app</div>
         <p className="fk-serif" style={{ fontSize: 28, fontWeight: 300, fontStyle: 'italic', lineHeight: 1.2, margin: '0 0 14px' }}>
-          Próximamente: mensajes directos con el paciente
+          La mensajería directa es funcionalidad de la app del paciente
         </p>
         <p style={{ fontSize: 14, color: 'var(--ink-5)', fontFamily: 'var(--f-sans)', lineHeight: 1.6, margin: 0 }}>
-          Aquí podrás enviar ajustes al plan, recordatorios y material educativo directamente desde el portal. El paciente recibirá una notificación en su app.
+          Para enviar contenido al paciente desde el portal, usa la{' '}
+          <Link href="/clinic/biblioteca" style={{ color: 'var(--signal)', textDecoration: 'none', fontWeight: 500 }}>Biblioteca</Link>{' '}
+          (plantillas, mensajes, recetas) o registra recordatorios en las{' '}
+          <a href="#consultation-notes" style={{ color: 'var(--signal)', textDecoration: 'none', fontWeight: 500 }}>Notas de consulta</a>.
         </p>
-      </div>
-      <div style={{ background: 'var(--signal-soft)', border: '1px solid rgba(255,90,31,0.15)', borderRadius: 14, padding: '20px 24px' }}>
-        <div className="fk-eyebrow" style={{ color: '#a33a0f', marginBottom: 12 }}>Accesos rápidos que estarán disponibles</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {previews.map((p) => (
-            <div key={p} style={{ padding: '8px 14px', borderRadius: 999, border: '1px solid rgba(163,58,15,0.2)', background: 'rgba(255,255,255,0.5)', fontSize: 12, color: '#a33a0f', fontFamily: 'var(--f-sans)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ opacity: 0.5 }}>+</span> {p}
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   )
