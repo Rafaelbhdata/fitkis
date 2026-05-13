@@ -300,8 +300,13 @@ export type PatientDetail = {
   weight_history: WeightLog[] // oldest → newest
   active_diet?: ActiveDietSnapshot
   days_since_activity?: number
-  adherence: number | null   // % días con actividad en los últimos 30 días
+  adherence: number | null   // % días con actividad en la ventana
   streak: number             // racha actual en días consecutivos
+  adherence_window: {
+    days: number              // tamaño de la ventana en días
+    since_appointment: boolean // true si la ventana arranca en la última cita completada
+    since_date: string        // 'YYYY-MM-DD' — fecha inicio de la ventana
+  }
 }
 
 export type ActiveDietSnapshot = {
@@ -337,7 +342,30 @@ export async function loadPatientDetail(
 
   if (!relation) return null
 
-  const cutoff30 = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split('T')[0] })()
+  // Ventana de adherencia: desde la última cita completada (si existe y es ≤90d),
+  // sino fallback a 30 días rolling. Esto le da a la nutrióloga contexto real:
+  // "¿qué tan adherente ha sido desde la última vez que nos vimos?"
+  const lastAppt = await loadLastCompletedAppointment(supabase, practitionerId, patientId)
+  const today = new Date()
+  const MAX_WINDOW_DAYS = 90
+  let windowStart: Date
+  let sinceAppointment = false
+  if (lastAppt) {
+    const apptDate = new Date(lastAppt.starts_at)
+    const daysSinceAppt = Math.floor((today.getTime() - apptDate.getTime()) / 86_400_000)
+    if (daysSinceAppt > 0 && daysSinceAppt <= MAX_WINDOW_DAYS) {
+      windowStart = apptDate
+      sinceAppointment = true
+    } else {
+      windowStart = new Date(today)
+      windowStart.setDate(windowStart.getDate() - 30)
+    }
+  } else {
+    windowStart = new Date(today)
+    windowStart.setDate(windowStart.getDate() - 30)
+  }
+  const cutoffISO = windowStart.toISOString().split('T')[0]
+  const windowDays = Math.max(1, Math.floor((today.getTime() - windowStart.getTime()) / 86_400_000))
 
   const [{ data: profile }, { data: weights }, { data: diet }, { data: relsRaw }, { data: foodDates }, { data: gymDates }] =
     await Promise.all([
@@ -372,12 +400,12 @@ export async function loadPatientDetail(
         .from('food_logs')
         .select('date')
         .eq('user_id', patientId)
-        .gte('date', cutoff30),
+        .gte('date', cutoffISO),
       supabase
         .from('gym_sessions')
         .select('date')
         .eq('user_id', patientId)
-        .gte('date', cutoff30),
+        .gte('date', cutoffISO),
     ])
 
   const profileWithName = profile as { height_cm?: number; goal_weight_kg?: number; display_name?: string } | null
@@ -396,10 +424,10 @@ export async function loadPatientDetail(
   const daysSinceActivity = computeLastActivityDays(weightHistory)
 
   const allDates = new Set<string>()
-  for (const w of weightHistory) { if (w.date >= cutoff30) allDates.add(w.date) }
+  for (const w of weightHistory) { if (w.date >= cutoffISO) allDates.add(w.date) }
   for (const r of (foodDates ?? []) as { date: string }[]) allDates.add(r.date)
   for (const r of (gymDates  ?? []) as { date: string }[]) allDates.add(r.date)
-  const adherence = allDates.size > 0 ? Math.round((allDates.size / 30) * 100) : null
+  const adherence = allDates.size > 0 ? Math.round((allDates.size / windowDays) * 100) : null
   const streak    = computeStreak(allDates)
 
   return {
@@ -437,6 +465,11 @@ export async function loadPatientDetail(
     days_since_activity: daysSinceActivity,
     adherence,
     streak,
+    adherence_window: {
+      days: windowDays,
+      since_appointment: sinceAppointment,
+      since_date: cutoffISO,
+    },
   }
 }
 

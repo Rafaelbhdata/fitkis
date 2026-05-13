@@ -433,7 +433,11 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
           padding: '20px 22px',
         }}
       >
-        <div className="fk-eyebrow">Adherencia · 30 días</div>
+        <div className="fk-eyebrow">
+          Adherencia · {patient.adherence_window.since_appointment
+            ? `${patient.adherence_window.days} d desde última cita`
+            : `${patient.adherence_window.days} días`}
+        </div>
         {patient.adherence != null ? (
           <div style={{ marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
@@ -461,7 +465,9 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
           </div>
         ) : (
           <div style={{ marginTop: 14, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)' }}>
-            Sin registros en los últimos 30 días.
+            {patient.adherence_window.since_appointment
+              ? 'Sin registros desde la última consulta.'
+              : 'Sin registros en los últimos 30 días.'}
           </div>
         )}
       </div>
