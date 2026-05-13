@@ -15,6 +15,7 @@ import {
   loadPatientGymSessions,
   loadNextAppointmentForPatient,
   loadConsultationNotes,
+  loadAppointmentNotesForPatient,
   daysBetween,
   type PatientDetail,
   type PractitionerRecord,
@@ -1381,8 +1382,11 @@ export default function PatientDetailPage({
                 if (!practitioner) return
                 setGeneratingPDF(true)
                 try {
-                  const notes = await loadConsultationNotes(supabase, practitioner.id, patient.patient_id)
-                  await generatePatientReport({ patient, practitioner, notes })
+                  const [notes, appointmentNotes] = await Promise.all([
+                    loadConsultationNotes(supabase, practitioner.id, patient.patient_id),
+                    loadAppointmentNotesForPatient(supabase, practitioner.id, patient.patient_id),
+                  ])
+                  await generatePatientReport({ patient, practitioner, notes, appointmentNotes })
                 } catch (e) {
                   alert('No se pudo generar el reporte: ' + (e instanceof Error ? e.message : 'error'))
                 } finally {

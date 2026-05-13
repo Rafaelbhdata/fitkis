@@ -1,15 +1,30 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useSupabase } from '@/lib/hooks'
 import {
   loadConsultationNotes,
+  loadAppointmentNotesForPatient,
   createConsultationNote,
   updateConsultationNote,
   deleteConsultationNote,
   type ConsultationNote,
   type ConsultationNoteTag,
+  type AppointmentNote,
 } from '@/lib/clinic/queries'
+
+/** Entrada unificada para el feed: nota manual del nutriólogo o nota tomada en una cita. */
+type FeedEntry =
+  | { kind: 'manual';      data: ConsultationNote }
+  | { kind: 'appointment'; data: AppointmentNote }
+
+function entryDate(e: FeedEntry): string {
+  return e.kind === 'manual' ? e.data.note_date : e.data.starts_at.slice(0, 10)
+}
+function entrySortKey(e: FeedEntry): string {
+  return e.kind === 'manual' ? e.data.note_date + 'T00:00:00' : e.data.starts_at
+}
 
 const TAG_OPTIONS: { k: ConsultationNoteTag; n: string; c: string; bg: string }[] = [
   { k: 'ajuste_plan',  n: 'Ajuste de plan',  c: 'var(--leaf)',   bg: 'var(--leaf-soft)'  },
@@ -29,6 +44,14 @@ function formatNoteDate(iso: string): string {
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
 }
 
+function formatAppointmentDateTime(iso: string): string {
+  const d = new Date(iso)
+  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+  const h = d.getHours().toString().padStart(2, '0')
+  const m = d.getMinutes().toString().padStart(2, '0')
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} · ${h}:${m}`
+}
+
 export function ConsultationNotesCard({
   practitionerId,
   patientId,
@@ -37,9 +60,10 @@ export function ConsultationNotesCard({
   patientId: string
 }) {
   const supabase = useSupabase()
-  const [notes, setNotes]       = useState<ConsultationNote[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState<string | null>(null)
+  const [notes, setNotes]                     = useState<ConsultationNote[]>([])
+  const [apptNotes, setApptNotes]             = useState<AppointmentNote[]>([])
+  const [loading, setLoading]                 = useState(true)
+  const [error, setError]                     = useState<string | null>(null)
   const [composing, setComposing] = useState(false)
   const [draftBody, setDraftBody] = useState('')
   const [draftTags, setDraftTags] = useState<ConsultationNoteTag[]>([])
@@ -51,12 +75,21 @@ export function ConsultationNotesCard({
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    loadConsultationNotes(supabase, practitionerId, patientId)
-      .then((rows) => { if (!cancelled) { setNotes(rows); setError(null) } })
+    Promise.all([
+      loadConsultationNotes(supabase, practitionerId, patientId),
+      loadAppointmentNotesForPatient(supabase, practitionerId, patientId),
+    ])
+      .then(([rows, appts]) => { if (!cancelled) { setNotes(rows); setApptNotes(appts); setError(null) } })
       .catch((e) => { if (!cancelled) setError((e as Error).message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [supabase, practitionerId, patientId])
+
+  // Feed unificado ordenado por fecha descendente
+  const feed: FeedEntry[] = [
+    ...notes.map((n): FeedEntry => ({ kind: 'manual', data: n })),
+    ...apptNotes.map((a): FeedEntry => ({ kind: 'appointment', data: a })),
+  ].sort((a, b) => entrySortKey(b).localeCompare(entrySortKey(a)))
 
   function toggleDraftTag(t: ConsultationNoteTag) {
     setDraftTags((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t])
@@ -120,7 +153,9 @@ export function ConsultationNotesCard({
         <div>
           <div className="fk-eyebrow">Notas de consulta</div>
           <div className="fk-serif" style={{ fontSize: 22, fontWeight: 300, fontStyle: 'italic', marginTop: 4 }}>
-            {notes.length === 0 ? 'Aún sin notas' : `${notes.length} nota${notes.length === 1 ? '' : 's'}`}
+            {feed.length === 0
+              ? 'Aún sin notas'
+              : `${feed.length} nota${feed.length === 1 ? '' : 's'}${apptNotes.length > 0 ? ` · ${apptNotes.length} desde citas` : ''}`}
           </div>
         </div>
         {!composing && (
@@ -234,13 +269,55 @@ export function ConsultationNotesCard({
         <div style={{ padding: '20px 0', color: 'var(--ink-4)', fontSize: 12, fontFamily: 'var(--f-mono)' }}>
           cargando notas…
         </div>
-      ) : notes.length === 0 && !composing ? (
+      ) : feed.length === 0 && !composing ? (
         <p className="fk-serif" style={{ fontSize: 15, fontWeight: 300, fontStyle: 'italic', color: 'var(--ink-4)', margin: 0, lineHeight: 1.6 }}>
           Las notas que guardes aquí solo las ves tú. Sirven para registrar ajustes al plan, recordatorios y observaciones entre consultas.
+          También aparecerán aquí las notas que escribas dentro de cada cita en la agenda.
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {notes.map((n) => {
+          {feed.map((entry) => {
+            if (entry.kind === 'appointment') {
+              const a = entry.data
+              return (
+                <div
+                  key={`appt-${a.appointment_id}`}
+                  style={{
+                    padding: 14,
+                    borderRadius: 10,
+                    border: '1px solid var(--ink-7)',
+                    background: '#fff',
+                    borderLeft: '3px solid var(--signal)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{
+                      padding: '3px 10px',
+                      borderRadius: 999,
+                      background: 'var(--signal-soft)',
+                      color: 'var(--signal)',
+                      fontSize: 10,
+                      fontFamily: 'var(--f-sans)',
+                      fontWeight: 500,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                    }}>
+                      Cita · {formatAppointmentDateTime(a.starts_at)}
+                    </span>
+                    <Link
+                      href="/clinic/agenda"
+                      style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)', textDecoration: 'none' }}
+                    >
+                      editar en agenda →
+                    </Link>
+                  </div>
+                  <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
+                    {a.body}
+                  </p>
+                </div>
+              )
+            }
+            const n = entry.data
             const isEditing = editingId === n.id
             return (
               <div

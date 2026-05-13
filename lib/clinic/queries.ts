@@ -1111,6 +1111,43 @@ export type ConsultationNote = {
   updated_at: string
 }
 
+export type AppointmentNote = {
+  appointment_id: string
+  starts_at: string                // ISO datetime de la cita
+  duration_minutes: number
+  status: AppointmentStatus
+  body: string
+}
+
+/**
+ * Notas escritas dentro de citas (appointments.notes) que tengan contenido.
+ * Se exponen al detalle del paciente como entries read-only, mezcladas con
+ * las consultation_notes ordinarias.
+ */
+export async function loadAppointmentNotesForPatient(
+  supabase: SB,
+  practitionerId: string,
+  patientId: string,
+): Promise<AppointmentNote[]> {
+  const { data } = await supabase
+    .from('appointments')
+    .select('id, starts_at, duration_minutes, status, notes')
+    .eq('practitioner_id', practitionerId)
+    .eq('patient_id', patientId)
+    .not('notes', 'is', null)
+    .order('starts_at', { ascending: false })
+
+  return ((data ?? []) as Array<{ id: string; starts_at: string; duration_minutes: number; status: AppointmentStatus; notes: string | null }>)
+    .filter(r => r.notes && r.notes.trim() !== '')
+    .map(r => ({
+      appointment_id:   r.id,
+      starts_at:        r.starts_at,
+      duration_minutes: r.duration_minutes,
+      status:           r.status,
+      body:             (r.notes ?? '').trim(),
+    }))
+}
+
 /** Notas del nutriólogo para un paciente, ordenadas por fecha descendente. */
 export async function loadConsultationNotes(
   supabase: SB,

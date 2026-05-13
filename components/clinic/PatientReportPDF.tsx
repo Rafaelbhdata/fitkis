@@ -11,12 +11,17 @@
  * tendencia de peso (texto), plan vigente y últimas notas de consulta.
  */
 
-import type { PatientDetail, PractitionerRecord, ConsultationNote } from '@/lib/clinic/queries'
+import type { PatientDetail, PractitionerRecord, ConsultationNote, AppointmentNote } from '@/lib/clinic/queries'
+
+type FeedItem =
+  | { kind: 'manual'; date: string; body: string; tags: string[] }
+  | { kind: 'appointment'; date: string; body: string }
 
 export async function generatePatientReport(args: {
   patient: PatientDetail
   practitioner: PractitionerRecord
   notes: ConsultationNote[]
+  appointmentNotes: AppointmentNote[]
 }): Promise<void> {
   const { Document, Page, Text, View, StyleSheet, pdf } = await import('@react-pdf/renderer')
 
@@ -43,7 +48,16 @@ export async function generatePatientReport(args: {
     footer: { position: 'absolute', bottom: 24, left: 48, right: 48, fontSize: 8, color: '#999', borderTopWidth: 1, borderTopColor: '#e0e0e0', paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between' },
   })
 
-  const { patient, practitioner, notes } = args
+  const { patient, practitioner, notes, appointmentNotes } = args
+
+  const feed: FeedItem[] = [
+    ...notes.map((n): FeedItem => ({ kind: 'manual', date: n.note_date, body: n.body, tags: n.tags })),
+    ...appointmentNotes.map((a): FeedItem => ({
+      kind: 'appointment',
+      date: a.starts_at,
+      body: a.body,
+    })),
+  ].sort((a, b) => b.date.localeCompare(a.date))
   const today = new Date()
   const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
   const fechaReporte = `${today.getDate()} de ${months[today.getMonth()]} de ${today.getFullYear()}`
@@ -132,16 +146,20 @@ export async function generatePatientReport(args: {
 
         {/* Notas */}
         <View style={styles.section}>
-          <Text style={styles.h2}>Notas de consulta {notes.length > 0 ? `· últimas ${Math.min(notes.length, 8)}` : ''}</Text>
-          {notes.length === 0 ? (
+          <Text style={styles.h2}>Notas de consulta {feed.length > 0 ? `· últimas ${Math.min(feed.length, 10)}` : ''}</Text>
+          {feed.length === 0 ? (
             <Text style={styles.meta}>Aún sin notas registradas.</Text>
           ) : (
-            notes.slice(0, 8).map((n) => (
-              <View key={n.id} style={styles.note}>
-                <Text style={styles.noteDate}>{formatPdfDate(n.note_date)}</Text>
-                <Text style={styles.noteBody}>{n.body}</Text>
-                {n.tags.length > 0 && (
-                  <Text style={styles.noteTags}>{n.tags.map(formatTag).join(' · ')}</Text>
+            feed.slice(0, 10).map((item, idx) => (
+              <View key={idx} style={styles.note}>
+                <Text style={styles.noteDate}>
+                  {item.kind === 'appointment'
+                    ? `Cita · ${formatPdfDateTime(item.date)}`
+                    : formatPdfDate(item.date)}
+                </Text>
+                <Text style={styles.noteBody}>{item.body}</Text>
+                {item.kind === 'manual' && item.tags.length > 0 && (
+                  <Text style={styles.noteTags}>{item.tags.map(formatTag).join(' · ')}</Text>
                 )}
               </View>
             ))
@@ -172,6 +190,14 @@ function formatPdfDate(iso: string): string {
   const d = new Date(iso + 'T00:00:00')
   const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
+}
+
+function formatPdfDateTime(iso: string): string {
+  const d = new Date(iso)
+  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+  const h = d.getHours().toString().padStart(2, '0')
+  const m = d.getMinutes().toString().padStart(2, '0')
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} · ${h}:${m}`
 }
 
 function formatTag(t: string): string {
