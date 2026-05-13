@@ -864,8 +864,158 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
 
       <BookingShareCard practitionerId={practitioner.id} />
 
+      <CalendarConnectCard practitionerId={practitioner.id} />
+
       <SaveStatus state={state} error={error} />
     </div>
+  )
+}
+
+// ─── Calendar connect card ────────────────────────────────────────────────────
+
+function CalendarConnectCard({ practitionerId }: { practitionerId: string }) {
+  const [connected,     setConnected]     = useState<boolean | null>(null)
+  const [connectedAt,   setConnectedAt]   = useState<string | null>(null)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [feedback,      setFeedback]      = useState<{ ok: boolean; msg: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/auth/google-calendar/status')
+      .then(r => r.json())
+      .then(d => { setConnected(d.connected); setConnectedAt(d.connected_at ?? null) })
+      .catch(() => setConnected(false))
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const sp = new URLSearchParams(window.location.search)
+    if (sp.get('calendar_connected') === '1') {
+      setFeedback({ ok: true, msg: 'Google Calendar conectado correctamente.' })
+      window.history.replaceState({}, '', window.location.pathname + '?tab=agenda')
+    } else if (sp.get('calendar_error')) {
+      setFeedback({ ok: false, msg: decodeURIComponent(sp.get('calendar_error')!) })
+      window.history.replaceState({}, '', window.location.pathname + '?tab=agenda')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function handleDisconnect() {
+    if (!confirm('¿Desconectar Google Calendar? Los horarios del calendario externo dejarán de bloquearse.')) return
+    setDisconnecting(true)
+    const r = await fetch('/api/auth/google-calendar/disconnect', { method: 'DELETE' })
+    if (r.ok) {
+      setConnected(false)
+      setConnectedAt(null)
+      setFeedback({ ok: true, msg: 'Calendario desconectado.' })
+    } else {
+      setFeedback({ ok: false, msg: 'Error al desconectar. Intenta de nuevo.' })
+    }
+    setDisconnecting(false)
+  }
+
+  const cardStyle: React.CSSProperties = {
+    border: '1px solid var(--ink-7)',
+    borderRadius: 12,
+    padding: '18px 20px',
+    marginBottom: 24,
+  }
+
+  return (
+    <div style={{ marginTop: 32, marginBottom: 28 }}>
+      <label style={agendaLabelStyle}>Calendario externo</label>
+
+      {feedback && (
+        <div style={{
+          marginBottom: 12,
+          padding: '10px 14px',
+          borderRadius: 8,
+          background: feedback.ok ? 'rgba(74,124,58,0.08)' : 'rgba(200,30,30,0.07)',
+          border: `1px solid ${feedback.ok ? 'rgba(74,124,58,0.3)' : 'rgba(200,30,30,0.25)'}`,
+          fontFamily: 'var(--f-sans)',
+          fontSize: 13,
+          color: feedback.ok ? '#2e6e22' : '#c81e1e',
+        }}>
+          {feedback.msg}
+        </div>
+      )}
+
+      {connected === null ? (
+        <div style={{ ...cardStyle, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)', fontSize: 12 }}>
+          Verificando conexión…
+        </div>
+      ) : connected ? (
+        <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: 999,
+                background: '#4a7c3a', display: 'inline-block', flexShrink: 0,
+              }} />
+              <span style={{ fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
+                Google Calendar conectado
+              </span>
+            </div>
+            {connectedAt && (
+              <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', paddingLeft: 16 }}>
+                Conectado el {new Date(connectedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            style={{
+              padding: '7px 14px', borderRadius: 8,
+              border: '1px solid rgba(200,30,30,0.3)',
+              background: 'rgba(200,30,30,0.05)',
+              color: '#c81e1e',
+              fontFamily: 'var(--f-sans)', fontSize: 12,
+              cursor: disconnecting ? 'default' : 'pointer',
+              opacity: disconnecting ? 0.6 : 1,
+              flexShrink: 0,
+            }}
+          >
+            {disconnecting ? 'Desconectando…' : 'Desconectar'}
+          </button>
+        </div>
+      ) : (
+        <div style={{ ...cardStyle }}>
+          <div style={{ fontFamily: 'var(--f-sans)', fontSize: 13, color: 'var(--ink-3)', marginBottom: 14, lineHeight: 1.5 }}>
+            Conecta tu Google Calendar para que los horarios ocupados en tu calendario personal bloqueen automáticamente slots en la agenda y en el link de reservas de tus pacientes.
+          </div>
+          <a
+            href="/api/auth/google-calendar/connect"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '9px 18px', borderRadius: 8,
+              border: '1px solid var(--ink-6)',
+              background: '#fff',
+              color: 'var(--ink)',
+              fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500,
+              textDecoration: 'none',
+              transition: 'border-color 0.12s',
+            }}
+          >
+            <GoogleIcon />
+            Conectar Google Calendar
+          </a>
+          <div style={{ marginTop: 10, fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', lineHeight: 1.5 }}>
+            Solo se leen horarios ocupados/libres — Fitkis no accede al contenido de tus eventos.
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function GoogleIcon() {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" aria-hidden>
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
   )
 }
 
@@ -932,7 +1082,11 @@ export default function AjustesPage() {
   const [practitioner, setPractitioner] = useState<PractitionerRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
-  const [active,  setActive]  = useState<SectionKey>('perfil')
+  const [active,  setActive]  = useState<SectionKey>(() => {
+    if (typeof window === 'undefined') return 'perfil'
+    const tab = new URLSearchParams(window.location.search).get('tab') as SectionKey | null
+    return tab && ['perfil','consultorio','agenda','umbrales'].includes(tab) ? tab : 'perfil'
+  })
 
   useEffect(() => {
     if (userLoading) return

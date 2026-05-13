@@ -69,6 +69,7 @@ export default function AgendaPage() {
 
   const [practitioner, setPractitioner] = useState<PractitionerRecord | null>(null)
   const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [busyBlocks,   setBusyBlocks]   = useState<Array<{ start: string; end: string }>>([])
   const [loading, setLoading]           = useState(true)
   const [weekOffset, setWeekOffset]     = useState(0)
   const [newApptOpen, setNewApptOpen] = useState(false)
@@ -137,8 +138,15 @@ export default function AgendaPage() {
   const fetchAppts = useCallback(async () => {
     if (!practitioner) return
     setLoading(true)
-    const data = await loadAppointmentsForWeek(supabase, practitioner.id, weekStart)
+    const weekEnd = shiftDateISO(weekStart, 6)
+    const [data, busyRes] = await Promise.all([
+      loadAppointmentsForWeek(supabase, practitioner.id, weekStart),
+      fetch(`/api/calendar-busy?practitionerId=${practitioner.id}&from=${weekStart}&to=${weekEnd}`)
+        .then(r => r.json())
+        .catch(() => ({ busy: [] })),
+    ])
     setAppointments(data)
+    setBusyBlocks(busyRes.busy ?? [])
     setLoading(false)
   }, [practitioner, supabase, weekStart])
 
@@ -289,6 +297,7 @@ export default function AgendaPage() {
           { bg:'#fbefef', border:'rgba(200,30,30,0.3)',   label:'Cancelada'   },
           { bg:'#f6e0e0', border:'rgba(180,0,0,0.75)',    label:'No asistió'  },
           { bg:'#fff3e0', border:'#e65100',               label:'Reagendando' },
+          { bg:'var(--paper)', border:'var(--ink-6)',     label:'Cal. externo' },
         ] as const).map(({ bg, border, label }) => (
           <div key={label} style={{ background:bg, borderLeft:`2px solid ${border}`, borderRadius:3, padding:'0 5px', lineHeight:'16px' }}>
             <span style={{ fontFamily:'var(--f-mono)', fontSize:10, color:'var(--ink-3)', letterSpacing:'0.04em', whiteSpace:'nowrap', fontWeight:700 }}>{label}</span>
@@ -369,6 +378,8 @@ export default function AgendaPage() {
                     const { hour: h } = getHourMinuteInTimezone(a.starts_at)
                     return h >= startHour && h < endHour
                   })
+                  // Bloques del calendario externo que caen en este día
+                  const dayBusy = busyBlocks.filter(b => b.start.startsWith(key))
                   return (
                     <div key={key} style={{ position:'relative', height:totalH, borderLeft:'1px solid var(--ink-7)', background: isToday ? 'rgba(255,90,31,0.018)' : '#fff' }}>
                       {/* Hour lines */}
@@ -385,6 +396,41 @@ export default function AgendaPage() {
                           <div style={{ position:'absolute', left:-4, top:-3, width:8, height:8, borderRadius:999, background:'var(--signal)' }} />
                         </div>
                       )}
+                      {/* Bloques externos "Ocupado" */}
+                      {dayBusy.map((block, bi) => {
+                        const { hour: bh, minute: bm } = getHourMinuteInTimezone(block.start)
+                        const endMs  = new Date(block.end).getTime()
+                        const startMs = new Date(block.start).getTime()
+                        const durMin = Math.round((endMs - startMs) / 60_000)
+                        const top    = Math.max(0, ((bh - startHour) * 60 + bm) / 60 * rowH)
+                        const height = Math.max(16, (durMin / 60) * rowH - 2)
+                        if (bh < startHour || bh >= endHour) return null
+                        return (
+                          <div key={`busy-${bi}`} style={{
+                            position: 'absolute',
+                            top, height,
+                            left: 2, right: 2,
+                            background: 'repeating-linear-gradient(45deg, var(--ink-7) 0, var(--ink-7) 1px, transparent 0, transparent 50%) 0 0 / 6px 6px',
+                            backgroundColor: 'var(--paper)',
+                            border: '1px solid var(--ink-6)',
+                            borderRadius: 4,
+                            zIndex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            paddingLeft: 6,
+                            overflow: 'hidden',
+                          }}>
+                            <span style={{
+                              fontFamily: 'var(--f-mono)', fontSize: 9,
+                              color: 'var(--ink-4)', letterSpacing: '0.06em',
+                              textTransform: 'uppercase', whiteSpace: 'nowrap',
+                              userSelect: 'none',
+                            }}>
+                              Ocupado
+                            </span>
+                          </div>
+                        )
+                      })}
                       {layout.map(({ appt, col, totalCols }) => (
                         <AppointmentBlock key={appt.id} appt={appt}
                           top={apptTop(appt, startHour, rowH)} height={apptHeight(appt, rowH)}
