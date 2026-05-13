@@ -17,6 +17,7 @@ import {
 } from '@/lib/clinic/queries'
 import { getTodayInTimezone } from '@/lib/utils'
 import { fmtLongDate, MONTHS_CAP } from '@/lib/clinic/calendar-utils'
+import { ClinicTopbar } from '@/components/clinic/Topbar'
 
 // ─── Helpers de presentación ────────────────────────────────────────────────
 
@@ -348,19 +349,10 @@ export default function DashboardPage() {
   return (
     <div style={{ flex: 1, background: '#fff', minHeight: '100%' }}>
 
-      {/* ── Header ── */}
-      <div style={{ padding: '24px 40px 0' }}>
-        <div className="fk-eyebrow">Práctica · {monthLabel}</div>
-        <h1 className="fk-serif" style={{
-          fontSize: 42,
-          fontWeight: 300,
-          letterSpacing: '-0.02em',
-          lineHeight: 1,
-          margin: '8px 0 0',
-        }}>
-          <span style={{ fontStyle: 'italic' }}>Dashboard</span>
-        </h1>
-      </div>
+      <ClinicTopbar
+        sub={`Práctica · ${monthLabel}`}
+        title={<><span style={{ fontStyle: 'italic' }}>Dashboard</span></>}
+      />
 
       <div style={{ padding: '24px 40px 48px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
