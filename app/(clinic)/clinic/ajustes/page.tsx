@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from '@/components/clinic/Ic'
@@ -128,68 +128,70 @@ function Field({
   )
 }
 
-function SaveFooter({
-  loading,
-  saved,
-  error,
-  onClick,
-}: {
-  loading: boolean
-  saved: boolean
-  error: string | null
-  onClick: () => void
-}) {
+// ─── Autosave hook + inline status pill ───────────────────────────────────────
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+
+/**
+ * Autosave debounced. Salta el primer render (no guarda los valores iniciales).
+ * Si `validate` devuelve un string, no guarda y muestra el error.
+ */
+function useAutoSave(
+  deps: unknown[],
+  save: () => Promise<{ ok: true } | { ok: false; error: string }>,
+  validate?: () => string | null,
+  delayMs = 700,
+) {
+  const [state, setState] = useState<SaveState>('idle')
+  const [error, setError] = useState<string | null>(null)
+  const isFirst = useRef(true)
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (isFirst.current) { isFirst.current = false; return }
+    const err = validate?.() ?? null
+    if (err) { setError(err); setState('error'); return }
+    setError(null)
+    setState('saving')
+    const t = setTimeout(async () => {
+      const res = await save()
+      if (res.ok) {
+        setState('saved')
+        if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current)
+        savedTimeoutRef.current = setTimeout(() => setState('idle'), 1800)
+      } else {
+        setError(res.error); setState('error')
+      }
+    }, delayMs)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+
+  return { state, error }
+}
+
+function SaveStatus({ state, error }: { state: SaveState; error: string | null }) {
+  if (state === 'idle') return null
+  const color = state === 'error' ? 'var(--signal)'
+              : state === 'saved' ? 'var(--leaf)'
+              : 'var(--ink-5)'
+  const label = state === 'saving' ? 'Guardando…'
+              : state === 'saved'  ? '✓ Guardado'
+              : (error ?? 'Error al guardar')
   return (
     <div
       style={{
-        marginTop: 32,
-        paddingTop: 20,
+        marginTop: 24,
+        paddingTop: 14,
         borderTop: '1px solid var(--paper-3)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 16,
+        fontFamily: 'var(--f-mono)',
+        fontSize: 11,
+        color,
+        letterSpacing: '0.04em',
+        transition: 'color 0.2s',
       }}
     >
-      <div
-        style={{
-          fontFamily: 'var(--f-mono)',
-          fontSize: 11,
-          color: error ? 'var(--signal)' : 'transparent',
-          transition: 'color 0.2s',
-          flex: 1,
-        }}
-      >
-        {error ?? '·'}
-      </div>
-      <button
-        onClick={onClick}
-        disabled={loading}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '10px 24px',
-          borderRadius: 999,
-          border: 'none',
-          background: saved ? 'var(--leaf)' : 'var(--signal)',
-          color: '#fff',
-          fontFamily: 'var(--f-sans)',
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: loading ? 'not-allowed' : 'pointer',
-          opacity: loading ? 0.55 : 1,
-          transition: 'background 0.25s, opacity 0.2s',
-          letterSpacing: '-0.01em',
-        }}
-      >
-        {saved && (
-          <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        )}
-        {loading ? 'Guardando…' : saved ? 'Guardado' : 'Guardar cambios'}
-      </button>
+      {label}
     </div>
   )
 }
@@ -372,24 +374,18 @@ function PanelPerfil({ practitioner }: { practitioner: PractitionerRecord }) {
   const [name,    setName]    = useState(practitioner.display_name)
   const [cedula,  setCedula]  = useState(practitioner.license_number ?? '')
   const [esp,     setEsp]     = useState(practitioner.specialty ?? '')
-  const [loading, setLoading] = useState(false)
-  const [saved,   setSaved]   = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
 
   const initial = (name || '?').trim().charAt(0).toUpperCase()
 
-  async function handleSave() {
-    if (!name.trim()) { setError('El nombre no puede estar vacío.'); return }
-    setLoading(true); setError(null); setSaved(false)
-    const res = await updatePractitioner(supabase, practitioner.id, {
+  const { state, error } = useAutoSave(
+    [name, cedula, esp],
+    () => updatePractitioner(supabase, practitioner.id, {
       display_name:   name.trim(),
       license_number: cedula.trim() || null,
       specialty:      esp.trim() || null,
-    })
-    setLoading(false)
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500) }
-    else setError(res.error)
-  }
+    }),
+    () => name.trim() ? null : 'El nombre no puede estar vacío.',
+  )
 
   return (
     <div>
@@ -447,7 +443,7 @@ function PanelPerfil({ practitioner }: { practitioner: PractitionerRecord }) {
       <Field label="Cédula profesional" value={cedula} onChange={setCedula} placeholder="12345678" />
       <Field label="Especialidad" value={esp} onChange={setEsp} placeholder="Nutrición clínica" />
 
-      <SaveFooter loading={loading} saved={saved} error={error} onClick={handleSave} />
+      <SaveStatus state={state} error={error} />
     </div>
   )
 }
@@ -459,20 +455,14 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
 
   const [clinicName, setClinicName] = useState(practitioner.clinic_name ?? '')
   const [address,    setAddress]    = useState(practitioner.address ?? '')
-  const [loading, setLoading] = useState(false)
-  const [saved,   setSaved]   = useState(false)
-  const [error,   setError]   = useState<string | null>(null)
 
-  async function handleSave() {
-    setLoading(true); setError(null); setSaved(false)
-    const res = await updatePractitioner(supabase, practitioner.id, {
+  const { state, error } = useAutoSave(
+    [clinicName, address],
+    () => updatePractitioner(supabase, practitioner.id, {
       clinic_name: clinicName.trim() || null,
       address:     address.trim() || null,
-    })
-    setLoading(false)
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500) }
-    else setError(res.error)
-  }
+    }),
+  )
 
   return (
     <div>
@@ -495,7 +485,7 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
         placeholder="Av. Insurgentes Sur 1234, Col. Del Valle, CDMX"
       />
 
-      <SaveFooter loading={loading} saved={saved} error={error} onClick={handleSave} />
+      <SaveStatus state={state} error={error} />
     </div>
   )
 }
@@ -686,9 +676,6 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
 
   const [duration, setDuration] = useState<number>(practitioner.default_duration)
   const [schedule, setSchedule] = useState<WeekSchedule>(practitioner.schedule ?? DEFAULT_WEEK_SCHEDULE)
-  const [saving,   setSaving]   = useState(false)
-  const [saved,    setSaved]    = useState(false)
-  const [error,    setError]    = useState<string | null>(null)
 
   function updateDay(key: DayKey, patch: Partial<DaySchedule>) {
     setSchedule(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }))
@@ -716,23 +703,19 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
     })
   }
 
-  async function handleSave() {
-    for (const key of DAY_ORDER) {
-      const d = schedule[key]
-      if (d.enabled && timeToMin(d.start) >= timeToMin(d.end)) {
-        setError(`${DAY_LABELS[key]}: la hora de inicio debe ser anterior a la hora de fin.`)
-        return
+  const { state, error } = useAutoSave(
+    [duration, JSON.stringify(schedule)],
+    () => updatePractitioner(supabase, practitioner.id, { schedule, default_duration: duration }),
+    () => {
+      for (const key of DAY_ORDER) {
+        const d = schedule[key]
+        if (d.enabled && timeToMin(d.start) >= timeToMin(d.end)) {
+          return `${DAY_LABELS[key]}: la hora de inicio debe ser anterior a la hora de fin.`
+        }
       }
-    }
-    setSaving(true); setError(null); setSaved(false)
-    const res = await updatePractitioner(supabase, practitioner.id, {
-      schedule,
-      default_duration: duration,
-    })
-    setSaving(false)
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500) }
-    else setError(res.error)
-  }
+      return null
+    },
+  )
 
   return (
     <div>
@@ -881,7 +864,7 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
 
       <BookingShareCard practitionerId={practitioner.id} />
 
-      <SaveFooter loading={saving} saved={saved} error={error} onClick={handleSave} />
+      <SaveStatus state={state} error={error} />
     </div>
   )
 }
@@ -893,22 +876,19 @@ function PanelUmbrales({ practitioner }: { practitioner: PractitionerRecord }) {
 
   const [inactDays,    setInactDays]    = useState(practitioner.inactivity_threshold_days)
   const [minAdherence, setMinAdherence] = useState(practitioner.min_adherence_pct)
-  const [saving,       setSaving]       = useState(false)
-  const [saved,        setSaved]        = useState(false)
-  const [error,        setError]        = useState<string | null>(null)
 
-  async function handleSave() {
-    if (inactDays < 1 || inactDays > 90) { setError('Días de inactividad debe estar entre 1 y 90.'); return }
-    if (minAdherence < 0 || minAdherence > 100) { setError('La adherencia mínima debe estar entre 0 y 100.'); return }
-    setSaving(true); setError(null); setSaved(false)
-    const res = await updatePractitioner(supabase, practitioner.id, {
+  const { state, error } = useAutoSave(
+    [inactDays, minAdherence],
+    () => updatePractitioner(supabase, practitioner.id, {
       inactivity_threshold_days: inactDays,
       min_adherence_pct: minAdherence,
-    })
-    setSaving(false)
-    if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500) }
-    else setError(res.error)
-  }
+    }),
+    () => {
+      if (inactDays < 1 || inactDays > 90) return 'Días de inactividad debe estar entre 1 y 90.'
+      if (minAdherence < 0 || minAdherence > 100) return 'La adherencia mínima debe estar entre 0 y 100.'
+      return null
+    },
+  )
 
   return (
     <div>
@@ -938,7 +918,7 @@ function PanelUmbrales({ practitioner }: { practitioner: PractitionerRecord }) {
         hint="Porcentaje de días activos en los últimos 30 días por debajo del cual se genera una alerta."
       />
 
-      <SaveFooter loading={saving} saved={saved} error={error} onClick={handleSave} />
+      <SaveStatus state={state} error={error} />
     </div>
   )
 }
