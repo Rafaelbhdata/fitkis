@@ -310,7 +310,7 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
 
         {/* Pacientes activos */}
         <Card style={{ padding: '22px 24px' }}>
-          <div className="fk-eyebrow">Pacientes activos</div>
+          <div className="fk-eyebrow">Pacientes con licencia activa</div>
           <div style={{ marginTop: 10 }}>
             {/* Número + fracción */}
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -346,23 +346,6 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
               )
             })()}
 
-            {/* Definición de activo / inactivo */}
-            <div style={{
-              marginTop: 12,
-              padding: '8px 10px',
-              background: 'var(--paper)',
-              borderRadius: 8,
-              fontSize: 10,
-              fontFamily: 'var(--f-mono)',
-              color: 'var(--ink-4)',
-              lineHeight: 1.55,
-            }}>
-              <span style={{ color: 'var(--leaf)', fontWeight: 600 }}>Activo</span> — aceptó la invitación
-              {'  ·  '}
-              <span style={{ color: 'var(--honey)', fontWeight: 600 }}>Pendiente</span> — aún no acepta
-              {'  ·  '}
-              <span style={{ color: 'var(--ink-5)', fontWeight: 600 }}>Inactivo</span> — archivado
-            </div>
           </div>
         </Card>
 
