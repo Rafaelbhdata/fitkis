@@ -185,7 +185,6 @@ export default function ClinicPatientsPage() {
                 gridTemplateColumns: '34px 2.2fr 1fr 1fr 1fr 1fr 0.8fr 28px',
                 gap: 24,
                 padding: '10px 14px',
-                borderBottom: '1px solid var(--ink-7)',
                 alignItems: 'center',
               }}
             >
