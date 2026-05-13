@@ -94,10 +94,20 @@ export default function ClinicPatientsPage() {
     setPatients(list)
   }
 
+  // Criterio "requiere atención" (alineado con loadPracticeKPIs):
+  // paciente activo con alerta (inactividad/estancamiento) O adherencia bajo umbral.
+  // Pacientes pending/inactive viven en sus propias pestañas.
+  const minAdherence = practitioner?.min_adherence_pct ?? 60
+  const needsAttention = (p: MockPatient) =>
+    p.status === 'active' && (
+      !!p.alert ||
+      (p.adherence != null && p.adherence < minAdherence)
+    )
+
   const filtered = useMemo(() => {
     // 1. Tab filter
     let list = patients
-    if (filter === 'atencion') list = patients.filter((p) => p.alert)
+    if (filter === 'atencion') list = patients.filter(needsAttention)
     else if (filter === 'pending') list = patients.filter((p) => p.status === 'pending')
     else if (filter === 'archivo') list = patients.filter((p) => p.status === 'inactive')
 
@@ -115,10 +125,10 @@ export default function ClinicPatientsPage() {
       const db = b.days_since_activity ?? Infinity
       return da - db
     })
-  }, [filter, patients, searchQuery, sortKey])
+  }, [filter, patients, searchQuery, sortKey, minAdherence])
 
   // Stats
-  const attentionCount = patients.filter((p) => p.alert).length
+  const attentionCount = patients.filter(needsAttention).length
   const pendingCount = patients.filter((p) => p.status === 'pending').length
 
   if (loading || userLoading) {
