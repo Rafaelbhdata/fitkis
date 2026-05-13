@@ -455,16 +455,13 @@ function PanelPerfil({ practitioner }: { practitioner: PractitionerRecord }) {
 // ─── Panel: Consultorio ───────────────────────────────────────────────────────
 
 function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }) {
-  const supabase   = useSupabase()
-  const siteUrl    = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.app'
-  const bookingUrl = `${siteUrl}/agendar/${practitioner.id}`
+  const supabase = useSupabase()
 
   const [clinicName, setClinicName] = useState(practitioner.clinic_name ?? '')
   const [address,    setAddress]    = useState(practitioner.address ?? '')
   const [loading, setLoading] = useState(false)
   const [saved,   setSaved]   = useState(false)
   const [error,   setError]   = useState<string | null>(null)
-  const [copied,  setCopied]  = useState(false)
 
   async function handleSave() {
     setLoading(true); setError(null); setSaved(false)
@@ -477,18 +474,12 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
     else setError(res.error)
   }
 
-  function handleCopy() {
-    navigator.clipboard.writeText(bookingUrl).then(() => {
-      setCopied(true); setTimeout(() => setCopied(false), 2000)
-    })
-  }
-
   return (
     <div>
       <PanelHeader
         eyebrow="Ajustes · Consultorio"
         title="Datos del consultorio"
-        sub="Nombre del espacio e información de reservas para pacientes."
+        sub="Nombre y dirección del consultorio."
       />
 
       <Field
@@ -504,132 +495,147 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
         placeholder="Av. Insurgentes Sur 1234, Col. Del Valle, CDMX"
       />
 
-      {/* Booking share card */}
-      <div style={{ marginBottom: 20 }}>
+      <SaveFooter loading={loading} saved={saved} error={error} onClick={handleSave} />
+    </div>
+  )
+}
+
+// ─── Booking share card ───────────────────────────────────────────────────────
+
+function BookingShareCard({ practitionerId }: { practitionerId: string }) {
+  const siteUrl    = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.app'
+  const bookingUrl = `${siteUrl}/agendar/${practitionerId}`
+  const [copied, setCopied] = useState(false)
+
+  function handleCopy() {
+    navigator.clipboard.writeText(bookingUrl).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div
+        style={{
+          fontFamily: 'var(--f-mono)',
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: '0.13em',
+          textTransform: 'uppercase',
+          color: 'var(--ink-4)',
+          marginBottom: 10,
+        }}
+      >
+        Página pública de reservas
+      </div>
+
+      <div
+        style={{
+          background: 'var(--cream)',
+          borderRadius: 12,
+          padding: '18px 20px',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Decorative signal dot */}
+        <div
+          style={{
+            position: 'absolute',
+            top: -16,
+            right: -16,
+            width: 80,
+            height: 80,
+            borderRadius: 999,
+            background: 'var(--signal)',
+            opacity: 0.08,
+          }}
+        />
+
         <div
           style={{
             fontFamily: 'var(--f-mono)',
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: '0.13em',
-            textTransform: 'uppercase',
-            color: 'var(--ink-4)',
-            marginBottom: 10,
+            fontSize: 11,
+            color: 'var(--ink-3)',
+            wordBreak: 'break-all',
+            lineHeight: 1.5,
+            marginBottom: 14,
           }}
         >
-          Página pública de reservas
+          {bookingUrl}
         </div>
 
-        <div
-          style={{
-            background: 'var(--cream)',
-            borderRadius: 12,
-            padding: '18px 20px',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Decorative signal dot */}
-          <div
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={handleCopy}
             style={{
-              position: 'absolute',
-              top: -16,
-              right: -16,
-              width: 80,
-              height: 80,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 16px',
               borderRadius: 999,
-              background: 'var(--signal)',
-              opacity: 0.08,
-            }}
-          />
-
-          <div
-            style={{
+              border: 'none',
+              background: copied ? 'var(--leaf)' : 'var(--signal)',
+              color: '#fff',
               fontFamily: 'var(--f-mono)',
               fontSize: 11,
-              color: 'var(--ink-3)',
-              wordBreak: 'break-all',
-              lineHeight: 1.5,
-              marginBottom: 14,
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              cursor: 'pointer',
+              transition: 'background 0.2s',
             }}
           >
-            {bookingUrl}
-          </div>
+            {copied ? (
+              <>
+                <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Copiado
+              </>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                Copiar link
+              </>
+            )}
+          </button>
+          <a
+            href={bookingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 16px',
+              borderRadius: 999,
+              border: '1px solid rgba(10,10,10,0.15)',
+              background: 'transparent',
+              color: 'var(--ink-3)',
+              fontFamily: 'var(--f-mono)',
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              transition: 'background 0.15s',
+            }}
+            onMouseOver={e => (e.currentTarget.style.background = 'rgba(10,10,10,0.06)')}
+            onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
+            </svg>
+            Abrir
+          </a>
+        </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={handleCopy}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 16px',
-                borderRadius: 999,
-                border: 'none',
-                background: copied ? 'var(--leaf)' : 'var(--signal)',
-                color: '#fff',
-                fontFamily: 'var(--f-mono)',
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-              }}
-            >
-              {copied ? (
-                <>
-                  <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Copiado
-                </>
-              ) : (
-                <>
-                  <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                  </svg>
-                  Copiar link
-                </>
-              )}
-            </button>
-            <a
-              href={bookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 16px',
-                borderRadius: 999,
-                border: '1px solid rgba(10,10,10,0.15)',
-                background: 'transparent',
-                color: 'var(--ink-3)',
-                fontFamily: 'var(--f-mono)',
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                cursor: 'pointer',
-                textDecoration: 'none',
-                transition: 'background 0.15s',
-              }}
-              onMouseOver={e => (e.currentTarget.style.background = 'rgba(10,10,10,0.06)')}
-              onMouseOut={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3" />
-              </svg>
-              Abrir
-            </a>
-          </div>
-
-          <div style={{ marginTop: 10, fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)' }}>
-            Comparte este link para que tus pacientes puedan agendar una cita.
-          </div>
+        <div style={{ marginTop: 10, fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)' }}>
+          Comparte este link para que tus pacientes puedan agendar una cita.
         </div>
       </div>
-
-      <SaveFooter loading={loading} saved={saved} error={error} onClick={handleSave} />
     </div>
   )
 }
@@ -872,6 +878,8 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
           })}
         </div>
       </div>
+
+      <BookingShareCard practitionerId={practitioner.id} />
 
       <SaveFooter loading={saving} saved={saved} error={error} onClick={handleSave} />
     </div>
