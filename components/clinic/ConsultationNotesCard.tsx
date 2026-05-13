@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSupabase } from '@/lib/hooks'
+import { fmtShortDate, fmtShortDateTime } from '@/lib/clinic/calendar-utils'
 import {
   loadConsultationNotes,
   loadAppointmentNotesForPatient,
@@ -34,19 +35,6 @@ function getTagMeta(k: ConsultationNoteTag) {
   return TAG_OPTIONS.find((o) => o.k === k) ?? TAG_OPTIONS[4]
 }
 
-function formatNoteDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00')
-  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-}
-
-function formatAppointmentDateTime(iso: string): string {
-  const d = new Date(iso)
-  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-  const h = d.getHours().toString().padStart(2, '0')
-  const m = d.getMinutes().toString().padStart(2, '0')
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} · ${h}:${m}`
-}
 
 export function ConsultationNotesCard({
   practitionerId,
@@ -327,7 +315,7 @@ export function ConsultationNotesCard({
                       textTransform: 'uppercase',
                       letterSpacing: '0.05em',
                     }}>
-                      Cita · {formatAppointmentDateTime(a.starts_at)}
+                      Cita · {fmtShortDateTime(a.starts_at)}
                     </span>
                     {!isEditingAppt && (
                       <div style={{ display: 'flex', gap: 4 }}>
@@ -420,7 +408,7 @@ export function ConsultationNotesCard({
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em',
                   }}>
-                    {headerLabel} · {formatNoteDate(n.note_date)}
+                    {headerLabel} · {fmtShortDate(n.note_date)}
                   </span>
                   {!isEditing && (
                     <div style={{ display: 'flex', gap: 4 }}>

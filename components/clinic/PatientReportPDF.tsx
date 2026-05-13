@@ -12,6 +12,7 @@
  */
 
 import type { PatientDetail, PractitionerRecord, ConsultationNote, AppointmentNote } from '@/lib/clinic/queries'
+import { fmtShortDate, fmtShortDateTime, MONTHS_LONG } from '@/lib/clinic/calendar-utils'
 
 type FeedItem =
   | { kind: 'manual'; date: string; body: string; tags: string[] }
@@ -59,8 +60,7 @@ export async function generatePatientReport(args: {
     })),
   ].sort((a, b) => b.date.localeCompare(a.date))
   const today = new Date()
-  const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-  const fechaReporte = `${today.getDate()} de ${months[today.getMonth()]} de ${today.getFullYear()}`
+  const fechaReporte = `${today.getDate()} de ${MONTHS_LONG[today.getMonth()]} de ${today.getFullYear()}`
 
   const ws = patient.weight_history.map(r => r.weight_kg).filter((v): v is number => v != null)
   const pesoActual = ws.length ? ws[ws.length - 1] : null
@@ -154,8 +154,8 @@ export async function generatePatientReport(args: {
               <View key={idx} style={styles.note}>
                 <Text style={styles.noteDate}>
                   {item.kind === 'appointment'
-                    ? `Cita · ${formatPdfDateTime(item.date)}`
-                    : formatPdfDate(item.date)}
+                    ? `Cita · ${fmtShortDateTime(item.date)}`
+                    : fmtShortDate(item.date)}
                 </Text>
                 <Text style={styles.noteBody}>{item.body}</Text>
                 {item.kind === 'manual' && item.tags.length > 0 && (
@@ -184,20 +184,6 @@ export async function generatePatientReport(args: {
   a.click()
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-function formatPdfDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00')
-  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-}
-
-function formatPdfDateTime(iso: string): string {
-  const d = new Date(iso)
-  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-  const h = d.getHours().toString().padStart(2, '0')
-  const m = d.getMinutes().toString().padStart(2, '0')
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} · ${h}:${m}`
 }
 
 function formatTag(t: string): string {

@@ -4,10 +4,38 @@ export const MONTHS_CAP = [
   'Enero','Febrero','Marzo','Abril','Mayo','Junio',
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
 ]
+export const MONTHS_LONG = [
+  'enero','febrero','marzo','abril','mayo','junio',
+  'julio','agosto','septiembre','octubre','noviembre','diciembre',
+]
 export const MONTHS_SHORT = [
   'ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic',
 ]
+export const DAYS_LONG  = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
+export const DAYS_SHORT = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb']
 export const WEEK_LABELS = ['Lu','Ma','Mi','Ju','Vi','Sá','Do']
+
+/** "13 may 2026" — date-only ISO ('YYYY-MM-DD') o Date. */
+export function fmtShortDate(input: string | Date): string {
+  const d = typeof input === 'string' ? new Date(input + 'T00:00:00') : input
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`
+}
+
+/** "13 may 2026 · 14:30" — ISO datetime o Date. */
+export function fmtShortDateTime(input: string | Date): string {
+  const d = typeof input === 'string' ? new Date(input) : input
+  const h = d.getHours().toString().padStart(2, '0')
+  const m = d.getMinutes().toString().padStart(2, '0')
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()} · ${h}:${m}`
+}
+
+/** "miércoles 13 de mayo de 2026" — para headers de modales y reportes. */
+export function fmtLongDate(input: string | Date): string {
+  const d = typeof input === 'string'
+    ? (input.length === 10 ? new Date(input + 'T00:00:00') : new Date(input))
+    : input
+  return `${DAYS_LONG[d.getDay()]} ${d.getDate()} de ${MONTHS_LONG[d.getMonth()]} de ${d.getFullYear()}`
+}
 export const DURATIONS   = [15, 30, 45, 60] as const
 export type DurationMin  = typeof DURATIONS[number]
 

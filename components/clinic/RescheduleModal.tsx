@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Appointment } from '@/lib/clinic/queries'
+import { DAYS_LONG, MONTHS_LONG } from '@/lib/clinic/calendar-utils'
 
 type Reason = 'no_show' | 'custom'
 
@@ -11,9 +12,6 @@ type Props = {
   onConfirm: (reason: Reason, customMessage?: string) => Promise<void>
   onClose:   () => void
 }
-
-const MONTHS_LONG = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-const DAYS_LONG   = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
 
 function formatDateTime(iso: string, duration: number) {
   const d = new Date(iso)

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { PulseLine } from '@/components/ui/PulseLine'
+import { fmtShortDateTime } from '@/lib/clinic/calendar-utils'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
@@ -207,7 +208,7 @@ function TemplateCard({ item, onEdit, onDelete }: { item: LibraryTemplate; onEdi
           {item.title}
         </div>
         <div style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          {formatRelativeDate(item.updated_at)}
+          {fmtShortDateTime(item.updated_at)}
         </div>
       </div>
       {item.body && (
@@ -328,8 +329,3 @@ function TemplateEditor({
   )
 }
 
-function formatRelativeDate(iso: string): string {
-  const d = new Date(iso)
-  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
-}

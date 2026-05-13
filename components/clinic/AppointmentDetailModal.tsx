@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { Appointment, AppointmentStatus } from '@/lib/clinic/queries'
 import { CancelAppointmentModal } from '@/components/clinic/CancelAppointmentModal'
+import { fmtLongDate } from '@/lib/clinic/calendar-utils'
 
 const STATUS_LABEL: Record<AppointmentStatus, string> = {
   scheduled:    'Agendada',
@@ -23,18 +24,12 @@ const STATUS_COLOR: Record<AppointmentStatus, string> = {
   rescheduling: '#e65100',
 }
 
-const MONTHS_LONG = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-const DAYS_LONG   = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
-
 function formatDateTime(iso: string, duration: number) {
   const d   = new Date(iso)
   const end = new Date(d.getTime() + duration * 60_000)
   const timeFrom = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
   const timeTo   = end.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
-  return {
-    date:  `${DAYS_LONG[d.getDay()]} ${d.getDate()} de ${MONTHS_LONG[d.getMonth()]} de ${d.getFullYear()}`,
-    range: `${timeFrom} – ${timeTo}`,
-  }
+  return { date: fmtLongDate(d), range: `${timeFrom} – ${timeTo}` }
 }
 
 type RescheduleReason = 'no_show' | 'custom'

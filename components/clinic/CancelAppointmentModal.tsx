@@ -2,15 +2,13 @@
 
 import { useEffect } from 'react'
 import type { Appointment } from '@/lib/clinic/queries'
+import { DAYS_LONG, MONTHS_LONG } from '@/lib/clinic/calendar-utils'
 
 type Props = {
   appt:      Appointment
   onConfirm: () => void
   onClose:   () => void
 }
-
-const MONTHS_LONG = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
-const DAYS_LONG   = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
 
 function formatDateTime(iso: string) {
   const d = new Date(iso)
