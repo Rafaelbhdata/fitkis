@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { PulseLine } from '@/components/ui/PulseLine'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { AddToCalendar } from '@/components/clinic/AddToCalendar'
 import { FkWord } from '@/components/ui/Fk'
 import {
@@ -184,8 +184,8 @@ export default function BookingPage({ params }: { params: { id: string } }) {
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (step === 'loading') return (
-    <div style={{ ...page, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <PulseLine w={120} h={28} color="var(--signal)" strokeWidth={2} active />
+    <div style={page}>
+      <LoadingState label="Cargando reserva" />
     </div>
   )
 
@@ -316,9 +316,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 <span style={{ fontSize: 14, color: 'var(--ink-3)', fontWeight: 500 }}>{fmtDateShort(date)}</span>
               </div>
               {slotsLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
-                  <PulseLine w={80} h={20} color="var(--signal)" strokeWidth={2} active />
-                </div>
+                <LoadingState compact minHeight={160} />
               ) : !daySchedule?.enabled ? (
                 <p style={{ textAlign: 'center', color: 'var(--ink-4)', fontSize: 14, padding: '24px 0' }}>
                   Sin atención este día.

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Btn } from '@/components/ui/Btn'
-import { PulseLine } from '@/components/ui/PulseLine'
+import { InlinePulse } from '@/components/ui/LoadingState'
 import { Ic } from './Ic'
 import { useSupabase } from '@/lib/hooks'
 import { invitePatientByEmail } from '@/lib/clinic/queries'
@@ -200,7 +200,7 @@ export function InviteModal({ open, onClose, practitionerId, onInvited }: Props)
               </button>
               <Btn
                 variant="signal"
-                icon={loading ? <PulseLine w={16} h={8} color="#fff" strokeWidth={1.5} active /> : <Ic.plus />}
+                icon={loading ? <InlinePulse /> : <Ic.plus />}
                 onClick={handleInvite}
                 disabled={loading || !email.trim()}
                 style={{ flex: 1, justifyContent: 'center' }}

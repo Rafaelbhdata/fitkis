@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
 import { Btn } from '@/components/ui/Btn'
-import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from '@/components/clinic/Ic'
 import { NewAppointmentModal } from '@/components/clinic/NewAppointmentModal'
 import { AppointmentBlock } from '@/components/clinic/AppointmentBlock'
@@ -21,6 +20,7 @@ import {
 } from '@/lib/clinic/queries'
 import { MONTHS_SHORT, todayISO, scheduleHourRange } from '@/lib/clinic/calendar-utils'
 import { getNowPartsInTimezone, getHourMinuteInTimezone, formatDateISOInTimezone, shiftDateISO } from '@/lib/utils'
+import { LoadingState } from '@/components/ui/LoadingState'
 import type { RescheduleReason } from '@/lib/clinic/appointment-meta'
 
 const DAYS_ES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -231,12 +231,7 @@ export default function AgendaPage() {
     return result
   }, [apptsByDay])
 
-  const spinner = (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:400, gap:16 }}>
-      <PulseLine w={120} h={28} color="var(--signal)" strokeWidth={2} active />
-      <span className="fk-mono" style={{ fontSize:11, color:'var(--ink-4)', letterSpacing:'0.14em', textTransform:'uppercase' }}>Cargando agenda…</span>
-    </div>
-  )
+  const spinner = <LoadingState label="Cargando agenda" minHeight={400} />
 
   if (userLoading) return spinner
 

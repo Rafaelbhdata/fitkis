@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { PulseLine } from '@/components/ui/PulseLine'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { Ic } from '@/components/clinic/Ic'
 import { BigSpark } from '@/components/clinic/BigSpark'
 import { chipStyle } from '@/components/clinic/ui/Chip'
@@ -68,11 +68,7 @@ export default function ReportesPage() {
   }, [user, userLoading, supabase])
 
   if (loading) {
-    return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <PulseLine />
-      </div>
-    )
+    return <LoadingState label="Cargando reportes" />
   }
 
   if (error || !kpis) {

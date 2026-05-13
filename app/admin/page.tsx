@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSupabase, useUser } from '@/lib/hooks'
 import { isAdminUser, loadAllProfessionals, type ProfessionalRow } from '@/lib/clinic/queries'
 import { PulseLine } from '@/components/ui/PulseLine'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { FkWord } from '@/components/ui/Fk'
 import { Btn } from '@/components/ui/Btn'
 
@@ -61,11 +62,7 @@ export default function AdminPage() {
   }
 
   if (loading || userLoading || authorized === null) {
-    return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
-        <PulseLine w={100} h={24} color="var(--signal)" strokeWidth={2} active />
-      </div>
-    )
+    return <LoadingState label="Cargando admin" />
   }
 
   if (!authorized) {
@@ -225,7 +222,7 @@ export default function AdminPage() {
                   {/* Acciones */}
                   <div className="flex items-center justify-end gap-2">
                     {isPending ? (
-                      <PulseLine w={40} h={10} color="var(--ink-4)" strokeWidth={1.2} active />
+                      <PulseLine w={40} h={10} color="var(--signal)" strokeWidth={1.2} active />
                     ) : isConfirming ? (
                       <>
                         <button

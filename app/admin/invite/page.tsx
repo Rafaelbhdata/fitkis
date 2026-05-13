@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSupabase, useUser } from '@/lib/hooks'
 import { isAdminUser } from '@/lib/clinic/queries'
-import { PulseLine } from '@/components/ui/PulseLine'
+import { LoadingState, InlinePulse } from '@/components/ui/LoadingState'
 import { FkWord } from '@/components/ui/Fk'
 
 type State = 'checking' | 'idle' | 'loading' | 'success' | 'error'
@@ -51,11 +51,7 @@ export default function AdminInvitePage() {
   }
 
   if (state === 'checking' || userLoading) {
-    return (
-      <div className="min-h-screen bg-paper flex items-center justify-center">
-        <PulseLine w={100} h={24} color="var(--signal)" strokeWidth={2} active />
-      </div>
-    )
+    return <LoadingState label="Verificando acceso" />
   }
 
   if (authorized === false) {
@@ -132,7 +128,7 @@ export default function AdminInvitePage() {
               className="w-full py-3.5 rounded-full bg-signal text-white font-medium text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40"
             >
               {state === 'loading' ? (
-                <><PulseLine w={40} h={12} color="white" strokeWidth={1.5} active /> Enviando…</>
+                <><InlinePulse /> Enviando…</>
               ) : (
                 'Enviar invitación'
               )}

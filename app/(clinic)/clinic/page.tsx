@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Btn } from '@/components/ui/Btn'
-import { PulseLine } from '@/components/ui/PulseLine'
+import { LoadingState as SharedLoadingState } from '@/components/ui/LoadingState'
 import { Ic } from '@/components/clinic/Ic'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
 import { MiniSpark, Delta } from '@/components/clinic/MiniSpark'
@@ -467,26 +467,7 @@ export default function ClinicPatientsPage() {
 // =============================================================================
 
 function LoadingState() {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '60vh',
-        gap: 16,
-      }}
-    >
-      <PulseLine w={120} h={28} color="var(--signal)" strokeWidth={2} active />
-      <span
-        className="fk-mono"
-        style={{ fontSize: 11, color: 'var(--ink-4)', letterSpacing: '0.14em', textTransform: 'uppercase' }}
-      >
-        Cargando práctica
-      </span>
-    </div>
-  )
+  return <SharedLoadingState label="Cargando práctica" />
 }
 
 function ErrorState({ message }: { message: string }) {

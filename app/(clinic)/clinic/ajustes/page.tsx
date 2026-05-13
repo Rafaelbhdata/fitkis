@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
-import { PulseLine } from '@/components/ui/PulseLine'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { Ic } from '@/components/clinic/Ic'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
@@ -960,11 +960,7 @@ export default function AjustesPage() {
       />
 
       {/* Loading */}
-      {loading && (
-        <div style={{ padding: '60px 40px' }}>
-          <PulseLine w={120} h={8} color="var(--signal)" active />
-        </div>
-      )}
+      {loading && <LoadingState label="Cargando ajustes" />}
 
       {/* Error */}
       {!loading && error && (

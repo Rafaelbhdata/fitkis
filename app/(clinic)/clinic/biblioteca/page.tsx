@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { PulseLine } from '@/components/ui/PulseLine'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { fmtShortDateTime } from '@/lib/clinic/calendar-utils'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
@@ -179,9 +179,7 @@ export default function BibliotecaPage() {
         )}
 
         {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60 }}>
-            <PulseLine />
-          </div>
+          <LoadingState label="Cargando biblioteca" compact />
         ) : items.length === 0 ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--ink-4)' }}>
             <p className="fk-serif" style={{ fontSize: 18, fontWeight: 300, fontStyle: 'italic', margin: 0 }}>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Btn } from '@/components/ui/Btn'
-import { PulseLine } from '@/components/ui/PulseLine'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { Ic } from '@/components/clinic/Ic'
 import { ConsultationNotesCard } from '@/components/clinic/ConsultationNotesCard'
 import { generatePatientReport } from '@/components/clinic/PatientReportPDF'
@@ -668,12 +668,7 @@ function TabAlimentacion({
   })()
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 200, gap: 12 }}>
-        <PulseLine w={100} h={24} color="var(--signal)" strokeWidth={2} active />
-        <span className="fk-mono" style={{ fontSize: 11, color: 'var(--ink-4)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Cargando alimentación…</span>
-      </div>
-    )
+    return <LoadingState label="Cargando alimentación" compact />
   }
 
   if (error) {
@@ -817,12 +812,7 @@ function TabGym({
   const [expanded, setExpanded] = useState<string | null>(null)
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 200, gap: 12 }}>
-        <PulseLine w={100} h={24} color="var(--signal)" strokeWidth={2} active />
-        <span className="fk-mono" style={{ fontSize: 11, color: 'var(--ink-4)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Cargando sesiones…</span>
-      </div>
-    )
+    return <LoadingState label="Cargando sesiones" compact />
   }
 
   if (error) {
@@ -1137,31 +1127,7 @@ export default function PatientDetailPage({
   }, [tab, patient, gymFetched, supabase])
 
   if (loading || userLoading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '60vh',
-          gap: 16,
-        }}
-      >
-        <PulseLine w={120} h={28} color="var(--signal)" strokeWidth={2} active />
-        <span
-          className="fk-mono"
-          style={{
-            fontSize: 11,
-            color: 'var(--ink-4)',
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-          }}
-        >
-          Cargando paciente
-        </span>
-      </div>
-    )
+    return <LoadingState label="Cargando paciente" />
   }
 
   if (error) {

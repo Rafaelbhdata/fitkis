@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Btn } from '@/components/ui/Btn'
 import { Segments } from '@/components/ui/Segments'
-import { PulseLine } from '@/components/ui/PulseLine'
+import { LoadingState, InlinePulse } from '@/components/ui/LoadingState'
 import { Ic } from '@/components/clinic/Ic'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
@@ -226,31 +226,7 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
   }, [user, userLoading, supabase, patientId])
 
   if (loading || userLoading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '60vh',
-          gap: 16,
-        }}
-      >
-        <PulseLine w={120} h={28} color="var(--signal)" strokeWidth={2} active />
-        <span
-          className="fk-mono"
-          style={{
-            fontSize: 11,
-            color: 'var(--ink-4)',
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-          }}
-        >
-          Cargando plan
-        </span>
-      </div>
-    )
+    return <LoadingState label="Cargando plan" />
   }
 
   if (error) {
@@ -396,11 +372,7 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
             <Btn
               variant="primary"
               icon={
-                saving ? (
-                  <PulseLine w={16} h={8} color="#fff" strokeWidth={1.5} active />
-                ) : (
-                  <Ic.check />
-                )
+                saving ? <InlinePulse /> : <Ic.check />
               }
               onClick={handleSave}
               disabled={saving}
