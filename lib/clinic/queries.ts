@@ -1034,7 +1034,8 @@ export type PracticeKPIs = {
   new_patients_month:      number
   avg_adherence:           number | null
   adherence_distribution:  { high: number; medium: number; low: number; sin_datos: number }
-  appointments_next_7d:    number
+  appointments_next_7d:           number
+  patients_without_upcoming_appt: number  // activos sin cita en los próximos 30 días
   appointments_month: {
     total:     number
     completed: number
@@ -1077,8 +1078,10 @@ export async function loadPracticeKPIs(
   const nextYy = mm === 12 ? yy + 1 : yy
   const monthEndStr   = `${nextYy}-${String(nextMm).padStart(2, '0')}-01T00:00:00-06:00`
 
+  const next30 = new Date(now); next30.setDate(next30.getDate() + 30)
+
   // Primer batch: independientes del tamaño de la práctica
-  const [relsRes, apptRes, apptMonthRes, newPatientsRes] = await Promise.all([
+  const [relsRes, apptRes, apptMonthRes, newPatientsRes, upcomingApptRes] = await Promise.all([
     supabase.rpc('get_practitioner_patients' as never, { practitioner_uuid: practitionerId } as never),
     supabase.from('appointments').select('id')
       .eq('practitioner_id', practitionerId)
@@ -1095,11 +1098,18 @@ export async function loadPracticeKPIs(
       .eq('practitioner_id', practitionerId)
       .eq('status', 'active')
       .gte('created_at', monthStartStr),
+    supabase.from('appointments')
+      .select('patient_id')
+      .eq('practitioner_id', practitionerId)
+      .gte('starts_at', now.toISOString())
+      .lte('starts_at', next30.toISOString())
+      .not('status', 'in', '("cancelled","no_show")'),
   ])
-  if (relsRes.error)       throw new Error(relsRes.error.message)
-  if (apptRes.error)       throw new Error(apptRes.error.message)
-  if (apptMonthRes.error)  throw new Error(apptMonthRes.error.message)
-  if (newPatientsRes.error) throw new Error(newPatientsRes.error.message)
+  if (relsRes.error)        throw new Error(relsRes.error.message)
+  if (apptRes.error)        throw new Error(apptRes.error.message)
+  if (apptMonthRes.error)   throw new Error(apptMonthRes.error.message)
+  if (newPatientsRes.error)  throw new Error(newPatientsRes.error.message)
+  if (upcomingApptRes.error) throw new Error(upcomingApptRes.error.message)
 
   // Métricas de citas del mes
   type ApptMonthRow = { id: string; starts_at: string; duration_minutes: number; status: string }
@@ -1125,18 +1135,28 @@ export async function loadPracticeKPIs(
   const activeIds  = activeRels.map(r => r.patient_id)
   const emptyDist  = { high: 0, medium: 0, low: 0, sin_datos: 0 }
 
+  // Pacientes activos sin cita en los próximos 30 días
+  const activeIdsSet = new Set(activeIds)
+  const withAppt = new Set(
+    ((upcomingApptRes.data ?? []) as { patient_id: string | null }[])
+      .map(r => r.patient_id)
+      .filter((id): id is string => id != null && activeIdsSet.has(id))
+  )
+  const patientsWithoutUpcomingAppt = activeIds.length - withAppt.size
+
   if (activeIds.length === 0) {
     return {
-      active_patients:        0,
-      total_linked:           relations.length,
-      pending_invites:        relations.filter(r => r.status === 'pending').length,
-      new_patients_month:     newPatientsRes.count ?? 0,
-      avg_adherence:          null,
-      adherence_distribution: emptyDist,
-      appointments_next_7d:   apptRows.length,
-      appointments_month:     appointmentsMonth,
-      patients_needing_attention: [],
-      weight_trend: [],
+      active_patients:                0,
+      total_linked:                   relations.length,
+      pending_invites:                relations.filter(r => r.status === 'pending').length,
+      new_patients_month:             newPatientsRes.count ?? 0,
+      avg_adherence:                  null,
+      adherence_distribution:         emptyDist,
+      appointments_next_7d:           apptRows.length,
+      patients_without_upcoming_appt: 0,
+      appointments_month:             appointmentsMonth,
+      patients_needing_attention:     [],
+      weight_trend:                   [],
     }
   }
 
@@ -1208,11 +1228,12 @@ export async function loadPracticeKPIs(
     .sort((a, b) => a.date.localeCompare(b.date))
 
   return {
-    active_patients:        activeRels.length,
-    total_linked:           relations.length,
-    pending_invites:        relations.filter(r => r.status === 'pending').length,
-    new_patients_month:     newPatientsRes.count ?? 0,
-    avg_adherence:          adherenceList.length
+    active_patients:                activeRels.length,
+    total_linked:                   relations.length,
+    pending_invites:                relations.filter(r => r.status === 'pending').length,
+    new_patients_month:             newPatientsRes.count ?? 0,
+    patients_without_upcoming_appt: patientsWithoutUpcomingAppt,
+    avg_adherence:                  adherenceList.length
       ? Math.round(adherenceList.reduce((a, b) => a + b, 0) / adherenceList.length)
       : null,
     adherence_distribution: adherenceDistribution,

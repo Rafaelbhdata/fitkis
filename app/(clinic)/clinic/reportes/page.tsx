@@ -393,30 +393,32 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
           </div>
         </Card>
 
-        {/* Invitaciones pendientes */}
+        {/* Sin cita próxima */}
         <Card style={{ padding: '22px 24px' }}>
-          <div className="fk-eyebrow">Invitaciones pendientes</div>
+          <div className="fk-eyebrow">Sin cita · próximos 30 días</div>
           <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span className="fk-serif" style={{
                 fontSize: 44, fontWeight: 300,
                 letterSpacing: '-0.02em', lineHeight: 1,
-                color: kpis.pending_invites > 0 ? 'var(--honey)' : 'var(--ink)',
+                color: kpis.patients_without_upcoming_appt === 0 ? 'var(--ink)'
+                  : kpis.patients_without_upcoming_appt <= Math.ceil(kpis.active_patients / 2) ? 'var(--honey)'
+                  : 'var(--berry)',
               }}>
-                {kpis.pending_invites}
+                {kpis.patients_without_upcoming_appt}
               </span>
               <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
-                / {kpis.total_linked}
+                / {kpis.active_patients}
               </span>
             </div>
-            {kpis.total_linked > 0 && (() => {
-              const pct = Math.round((kpis.pending_invites / kpis.total_linked) * 100)
-              const color = pct === 0 ? 'var(--leaf)' : pct <= 30 ? 'var(--honey)' : 'var(--berry)'
+            {kpis.active_patients > 0 && (() => {
+              const pct   = Math.round((kpis.patients_without_upcoming_appt / kpis.active_patients) * 100)
+              const color = pct === 0 ? 'var(--leaf)' : pct <= 50 ? 'var(--honey)' : 'var(--berry)'
               return (
                 <div style={{ marginTop: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
                     <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
-                      de vinculados totales
+                      de pacientes activos
                     </span>
                     <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color }}>
                       {pct}%
@@ -547,7 +549,7 @@ function ProgressSection({ kpis, practitioner }: {
               </span>
             </div>
             <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', marginTop: 4 }}>
-              adherencia media
+              adherencia promedio
             </div>
           </div>
         </div>
