@@ -353,34 +353,41 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
         <Card style={{ padding: '22px 24px' }}>
           <div className="fk-eyebrow">Nuevos este mes</div>
           <div style={{ marginTop: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span className="fk-serif" style={{
-                fontSize: 44, fontWeight: 300,
-                letterSpacing: '-0.02em', lineHeight: 1,
-                color: kpis.new_patients_month > 0 ? 'var(--leaf)' : 'var(--ink)',
-              }}>
-                {kpis.new_patients_month}
-              </span>
-              <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
-                / {kpis.active_patients}
-              </span>
-            </div>
-            {kpis.active_patients > 0 && (() => {
-              const pct = Math.round((kpis.new_patients_month / kpis.active_patients) * 100)
+            {(() => {
+              const prev      = kpis.active_patients - kpis.new_patients_month
+              const growthPct = prev > 0
+                ? Math.round((kpis.new_patients_month / prev) * 100)
+                : kpis.new_patients_month > 0 ? 100 : 0
+              const barPct    = Math.min(growthPct, 100)
+              const color     = growthPct > 0 ? 'var(--leaf)' : 'var(--ink-4)'
               return (
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
-                      de pacientes activos
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <span className="fk-serif" style={{
+                      fontSize: 44, fontWeight: 300,
+                      letterSpacing: '-0.02em', lineHeight: 1,
+                      color: kpis.new_patients_month > 0 ? 'var(--leaf)' : 'var(--ink)',
+                    }}>
+                      {kpis.new_patients_month}
                     </span>
-                    <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color: pct > 0 ? 'var(--leaf)' : 'var(--ink-4)' }}>
-                      {pct}%
+                    <span style={{ fontSize: 16, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                      / {kpis.active_patients}
                     </span>
                   </div>
-                  <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: 'var(--leaf)', borderRadius: 999 }} />
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                        crecimiento de cartera
+                      </span>
+                      <span style={{ fontSize: 13, fontFamily: 'var(--f-mono)', fontWeight: 700, color }}>
+                        {growthPct > 0 ? '+' : ''}{growthPct}%
+                      </span>
+                    </div>
+                    <div style={{ height: 5, background: 'var(--paper-3)', borderRadius: 999, overflow: 'hidden' }}>
+                      <div style={{ width: `${barPct}%`, height: '100%', background: color, borderRadius: 999 }} />
+                    </div>
                   </div>
-                </div>
+                </>
               )
             })()}
           </div>
