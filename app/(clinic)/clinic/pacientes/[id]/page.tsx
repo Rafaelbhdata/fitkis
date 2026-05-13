@@ -803,9 +803,8 @@ function TabAlimentacion({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function TabGym({
-  patientId, sessions, loading, error,
+  sessions, loading, error,
 }: {
-  patientId: string
   sessions: GymSessionEntry[]
   loading: boolean
   error: string | null
@@ -1402,7 +1401,7 @@ export default function PatientDetailPage({
           )}
           {tab === 'antropo' && <TabAntropometria patient={patient} />}
           {tab === 'alim'   && <TabAlimentacion patient={patient} foodLogs={foodLogs} loading={foodLoading} error={foodError} />}
-          {tab === 'gym'    && <TabGym patientId={patient.patient_id} sessions={gymSessions} loading={gymLoading} error={gymError} />}
+          {tab === 'gym'    && <TabGym sessions={gymSessions} loading={gymLoading} error={gymError} />}
           {tab === 'plan'   && <TabPlanVigente patient={patient} />}
           {tab === 'msg'    && <TabConversacion patient={patient} />}
         </div>

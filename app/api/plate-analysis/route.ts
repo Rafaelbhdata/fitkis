@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthedUser } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
-import { FOOD_GROUP_LABELS } from '@/lib/constants'
 import type { FoodGroup } from '@/types'
 
 const anthropic = new Anthropic({

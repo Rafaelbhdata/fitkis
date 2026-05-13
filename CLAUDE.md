@@ -8,14 +8,14 @@ Este archivo es la fuente de verdad del proyecto.
 
 ## ⚠️ Lee primero · pivote 11 mayo 2026
 
-**Este repo (`fitkis`, web) es ahora exclusivamente el portal de nutriólogas.** La app del paciente (gym, food, weight, habits, journal, coach, etc.) vive en otro repo (`fitkis-mobile`). Comparten la misma BD Supabase y los endpoints `/api/*` de este repo.
+**Este repo (`fitkis`, web) es exclusivamente el portal de nutriólogas.** La app del paciente vive en otro repo (`fitkis-mobile`). Comparten la misma BD Supabase y los endpoints `/api/*` de este repo.
 
-- Las rutas del paciente (`app/(app)/*`, `app/onboarding/*`) y sus componentes están en `legacy/` — congeladas, fuera del build.
-- El portal clínico v5 vive en `app/(clinic)/`, rama base `clinic/v5-paper-pulse`.
-- Datos: Fase 1 usa `lib/clinic/mock-data.ts` (mock puro). Fase 2 cablará a Supabase usando `legacy/app/(clinic-v0)/clinic/page.tsx` como referencia.
-- La sección de **Módulos del paciente** más abajo en este archivo (gym, food, weight, habits) sigue documentando lógica de negocio compartida con `fitkis-mobile` y la BD, **no** features del web actual.
+- Rutas del paciente (`app/(app)/*`, `app/onboarding/*`) → en `legacy/`, congeladas, fuera del build
+- Portal clínico v5 "Paper & Pulse" vive en `app/(clinic)/` sobre `master`
+- Datos: cableados a Supabase. Fase 3 ✅ completada (notas, biblioteca, reportes, PDF, RPCs). Próximamente Fase 4 — ver `context.md`
+- La sección **Módulos del paciente** abajo documenta lógica compartida con `fitkis-mobile` y la BD, **no** features del web actual
 
-Detalles del pivote en `context.md` (sección "🔄 Pivote 11 mayo 2026").
+Estado actual del proyecto en `context.md`.
 
 ---
 

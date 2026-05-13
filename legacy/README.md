@@ -9,7 +9,7 @@ Código congelado al cambiar el repo a "portal solo para nutriólogas" (rama `cl
 | Carpeta | Qué era |
 |---|---|
 | `app/(app)/` | App del paciente (gym, food, weight, habits, journal, coach, dashboard, equivalentes, settings, admin). Ahora vive en el repo de la app móvil. |
-| `app/(clinic-v0)/` | Primera versión del portal clínico — wired a Supabase (`practitioners`, `practitioner_patients`, `diet_configs`). Sustituido por `app/(clinic)/` v5 Paper & Pulse. **Conserva la lógica de queries y el flujo de invitación por email** que se reusará al cablear los datos en Fase 2. |
+| `app/(clinic-v0)/` | Primera versión del portal clínico — wired a Supabase (`practitioners`, `practitioner_patients`, `diet_configs`). Sustituido por `app/(clinic)/` v5 Paper & Pulse (que ya consume estas mismas tablas vía `lib/clinic/queries.ts`). |
 | `app/test/` | Rutas de prueba de ejercicios. |
 | `components/coach/` `food/` `gym/` `habits/` | Componentes del paciente. |
 | `components/MobileDock.tsx` | Dock móvil del paciente. |
