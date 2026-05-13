@@ -317,6 +317,7 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal }: {
               <span className="fk-serif" style={{
                 fontSize: 44, fontWeight: 300,
                 letterSpacing: '-0.02em', lineHeight: 1,
+                color: 'var(--sky)',
               }}>
                 {kpis.active_patients}
               </span>
