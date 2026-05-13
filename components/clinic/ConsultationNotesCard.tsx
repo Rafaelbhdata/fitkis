@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useSupabase } from '@/lib/hooks'
 import {
   loadConsultationNotes,
@@ -9,6 +8,7 @@ import {
   createConsultationNote,
   updateConsultationNote,
   deleteConsultationNote,
+  updateAppointmentNotes,
   type ConsultationNote,
   type ConsultationNoteTag,
   type AppointmentNote,
@@ -71,6 +71,9 @@ export function ConsultationNotesCard({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editBody, setEditBody]   = useState('')
   const [editTags, setEditTags]   = useState<ConsultationNoteTag[]>([])
+  // Edición de notas de cita (appointments.notes)
+  const [editingApptId, setEditingApptId] = useState<string | null>(null)
+  const [editApptBody, setEditApptBody]   = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -138,6 +141,31 @@ export function ConsultationNotesCard({
     const { error } = await deleteConsultationNote(supabase, id)
     if (error) { setError(error); return }
     setNotes((prev) => prev.filter((n) => n.id !== id))
+  }
+
+  function startEditAppt(a: AppointmentNote) {
+    setEditingApptId(a.appointment_id)
+    setEditApptBody(a.body)
+  }
+
+  async function handleSaveEditAppt(apptId: string) {
+    if (!editApptBody.trim()) return
+    setSaving(true)
+    const { error } = await updateAppointmentNotes(supabase, apptId, editApptBody)
+    setSaving(false)
+    if (error) { setError(error); return }
+    setApptNotes((prev) => prev.map((a) => a.appointment_id === apptId
+      ? { ...a, body: editApptBody.trim() }
+      : a
+    ))
+    setEditingApptId(null)
+  }
+
+  async function handleDeleteAppt(apptId: string) {
+    if (!confirm('¿Eliminar esta nota de la cita? Se borra de la cita también.')) return
+    const { error } = await updateAppointmentNotes(supabase, apptId, '')
+    if (error) { setError(error); return }
+    setApptNotes((prev) => prev.filter((a) => a.appointment_id !== apptId))
   }
 
   return (
@@ -280,6 +308,7 @@ export function ConsultationNotesCard({
           {feed.map((entry) => {
             if (entry.kind === 'appointment') {
               const a = entry.data
+              const isEditingAppt = editingApptId === a.appointment_id
               return (
                 <div
                   key={`appt-${a.appointment_id}`}
@@ -287,7 +316,7 @@ export function ConsultationNotesCard({
                     padding: 14,
                     borderRadius: 10,
                     border: '1px solid var(--ink-7)',
-                    background: '#fff',
+                    background: isEditingAppt ? 'var(--paper)' : '#fff',
                     borderLeft: '3px solid var(--signal)',
                   }}
                 >
@@ -305,16 +334,67 @@ export function ConsultationNotesCard({
                     }}>
                       Cita · {formatAppointmentDateTime(a.starts_at)}
                     </span>
-                    <Link
-                      href="/clinic/agenda"
-                      style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)', textDecoration: 'none' }}
-                    >
-                      editar en agenda →
-                    </Link>
+                    {!isEditingAppt && (
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button
+                          onClick={() => startEditAppt(a)}
+                          style={{ padding: '4px 10px', background: 'transparent', border: 'none', fontSize: 11, color: 'var(--ink-4)', cursor: 'pointer', fontFamily: 'var(--f-sans)' }}
+                        >
+                          editar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAppt(a.appointment_id)}
+                          style={{ padding: '4px 10px', background: 'transparent', border: 'none', fontSize: 11, color: 'var(--berry)', cursor: 'pointer', fontFamily: 'var(--f-sans)' }}
+                        >
+                          eliminar
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
-                    {a.body}
-                  </p>
+                  {isEditingAppt ? (
+                    <>
+                      <textarea
+                        value={editApptBody}
+                        onChange={(e) => setEditApptBody(e.target.value)}
+                        rows={4}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: 8,
+                          border: '1px solid var(--ink-7)',
+                          background: '#fff',
+                          fontFamily: 'var(--f-sans)',
+                          fontSize: 14,
+                          lineHeight: 1.5,
+                          resize: 'vertical',
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
+                        <button
+                          onClick={() => setEditingApptId(null)}
+                          style={{ padding: '6px 14px', borderRadius: 999, border: 'none', background: 'transparent', fontSize: 12, color: 'var(--ink-4)', cursor: 'pointer' }}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={() => handleSaveEditAppt(a.appointment_id)}
+                          disabled={!editApptBody.trim() || saving}
+                          style={{
+                            padding: '6px 14px', borderRadius: 999, border: 'none',
+                            background: 'var(--ink)', color: 'var(--paper)', fontSize: 12, fontWeight: 500,
+                            cursor: !editApptBody.trim() || saving ? 'not-allowed' : 'pointer',
+                            opacity: !editApptBody.trim() || saving ? 0.5 : 1,
+                          }}
+                        >
+                          {saving ? 'Guardando…' : 'Guardar'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p style={{ fontSize: 14, color: 'var(--ink)', fontFamily: 'var(--f-sans)', lineHeight: 1.55, margin: 0, whiteSpace: 'pre-wrap' }}>
+                      {a.body}
+                    </p>
+                  )}
                 </div>
               )
             }
