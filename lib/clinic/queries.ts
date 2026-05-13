@@ -868,6 +868,98 @@ export async function loadNextAppointmentForPatient(
 }
 
 // =============================================================================
+// CONSULTATION NOTES — apuntes del nutriólogo por paciente
+// =============================================================================
+
+export type ConsultationNoteTag =
+  | 'ajuste_plan'
+  | 'recordatorio'
+  | 'reagenda'
+  | 'objetivo'
+  | 'observacion'
+
+export type ConsultationNote = {
+  id: string
+  practitioner_id: string
+  patient_id: string
+  appointment_id: string | null
+  note_date: string       // 'YYYY-MM-DD'
+  body: string
+  tags: ConsultationNoteTag[]
+  created_at: string
+  updated_at: string
+}
+
+/** Notas del nutriólogo para un paciente, ordenadas por fecha descendente. */
+export async function loadConsultationNotes(
+  supabase: SB,
+  practitionerId: string,
+  patientId: string,
+): Promise<ConsultationNote[]> {
+  const { data } = await supabase
+    .from('consultation_notes')
+    .select('*')
+    .eq('practitioner_id', practitionerId)
+    .eq('patient_id', patientId)
+    .order('note_date', { ascending: false })
+    .order('created_at', { ascending: false })
+  return (data ?? []) as ConsultationNote[]
+}
+
+export async function createConsultationNote(
+  supabase: SB,
+  payload: {
+    practitioner_id: string
+    patient_id: string
+    body: string
+    tags?: ConsultationNoteTag[]
+    appointment_id?: string | null
+    note_date?: string
+  }
+): Promise<{ data: ConsultationNote | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('consultation_notes')
+    .insert({
+      practitioner_id: payload.practitioner_id,
+      patient_id: payload.patient_id,
+      body: payload.body.trim(),
+      tags: payload.tags ?? [],
+      appointment_id: payload.appointment_id ?? null,
+      note_date: payload.note_date ?? new Date().toISOString().split('T')[0],
+    } as never)
+    .select()
+    .single()
+  return { data: data as ConsultationNote | null, error: error?.message ?? null }
+}
+
+export async function updateConsultationNote(
+  supabase: SB,
+  id: string,
+  patch: { body?: string; tags?: ConsultationNoteTag[]; note_date?: string }
+): Promise<{ error: string | null }> {
+  const update: Record<string, unknown> = {}
+  if (patch.body !== undefined)      update.body = patch.body.trim()
+  if (patch.tags !== undefined)      update.tags = patch.tags
+  if (patch.note_date !== undefined) update.note_date = patch.note_date
+  const { error } = await supabase
+    .from('consultation_notes')
+    .update(update as never)
+    .eq('id', id)
+  return { error: error?.message ?? null }
+}
+
+export async function deleteConsultationNote(
+  supabase: SB,
+  id: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('consultation_notes')
+    .delete()
+    .eq('id', id)
+  return { error: error?.message ?? null }
+}
+
+// =============================================================================
 // ADMIN
 // =============================================================================
 

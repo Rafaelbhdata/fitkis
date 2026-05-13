@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Btn } from '@/components/ui/Btn'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { Ic } from '@/components/clinic/Ic'
+import { ConsultationNotesCard } from '@/components/clinic/ConsultationNotesCard'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPatientDetail,
@@ -1122,6 +1123,7 @@ export default function PatientDetailPage({
   const { user, loading: userLoading } = useUser()
   const [tab, setTab] = useState<Tab>('resumen')
   const [patient, setPatient] = useState<PatientDetail | null>(null)
+  const [practitionerId, setPractitionerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -1162,6 +1164,7 @@ export default function PatientDetailPage({
         if (cancelled) return
         setPatient(detail)
         setNextAppointment(nextAppt)
+        setPractitionerId(practitioner.id)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Error desconocido')
       } finally {
@@ -1368,7 +1371,16 @@ export default function PatientDetailPage({
             <Btn variant="ghost" icon={<Ic.share />} disabled>
               Reporte PDF
             </Btn>
-            <Btn variant="ghost" icon={<Ic.book />} disabled>
+            <Btn
+              variant="ghost"
+              icon={<Ic.book />}
+              onClick={() => {
+                setTab('resumen')
+                setTimeout(() => {
+                  document.getElementById('consultation-notes')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }, 50)
+              }}
+            >
               Notas de consulta
             </Btn>
             <Link
@@ -1434,12 +1446,9 @@ export default function PatientDetailPage({
                 </div>
                 <BigSpark values={ws} color="var(--ink)" label={`w-${patient.patient_id}`} />
               </div>
-              <div style={{ background: 'var(--cream)', border: '1px solid var(--honey-soft)', borderRadius: 14, padding: '22px 26px' }}>
-                <div className="fk-eyebrow" style={{ color: '#8a6411' }}>Notas de consulta · próximamente</div>
-                <p className="fk-serif" style={{ fontSize: 16, fontWeight: 300, lineHeight: 1.5, color: 'var(--ink-3)', margin: '10px 0 0', fontStyle: 'italic' }}>
-                  Tabla `consultation_notes` por crear en Fase 3. Aquí aparecerán tus apuntes con chips de acciones (ajustes al plan, recordatorios, reagenda).
-                </p>
-              </div>
+              {practitionerId && (
+                <ConsultationNotesCard practitionerId={practitionerId} patientId={patient.patient_id} />
+              )}
             </>
           )}
           {tab === 'antropo' && <TabAntropometria patient={patient} />}
