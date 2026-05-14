@@ -358,7 +358,7 @@ export async function loadPatientDetail(
         .maybeSingle(),
       supabase
         .from('weight_logs')
-        .select('id, user_id, date, weight_kg, muscle_mass_kg, body_fat_mass_kg, body_fat_percentage, notes, created_at')
+        .select('id, user_id, date, weight_kg, muscle_mass_kg, body_fat_mass_kg, body_fat_percentage, notes, inbody_photo_url, created_at')
         .eq('user_id', patientId)
         .order('date', { ascending: false })
         .limit(30),
@@ -1554,4 +1554,57 @@ export async function loadPatientGymSessions(
       (a, b) => a.set_number - b.set_number
     ),
   }))
+}
+
+// =============================================================================
+// WEIGHT LOGS — MUTACIONES (nutrióloga sobre paciente activo)
+// =============================================================================
+
+export type WeightLogInsert = {
+  user_id: string
+  date: string
+  weight_kg: number
+  muscle_mass_kg?: number | null
+  body_fat_mass_kg?: number | null
+  body_fat_percentage?: number | null
+  notes?: string | null
+  inbody_photo_url?: string | null
+}
+
+export async function insertWeightLogForPatient(
+  supabase: SB,
+  payload: WeightLogInsert,
+): Promise<{ id: string } | null> {
+  const { data, error } = await supabase
+    .from('weight_logs')
+    .insert(payload)
+    .select('id')
+    .single()
+  if (error) { console.error('insertWeightLog', error); return null }
+  return data as { id: string }
+}
+
+export async function updateWeightLogForPatient(
+  supabase: SB,
+  id: string,
+  payload: Partial<WeightLogInsert>,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('weight_logs')
+    .update(payload)
+    .eq('id', id)
+  if (error) { console.error('updateWeightLog', error); return false }
+  return true
+}
+
+export async function deleteWeightLogForPatient(
+  supabase: SB,
+  id: string,
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('weight_logs')
+    .delete()
+    .eq('id', id)
+  if (error) { console.error('deleteWeightLog', error); return false }
+  return true
 }

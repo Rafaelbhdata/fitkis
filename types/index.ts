@@ -89,6 +89,7 @@ export interface WeightLog {
   body_fat_mass_kg?: number
   body_fat_percentage?: number
   notes?: string
+  inbody_photo_url?: string | null
   created_at: string
 }
 

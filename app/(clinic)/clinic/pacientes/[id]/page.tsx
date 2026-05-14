@@ -8,6 +8,7 @@ import { Ic } from '@/components/clinic/Ic'
 import { ConsultationNotesCard } from '@/components/clinic/ConsultationNotesCard'
 import { generatePatientReport } from '@/components/clinic/PatientReportPDF'
 import { BigSpark } from '@/components/clinic/BigSpark'
+import { InBodyModal } from '@/components/clinic/InBodyModal'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPatientDetail,
@@ -24,6 +25,7 @@ import {
   type GymSessionEntry,
   type Appointment,
 } from '@/lib/clinic/queries'
+import type { WeightLog } from '@/types'
 import { getTodayInTimezone, getNowPartsInTimezone, shiftDateISO } from '@/lib/utils'
 
 type Tab = 'resumen' | 'antropo' | 'alim' | 'gym' | 'plan' | 'msg'
@@ -497,129 +499,208 @@ function fmtDuration(s: number): string {
 // Tab: Antropometría
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TabAntropometria({ patient }: { patient: PatientDetail }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseAny = import('@supabase/supabase-js').SupabaseClient<any, any, any>
+
+function TabAntropometria({
+  patient,
+  supabase,
+  onRefresh,
+}: {
+  patient: PatientDetail
+  supabase: SupabaseAny
+  onRefresh: () => void
+}) {
   // history[0] = más reciente, history[last] = más antiguo
   const history = [...patient.weight_history].reverse()
-  // baseIndex apunta a history[] — default al más antiguo (último elemento)
   const [baseIndex, setBaseIndex] = useState(history.length - 1)
+  const [modalOpen, setModalOpen]         = useState(false)
+  const [editTarget, setEditTarget]       = useState<WeightLog | undefined>(undefined)
+  const [lightboxUrl, setLightboxUrl]     = useState<string | null>(null)
 
-  if (history.length === 0) {
-    return (
-      <div style={{ background: '#fff', border: '1px dashed var(--ink-6)', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
-        <div className="fk-eyebrow" style={{ marginBottom: 8, color: 'var(--signal)' }}>Sin datos aún</div>
-        <p className="fk-serif" style={{ fontSize: 22, fontStyle: 'italic', fontWeight: 300, margin: 0 }}>
-          Sin mediciones registradas aún
-        </p>
-        <p style={{ fontSize: 13, color: 'var(--ink-4)', marginTop: 8, fontFamily: 'var(--f-sans)' }}>
-          El paciente debe registrar su peso desde la app móvil.
-        </p>
-      </div>
-    )
+  function openCreate() { setEditTarget(undefined); setModalOpen(true) }
+  function openEdit(row: WeightLog) { setEditTarget(row); setModalOpen(true) }
+
+  async function openLightbox(path: string) {
+    const { data } = await supabase.storage.from('inbody-scans').createSignedUrl(path, 3600)
+    if (data?.signedUrl) setLightboxUrl(data.signedUrl)
   }
 
-  const base   = history[Math.min(baseIndex, history.length - 1)]
-  const latest = history[0]
+  const emptyState = history.length === 0
 
-  const comparisons = [
+  const base   = emptyState ? null : history[Math.min(baseIndex, history.length - 1)]
+  const latest = emptyState ? null : history[0]
+
+  const comparisons = base && latest ? [
     { label: 'Peso',          first: base.weight_kg,          last: latest.weight_kg,          unit: 'kg', invert: false, color: 'var(--ink)'   },
     { label: '% Grasa',       first: base.body_fat_percentage, last: latest.body_fat_percentage, unit: '%',  invert: false, color: 'var(--berry)' },
     { label: 'Masa muscular', first: base.muscle_mass_kg,      last: latest.muscle_mass_kg,      unit: 'kg', invert: true,  color: 'var(--leaf)'  },
-  ]
+  ] : []
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Comparativa con selector de registro base */}
-      <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '24px 28px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div className="fk-eyebrow">Comparativa · vs. hoy</div>
-          {/* Selector de registro histórico */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Comparar con</span>
-            <select
-              value={baseIndex}
-              onChange={(e) => setBaseIndex(Number(e.target.value))}
-              style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--ink-7)', background: 'var(--paper-2)', fontSize: 11, fontFamily: 'var(--f-mono)', color: 'var(--ink-2)', cursor: 'pointer', outline: 'none' }}
-            >
-              {history.map((row, i) => (
-                <option key={i} value={i}>
-                  {formatDateShort(row.date)}{i === 0 ? ' (hoy)' : i === history.length - 1 ? ' (inicio)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 28 }}>
-          {comparisons.map((s) => {
-            const delta = s.first != null && s.last != null ? s.last - s.first : null
-            const good  = delta == null ? null : (s.invert ? delta > 0 : delta < 0)
-            const dCol  = delta == null || Math.abs(delta) < 0.05 ? 'var(--ink-4)' : (good ? 'var(--leaf)' : 'var(--berry)')
-            return (
-              <div key={s.label}>
-                <div className="fk-eyebrow" style={{ marginBottom: 10 }}>{s.label}</div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
-                  <div>
-                    <div style={{ fontSize: 9, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>{formatDateShort(base.date)}</div>
-                    <span className="fk-serif" style={{ fontSize: 28, fontWeight: 300, color: 'var(--ink-5)', letterSpacing: '-0.02em', lineHeight: 1 }}>
-                      {s.first != null ? s.first.toFixed(1) : '—'}
-                    </span>
-                    {s.first != null && <span className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-5)', marginLeft: 2 }}>{s.unit}</span>}
-                  </div>
-                  <span style={{ color: 'var(--ink-6)', fontSize: 14, marginBottom: 3 }}>→</span>
-                  <div>
-                    <div style={{ fontSize: 9, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Hoy</div>
-                    <span className="fk-serif" style={{ fontSize: 42, fontWeight: 300, color: s.color, letterSpacing: '-0.03em', lineHeight: 1 }}>
-                      {s.last != null ? s.last.toFixed(1) : '—'}
-                    </span>
-                    {s.last != null && <span className="fk-mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginLeft: 3 }}>{s.unit}</span>}
-                  </div>
-                </div>
-                {delta != null && (
-                  <div className="fk-mono" style={{ fontSize: 11, color: dCol, fontWeight: 500, marginTop: 8 }}>
-                    {delta > 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}{s.unit}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
 
-      {/* Tabla de historial */}
-      <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--ink-7)', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-          <div className="fk-eyebrow">Historial</div>
-          <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>más reciente primero</span>
+      {/* lightbox */}
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
+        >
+          <img src={lightboxUrl} alt="InBody scan" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr 1fr', gap: 12, padding: '9px 24px', background: 'var(--paper-2)', borderBottom: '1px solid var(--ink-7)' }}>
-          {['Fecha', 'Peso', '% Grasa', 'Masa grasa', 'Músculo', 'Notas'].map((h) => (
-            <div key={h} className="fk-eyebrow">{h}</div>
-          ))}
-        </div>
-        {history.map((row, i) => (
-          <div
-            key={row.id || i}
-            style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr 1fr', gap: 12, padding: '13px 24px', borderBottom: i < history.length - 1 ? '1px solid var(--ink-7)' : 'none', background: i === 0 ? 'rgba(245,244,239,0.6)' : 'transparent', alignItems: 'center' }}
+      )}
+
+      <InBodyModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSaved={() => { setModalOpen(false); onRefresh() }}
+        supabase={supabase}
+        patientId={patient.patient_id}
+        existing={editTarget}
+      />
+
+      {/* empty state con botón */}
+      {emptyState ? (
+        <div style={{ background: '#fff', border: '1px dashed var(--ink-6)', borderRadius: 14, padding: '48px 28px', textAlign: 'center' }}>
+          <div className="fk-eyebrow" style={{ marginBottom: 8, color: 'var(--signal)' }}>Sin datos aún</div>
+          <p className="fk-serif" style={{ fontSize: 22, fontStyle: 'italic', fontWeight: 300, margin: 0 }}>
+            Sin mediciones registradas aún
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--ink-4)', marginTop: 8, marginBottom: 20, fontFamily: 'var(--f-sans)' }}>
+            El paciente puede registrar su peso desde la app móvil, o puedes subirlo tú.
+          </p>
+          <button
+            onClick={openCreate}
+            style={{ padding: '10px 22px', borderRadius: 9, border: '1.5px solid var(--ink-3)', background: 'transparent', fontFamily: 'var(--f-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-2)', cursor: 'pointer' }}
           >
-            <div>
-              <div className="fk-mono" style={{ fontSize: 12, fontWeight: i === 0 ? 500 : 400, color: 'var(--ink-2)' }}>{formatDateShort(row.date)}</div>
-              {i === 0 && <div style={{ fontSize: 9, color: 'var(--signal)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 2 }}>última</div>}
+            + Registrar medición
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Comparativa */}
+          <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '24px 28px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div className="fk-eyebrow">Comparativa · vs. hoy</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Comparar con</span>
+                <select
+                  value={baseIndex}
+                  onChange={(e) => setBaseIndex(Number(e.target.value))}
+                  style={{ padding: '5px 10px', borderRadius: 8, border: '1px solid var(--ink-7)', background: 'var(--paper-2)', fontSize: 11, fontFamily: 'var(--f-mono)', color: 'var(--ink-2)', cursor: 'pointer', outline: 'none' }}
+                >
+                  {history.map((row, i) => (
+                    <option key={i} value={i}>
+                      {formatDateShort(row.date)}{i === 0 ? ' (hoy)' : i === history.length - 1 ? ' (inicio)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            {([
-              { v: row.weight_kg,          unit: 'kg', col: i === 0 ? 'var(--ink)' : 'var(--ink-2)'   },
-              { v: row.body_fat_percentage, unit: '%',  col: i === 0 ? 'var(--berry)' : 'var(--ink-3)' },
-              { v: row.body_fat_mass_kg,    unit: 'kg', col: i === 0 ? 'var(--berry)' : 'var(--ink-3)' },
-              { v: row.muscle_mass_kg,      unit: 'kg', col: i === 0 ? 'var(--leaf)'  : 'var(--ink-3)' },
-            ] as { v: number | null | undefined; unit: string; col: string }[]).map(({ v, unit, col }, ci) => (
-              <div key={ci} className="fk-mono" style={{ fontSize: i === 0 ? 14 : 12, color: v != null ? col : 'var(--ink-6)', fontWeight: i === 0 ? 500 : 400 }}>
-                {v != null ? `${v.toFixed(1)} ${unit}` : '—'}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 28 }}>
+              {comparisons.map((s) => {
+                const delta = s.first != null && s.last != null ? s.last - s.first : null
+                const good  = delta == null ? null : (s.invert ? delta > 0 : delta < 0)
+                const dCol  = delta == null || Math.abs(delta) < 0.05 ? 'var(--ink-4)' : (good ? 'var(--leaf)' : 'var(--berry)')
+                return (
+                  <div key={s.label}>
+                    <div className="fk-eyebrow" style={{ marginBottom: 10 }}>{s.label}</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
+                      <div>
+                        <div style={{ fontSize: 9, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>{formatDateShort(base!.date)}</div>
+                        <span className="fk-serif" style={{ fontSize: 28, fontWeight: 300, color: 'var(--ink-5)', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                          {s.first != null ? s.first.toFixed(1) : '—'}
+                        </span>
+                        {s.first != null && <span className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-5)', marginLeft: 2 }}>{s.unit}</span>}
+                      </div>
+                      <span style={{ color: 'var(--ink-6)', fontSize: 14, marginBottom: 3 }}>→</span>
+                      <div>
+                        <div style={{ fontSize: 9, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Hoy</div>
+                        <span className="fk-serif" style={{ fontSize: 42, fontWeight: 300, color: s.color, letterSpacing: '-0.03em', lineHeight: 1 }}>
+                          {s.last != null ? s.last.toFixed(1) : '—'}
+                        </span>
+                        {s.last != null && <span className="fk-mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginLeft: 3 }}>{s.unit}</span>}
+                      </div>
+                    </div>
+                    {delta != null && (
+                      <div className="fk-mono" style={{ fontSize: 11, color: dCol, fontWeight: 500, marginTop: 8 }}>
+                        {delta > 0 ? '↑' : '↓'} {Math.abs(delta).toFixed(1)}{s.unit}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Historial */}
+          <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--ink-7)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div className="fk-eyebrow">Historial</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>más reciente primero</span>
+                <button
+                  onClick={openCreate}
+                  style={{ padding: '5px 14px', borderRadius: 7, border: '1px solid var(--ink-5)', background: 'transparent', fontFamily: 'var(--f-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-3)', cursor: 'pointer' }}
+                >
+                  + Registrar
+                </button>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr 80px 48px', gap: 10, padding: '9px 24px', background: 'var(--paper-2)', borderBottom: '1px solid var(--ink-7)' }}>
+              {['Fecha', 'Peso', '% Grasa', 'Masa grasa', 'Músculo', 'Notas', ''].map((h, i) => (
+                <div key={i} className="fk-eyebrow">{h}</div>
+              ))}
+            </div>
+            {history.map((row, i) => (
+              <div
+                key={row.id || i}
+                style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr 80px 48px', gap: 10, padding: '12px 24px', borderBottom: i < history.length - 1 ? '1px solid var(--ink-7)' : 'none', background: i === 0 ? 'rgba(245,244,239,0.6)' : 'transparent', alignItems: 'center' }}
+              >
+                {/* Fecha + icono foto */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <div className="fk-mono" style={{ fontSize: 12, fontWeight: i === 0 ? 500 : 400, color: 'var(--ink-2)' }}>{formatDateShort(row.date)}</div>
+                    {row.inbody_photo_url && (
+                      <button
+                        onClick={() => openLightbox(row.inbody_photo_url!)}
+                        title="Ver foto InBody"
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', lineHeight: 1, color: 'var(--ink-4)', fontSize: 13 }}
+                      >
+                        ◉
+                      </button>
+                    )}
+                  </div>
+                  {i === 0 && <div style={{ fontSize: 9, color: 'var(--signal)', fontFamily: 'var(--f-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 2 }}>última</div>}
+                </div>
+                {/* Métricas */}
+                {([
+                  { v: row.weight_kg,          unit: 'kg', col: i === 0 ? 'var(--ink)' : 'var(--ink-2)'   },
+                  { v: row.body_fat_percentage, unit: '%',  col: i === 0 ? 'var(--berry)' : 'var(--ink-3)' },
+                  { v: row.body_fat_mass_kg,    unit: 'kg', col: i === 0 ? 'var(--berry)' : 'var(--ink-3)' },
+                  { v: row.muscle_mass_kg,      unit: 'kg', col: i === 0 ? 'var(--leaf)'  : 'var(--ink-3)' },
+                ] as { v: number | null | undefined; unit: string; col: string }[]).map(({ v, unit, col }, ci) => (
+                  <div key={ci} className="fk-mono" style={{ fontSize: i === 0 ? 14 : 12, color: v != null ? col : 'var(--ink-6)', fontWeight: i === 0 ? 500 : 400 }}>
+                    {v != null ? `${v.toFixed(1)} ${unit}` : '—'}
+                  </div>
+                ))}
+                {/* Notas */}
+                <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {row.notes || '—'}
+                </div>
+                {/* Editar */}
+                <button
+                  onClick={() => openEdit(row)}
+                  title="Editar registro"
+                  style={{ background: 'none', border: 'none', padding: '4px 6px', cursor: 'pointer', fontSize: 12, color: 'var(--ink-5)', borderRadius: 6, fontFamily: 'var(--f-mono)' }}
+                >
+                  Editar
+                </button>
               </div>
             ))}
-            <div style={{ fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {row.notes || '—'}
-            </div>
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   )
 }
@@ -1126,6 +1207,13 @@ export default function PatientDetailPage({
     return () => { cancelled = true }
   }, [tab, patient, gymFetched, supabase])
 
+  // Recarga datos del paciente (weight_history) después de mutaciones desde el portal
+  async function refreshPatient() {
+    if (!practitioner) return
+    const detail = await loadPatientDetail(supabase, practitioner.id, patientId)
+    setPatient(detail)
+  }
+
   if (loading || userLoading) {
     return <LoadingState label="Cargando paciente" />
   }
@@ -1370,7 +1458,7 @@ export default function PatientDetailPage({
               )}
             </>
           )}
-          {tab === 'antropo' && <TabAntropometria patient={patient} />}
+          {tab === 'antropo' && <TabAntropometria patient={patient} supabase={supabase} onRefresh={refreshPatient} />}
           {tab === 'alim'   && <TabAlimentacion patient={patient} foodLogs={foodLogs} loading={foodLoading} error={foodError} />}
           {tab === 'gym'    && <TabGym sessions={gymSessions} loading={gymLoading} error={gymError} />}
           {tab === 'plan'   && <TabPlanVigente patient={patient} />}
