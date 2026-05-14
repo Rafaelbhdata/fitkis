@@ -1031,12 +1031,17 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('Chat API error:', error)
-    const message = error instanceof Error ? error.message : String(error)
-    const name = error instanceof Error ? error.name : 'Error'
-    // Surface the real error so the mobile client and Vercel logs match.
-    return NextResponse.json(
-      { error: 'Error procesando el mensaje', detail: `${name}: ${message}` },
-      { status: 500 }
-    )
+    // Real stack/error class only goes to server logs. In production the
+    // client sees a generic message — leaking lib names / file paths in
+    // the response body would help anyone probing the API.
+    const body: { error: string; detail?: string } = {
+      error: 'Error procesando el mensaje',
+    }
+    if (process.env.NODE_ENV !== 'production') {
+      const message = error instanceof Error ? error.message : String(error)
+      const name = error instanceof Error ? error.name : 'Error'
+      body.detail = `${name}: ${message}`
+    }
+    return NextResponse.json(body, { status: 500 })
   }
 }
