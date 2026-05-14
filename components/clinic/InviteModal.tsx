@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import { Btn } from '@/components/ui/Btn'
 import { InlinePulse } from '@/components/ui/LoadingState'
 import { Ic } from './Ic'
-import { useSupabase } from '@/lib/hooks'
-import { invitePatientByEmail } from '@/lib/clinic/queries'
 
 type Props = {
   open: boolean
@@ -14,22 +12,19 @@ type Props = {
   onInvited?: () => void | Promise<void>
 }
 
-/**
- * Modal de invitación — overlay + card centrada (no bottom sheet en mobile).
- */
 export function InviteModal({ open, onClose, practitionerId, onInvited }: Props) {
-  const supabase = useSupabase()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [wasNew, setWasNew] = useState(false)
 
-  // Reset state every time the modal opens
   useEffect(() => {
     if (open) {
       setEmail('')
       setError(null)
       setSuccess(false)
+      setWasNew(false)
       setLoading(false)
     }
   }, [open])
@@ -40,15 +35,23 @@ export function InviteModal({ open, onClose, practitionerId, onInvited }: Props)
     if (!email.trim()) return
     setLoading(true)
     setError(null)
-    const result = await invitePatientByEmail(supabase, practitionerId, email.trim())
-    if (result.ok) {
-      setSuccess(true)
-      await onInvited?.()
-      setTimeout(() => {
-        onClose()
-      }, 1400)
-    } else {
-      setError(result.error)
+    try {
+      const res = await fetch('/api/invite-patient', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), practitioner_id: practitionerId }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error ?? 'Error al enviar la invitación.')
+      } else {
+        setWasNew(!!json.wasNew)
+        setSuccess(true)
+        await onInvited?.()
+        setTimeout(() => onClose(), 2000)
+      }
+    } catch {
+      setError('Error de conexión. Intenta de nuevo.')
     }
     setLoading(false)
   }
@@ -104,8 +107,8 @@ export function InviteModal({ open, onClose, practitionerId, onInvited }: Props)
             lineHeight: 1.5,
           }}
         >
-          Ingresa el email con el que el paciente se registró en la app móvil. Le aparecerá una
-          notificación para aceptar tu invitación.
+          Ingresa el email del paciente. Si ya tiene cuenta en la app, recibirá una notificación
+          para aceptar. Si no tiene cuenta, le enviaremos un correo de invitación para crearla.
         </p>
 
         {success ? (
@@ -124,7 +127,9 @@ export function InviteModal({ open, onClose, practitionerId, onInvited }: Props)
               className="fk-serif"
               style={{ fontSize: 18, fontStyle: 'italic', fontWeight: 300, margin: 0 }}
             >
-              Listo. Aparece como "pendiente" hasta que la acepte.
+              {wasNew
+                ? 'Le enviamos un correo para crear su cuenta y descargar la app.'
+                : 'Listo. Aparece como "pendiente" hasta que la acepte.'}
             </p>
           </div>
         ) : (
