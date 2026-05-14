@@ -89,6 +89,11 @@ export async function POST(request: Request) {
     if (!image) {
       return NextResponse.json({ error: 'No se proporcionó imagen' }, { status: 400 })
     }
+    // Bound image size — base64 of a JPEG photo is typically <2 MB.
+    // 5 MB cap leaves headroom while preventing 10 MB+ abuse payloads.
+    if (typeof image !== 'string' || image.length > 5_000_000) {
+      return NextResponse.json({ error: 'Imagen demasiado grande' }, { status: 413 })
+    }
 
     // Extract base64 data from data URL if present
     let imageData = image

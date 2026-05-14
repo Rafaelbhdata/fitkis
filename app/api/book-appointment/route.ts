@@ -34,6 +34,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Faltan campos requeridos.' }, { status: 400 })
   }
 
+  // Public endpoint — patients book without auth. Validate inputs to
+  // prevent abuse (oversized payloads, malformed email, dates outside a
+  // reasonable booking window).
+  if (typeof patient_name !== 'string' || patient_name.length > 100) {
+    return NextResponse.json({ error: 'Nombre inválido.' }, { status: 400 })
+  }
+  if (typeof patient_email !== 'string' || patient_email.length > 255 ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patient_email)) {
+    return NextResponse.json({ error: 'Email inválido.' }, { status: 400 })
+  }
+  if (notes !== undefined && (typeof notes !== 'string' || notes.length > 1000)) {
+    return NextResponse.json({ error: 'Notas demasiado largas.' }, { status: 400 })
+  }
+  const startMs = new Date(starts_at).getTime()
+  if (!Number.isFinite(startMs)) {
+    return NextResponse.json({ error: 'Fecha inválida.' }, { status: 400 })
+  }
+  const now = Date.now()
+  const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000
+  if (startMs < now - 60_000 || startMs > now + ninetyDaysMs) {
+    return NextResponse.json({ error: 'Fecha fuera de rango.' }, { status: 400 })
+  }
+
   // Leer practitioner: duración fija + horario
   const { data: prac } = await supabaseAdmin
     .from('practitioners')

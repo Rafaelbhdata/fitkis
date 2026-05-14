@@ -66,7 +66,10 @@ export async function requireProTier(
     .select('tier')
     .eq('user_id', userId)
     .maybeSingle()
-  const tier = (data as { tier?: string } | null)?.tier ?? 'pro'
+  // Fail closed: if there's no profile row (race during signup, RLS
+  // hiccup, etc.) we treat as Lite. Otherwise a brand-new user could
+  // briefly get free Pro before their row is created.
+  const tier = (data as { tier?: string } | null)?.tier ?? 'lite'
   if (tier === 'pro') return { ok: true }
   return { ok: false, tier }
 }

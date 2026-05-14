@@ -84,6 +84,20 @@ export async function POST(request: Request) {
           .from('plate-analysis')
           .remove(filePaths)
       }
+
+      // List and delete InBody scan photos. These contain biometric
+      // data (weight, body fat %, muscle mass) — Apple requires that
+      // account deletion removes ALL health data with no orphans.
+      const { data: inbodyFiles } = await adminClient.storage
+        .from('inbody-scans')
+        .list(user.id)
+
+      if (inbodyFiles && inbodyFiles.length > 0) {
+        const filePaths = inbodyFiles.map(f => `${user.id}/${f.name}`)
+        await adminClient.storage
+          .from('inbody-scans')
+          .remove(filePaths)
+      }
     } catch (storageError) {
       // Log but don't fail - storage might not have files
       console.error('Storage cleanup error (non-fatal):', storageError)

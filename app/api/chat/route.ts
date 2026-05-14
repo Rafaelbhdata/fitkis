@@ -936,6 +936,21 @@ export async function POST(request: Request) {
 
     const { messages } = await request.json()
 
+    // Bound the payload — prevents a malicious or runaway client from
+    // sending a 500-msg / 10KB-each history that burns Anthropic tokens
+    // unbounded. Limits are generous for normal usage.
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json({ error: 'messages requerido' }, { status: 400 })
+    }
+    if (messages.length > 50) {
+      return NextResponse.json({ error: 'Historial demasiado largo' }, { status: 413 })
+    }
+    for (const m of messages) {
+      if (typeof m?.content === 'string' && m.content.length > 8000) {
+        return NextResponse.json({ error: 'Mensaje demasiado largo' }, { status: 413 })
+      }
+    }
+
     // Get patient context for personalized system prompt.
     // If any query fails (missing table, RLS, etc.), fall back to defaults so
     // the chat still works.

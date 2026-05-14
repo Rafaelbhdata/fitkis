@@ -60,6 +60,9 @@ export async function POST(request: Request) {
   if (!image) {
     return NextResponse.json({ error: 'Missing image' }, { status: 400 })
   }
+  if (typeof image !== 'string' || image.length > 5_000_000) {
+    return NextResponse.json({ error: 'Imagen demasiado grande' }, { status: 413 })
+  }
 
   let imageData = image
   let mediaType: 'image/jpeg' | 'image/png' | 'image/webp' = 'image/jpeg'

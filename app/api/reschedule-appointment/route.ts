@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { getAuthedUser } from '@/lib/api-auth'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,6 +35,14 @@ function formatDate(iso: string): string {
  * - reason 'custom':   marca la cita como 'rescheduling' + envía email con mensaje personalizado
  */
 export async function POST(req: Request) {
+  // Only an authenticated practitioner can reschedule. Otherwise anyone
+  // with an appointmentId guess could mark appointments as no_show or
+  // trigger reschedule emails to arbitrary recipients.
+  const { user } = await getAuthedUser(req)
+  if (!user) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  }
+
   const {
     appointmentId,
     practitionerId,
@@ -57,6 +66,28 @@ export async function POST(req: Request) {
   if (!appointmentId || !practitionerId || !patientEmail || !reason) {
     return NextResponse.json({ error: 'Faltan campos requeridos.' }, { status: 400 })
   }
+
+  // Verify the authenticated user owns this practitioner record AND
+  // this appointment. Prevents practitioner A from rescheduling
+  // practitioner B's appointments.
+  const { data: prac } = await supabaseAdmin
+    .from('practitioners')
+    .select('id, user_id')
+    .eq('id', practitionerId)
+    .maybeSingle()
+  if (!prac || (prac as { user_id: string }).user_id !== user.id) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  }
+  const { data: appt } = await supabaseAdmin
+    .from('appointments')
+    .select('id, practitioner_id, patient_email')
+    .eq('id', appointmentId)
+    .maybeSingle()
+  if (!appt || (appt as { practitioner_id: string }).practitioner_id !== practitionerId) {
+    return NextResponse.json({ error: 'Cita no encontrada' }, { status: 404 })
+  }
+  // Use the stored email from DB, not the one in the request body.
+  const trustedPatientEmail = (appt as { patient_email: string }).patient_email
 
   const newStatus = reason === 'no_show' ? 'no_show' : 'rescheduling'
 
@@ -84,7 +115,7 @@ export async function POST(req: Request) {
 
     await resend.emails.send({
       from: 'Fitkis <noreply@fitkis.app>',
-      to: patientEmail,
+      to: trustedPatientEmail,
       subject: reason === 'no_show'
         ? `Agenda tu nueva consulta con ${practitionerName}`
         : `${practitionerName} quiere reagendar tu consulta`,
