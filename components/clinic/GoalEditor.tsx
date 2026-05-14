@@ -24,9 +24,9 @@ export function GoalBadge({ goalType, onEdit }: GoalBadgeProps) {
     return (
       <button
         onClick={onEdit}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+        style={{ background: 'var(--paper-2)', border: '1px dashed var(--ink-6)', borderRadius: 6, cursor: 'pointer', padding: '4px 10px', fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-3)', letterSpacing: '0.08em', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4 }}
       >
-        Definir objetivo →
+        + Definir objetivo
       </button>
     )
   }
