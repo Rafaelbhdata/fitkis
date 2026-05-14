@@ -19,9 +19,7 @@ import { sendPushToUser } from '@/lib/push'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-// SERVER_URL es server-only (sin NEXT_PUBLIC_) para evitar que el valor
-// de localhost en dev se filtre a producción. Fallback a fitkis.com.
-const SITE_URL = process.env.SERVER_URL ?? 'https://fitkis.com'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.com'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 

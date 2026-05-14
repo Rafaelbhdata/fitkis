@@ -11,7 +11,7 @@ const supabaseAdmin = createClient(
 const resend = process.env.RESEND_API_KEY
 	? new Resend(process.env.RESEND_API_KEY)
 	: null;
-const SITE_URL = process.env.SERVER_URL ?? 'https://fitkis.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.com';
 
 const MONTHS_ES = [
 	'enero',
