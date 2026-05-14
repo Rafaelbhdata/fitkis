@@ -12,6 +12,7 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getAuthedUser } from '@/lib/api-auth'
+import { sendPushToUser } from '@/lib/push'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -113,6 +114,27 @@ export async function POST(request: Request) {
   if (insertErr) {
     console.error('invite-patient: insert error', insertErr)
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
+  }
+
+  // Push fire-and-forget — solo aplica para usuarios existentes (los
+  // nuevos no tienen token aún; ven la card cuando abren la app por
+  // primera vez via magic link). El nombre del practitioner lo
+  // pedimos aquí para personalizar el mensaje.
+  if (!wasNew) {
+    ;(async () => {
+      const { data: pracRow } = await admin
+        .from('practitioners')
+        .select('display_name, clinic_name')
+        .eq('id', practitionerId)
+        .maybeSingle()
+      const pracName = (pracRow as { display_name?: string } | null)?.display_name ?? 'Tu nutrióloga'
+      const clinic = (pracRow as { clinic_name?: string } | null)?.clinic_name ?? null
+      await sendPushToUser(patientId, {
+        title: 'Te invitaron a Fitkis',
+        body: clinic ? `${pracName} de ${clinic} quiere acompañarte.` : `${pracName} quiere acompañarte.`,
+        data: { type: 'invitation' },
+      })
+    })().catch((err) => console.error('invite-patient push failed:', err))
   }
 
   return NextResponse.json({ ok: true, wasNew })
