@@ -111,7 +111,7 @@ export async function POST(request: Request) {
 
       // Fire-and-forget — el insert al vínculo no depende del email
       resend.emails.send({
-        from: 'Fitkis <hola@fitkis.com>',
+        from: 'Fitkis <info@fitkis.com>',
         to: email,
         subject: `${pracName} te invita a Fitkis`,
         html: inviteEmailHtml({ pracName, pracClinic, magicLink }),

@@ -114,7 +114,7 @@ export async function POST(req: Request) {
         : `Tu nutrióloga <strong>${practitionerName}</strong> ha solicitado reagendar tu consulta del <strong>${formattedDate}</strong>.`
 
     await resend.emails.send({
-      from: 'Fitkis <noreply@fitkis.app>',
+      from: 'Fitkis <info@fitkis.com>',
       to: trustedPatientEmail,
       subject: reason === 'no_show'
         ? `Agenda tu nueva consulta con ${practitionerName}`
