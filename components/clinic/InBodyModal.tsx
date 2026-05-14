@@ -117,7 +117,7 @@ export function InBodyModal({ open, onClose, onSaved, supabase, patientId, exist
     }
   }
 
-  // ── selección de archivo → análisis IA ──────────────────────────────────────
+  // ── selección de archivo → análisis IA (solo imágenes) ──────────────────────
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
@@ -125,6 +125,9 @@ export function InBodyModal({ open, onClose, onSaved, supabase, patientId, exist
     setError(null)
     const url = URL.createObjectURL(f)
     setPreview(url)
+
+    // PDFs no pueden analizarse con la API de visión — el usuario llena manualmente
+    if (f.type === 'application/pdf') return
 
     setPhase('analyzing')
     try {
@@ -270,12 +273,21 @@ export function InBodyModal({ open, onClose, onSaved, supabase, patientId, exist
           }}
         >
           {displayPhoto ? (
-            <img src={displayPhoto} alt="InBody scan" style={{ width: '100%', maxHeight: 220, objectFit: 'contain', display: 'block' }} />
+            file?.type === 'application/pdf' || (!file && existing?.inbody_photo_url?.endsWith('.pdf')) ? (
+              <div style={{ padding: '20px 0', textAlign: 'center' }}>
+                <div style={{ fontSize: 28, marginBottom: 6 }}>📄</div>
+                <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  {file ? file.name : 'PDF adjunto'}
+                </div>
+              </div>
+            ) : (
+              <img src={displayPhoto} alt="InBody scan" style={{ width: '100%', maxHeight: 220, objectFit: 'contain', display: 'block' }} />
+            )
           ) : (
             <div style={{ padding: '18px 0', textAlign: 'center' }}>
               <div style={{ fontSize: 22, marginBottom: 4, color: 'var(--ink-5)' }}>+</div>
               <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                {phase === 'analyzing' ? 'Analizando…' : 'Adjuntar foto del InBody (opcional)'}
+                {phase === 'analyzing' ? 'Analizando…' : 'Adjuntar foto o PDF del InBody (opcional)'}
               </div>
             </div>
           )}
@@ -285,12 +297,19 @@ export function InBodyModal({ open, onClose, onSaved, supabase, patientId, exist
             </div>
           )}
         </div>
-        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+        <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={handleFile} />
 
         {/* IA confidence badge */}
         {confidence && (
           <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', marginBottom: 12, textAlign: 'right', letterSpacing: '0.04em' }}>
             Confianza IA: {confidence}{aiNotes ? ` · ${aiNotes}` : ''}
+          </div>
+        )}
+
+        {/* aviso sin extracción IA para PDFs */}
+        {file?.type === 'application/pdf' && (
+          <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', marginBottom: 12, letterSpacing: '0.04em' }}>
+            PDF adjunto · llena los campos manualmente (la extracción IA solo aplica para fotos)
           </div>
         )}
 

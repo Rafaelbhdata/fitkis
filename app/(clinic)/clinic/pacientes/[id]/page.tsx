@@ -546,7 +546,35 @@ function TabAntropometria({
           onClick={() => setLightboxUrl(null)}
           style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
         >
-          <img src={lightboxUrl} alt="InBody scan" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
+          {lightboxUrl.split('?')[0].endsWith('.pdf') ? (
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ background: '#fff', borderRadius: 12, padding: '32px 40px', textAlign: 'center', cursor: 'default' }}
+            >
+              <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+              <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>
+                Reporte InBody (PDF)
+              </div>
+              <a
+                href={lightboxUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontFamily: 'var(--f-sans)', fontSize: 13, color: 'var(--signal)', textDecoration: 'underline' }}
+              >
+                Abrir PDF en nueva pestaña
+              </a>
+              <div style={{ marginTop: 16 }}>
+                <button
+                  onClick={() => setLightboxUrl(null)}
+                  style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <img src={lightboxUrl} alt="InBody scan" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
+          )}
         </div>
       )}
 
