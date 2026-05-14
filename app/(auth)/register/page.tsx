@@ -180,7 +180,11 @@ export default function RegisterPage() {
           <div className="flex items-center gap-3 text-[10px] fk-mono text-ink-5 tracking-wider">
             <span>V5 · PAPER & PULSE</span>
             <span className="text-ink-6">✦</span>
-            <span>HECHO EN CDMX</span>
+            <span>HECHO POR:{' '}
+							<Link href="https://bhdata.com.mx" className="underline hover:text-ink-3 transition-colors">
+							BH DATA
+							</Link>
+						</span>
             <span className="text-ink-6">✦</span>
             <span className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />

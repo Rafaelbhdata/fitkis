@@ -71,14 +71,14 @@ export async function middleware(request: NextRequest) {
         .maybeSingle()
 
       const url = request.nextUrl.clone()
-      url.pathname = practitioner ? '/clinic' : '/download'
+      url.pathname = practitioner ? '/clinic/reportes' : '/download'
       return NextResponse.redirect(url)
     }
 
     // ── /admin/* solo para admins ─────────────────────────────────────────
     if (isAdminRoute && role !== 'admin') {
       const url = request.nextUrl.clone()
-      url.pathname = '/clinic'
+      url.pathname = '/clinic/reportes'
       return NextResponse.redirect(url)
     }
 
