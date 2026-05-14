@@ -19,7 +19,9 @@ import { sendPushToUser } from '@/lib/push'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.com'
+// SERVER_URL es server-only (sin NEXT_PUBLIC_) para evitar que el valor
+// de localhost en dev se filtre a producción. Fallback a fitkis.com.
+const SITE_URL = process.env.SERVER_URL ?? 'https://fitkis.com'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
@@ -194,21 +196,14 @@ function inviteEmailHtml({
 
           <!-- Logotipo -->
           <tr>
-            <td style="padding:0 0 32px;">
-              <table cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:300;font-style:italic;color:#0a0a0a;letter-spacing:-0.02em;">
-                    fitkis
-                  </td>
-                  <td width="8"></td>
-                  <td style="padding-top:2px;">
-                    <!-- PulseLine minimalista: tres barras -->
-                    <span style="display:inline-block;width:4px;height:10px;background:#ff5a1f;margin-right:2px;border-radius:2px;"></span>
-                    <span style="display:inline-block;width:4px;height:16px;background:#ff5a1f;margin-right:2px;border-radius:2px;"></span>
-                    <span style="display:inline-block;width:4px;height:7px;background:#ff5a1f;border-radius:2px;"></span>
-                  </td>
-                </tr>
-              </table>
+            <td style="padding:0 0 32px 8px;">
+              <img
+                src="https://fitkis.com/icon.png"
+                alt="Fitkis"
+                width="48"
+                height="48"
+                style="display:block;border-radius:12px;border:0;"
+              />
             </td>
           </tr>
 
