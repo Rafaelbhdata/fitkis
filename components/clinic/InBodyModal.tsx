@@ -365,12 +365,11 @@ export function InBodyModal({ open, onClose, onSaved, supabase, patientId, exist
         <div>
           {isEdit && (
             deleteConfirm ? (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', whiteSpace: 'nowrap' }}>
                 <span style={{ fontSize: 12, color: 'var(--berry)', fontFamily: 'var(--f-sans)' }}>¿Confirmar borrado?</span>
                 <ModalBtn variant="danger-solid" onClick={handleDelete} disabled={busy}>
                   {phase === 'deleting' ? 'Borrando…' : 'Sí, borrar'}
                 </ModalBtn>
-                <ModalBtn variant="secondary" onClick={() => setDeleteConfirm(false)} disabled={busy}>Cancelar</ModalBtn>
               </div>
             ) : (
               <ModalBtn variant="danger-soft" onClick={() => setDeleteConfirm(true)} disabled={busy}>
@@ -380,7 +379,7 @@ export function InBodyModal({ open, onClose, onSaved, supabase, patientId, exist
           )}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <ModalBtn variant="secondary" onClick={onClose} disabled={busy}>Cancelar</ModalBtn>
+          <ModalBtn variant="secondary" onClick={deleteConfirm ? () => setDeleteConfirm(false) : onClose} disabled={busy}>Cancelar</ModalBtn>
           <ModalBtn variant="signal" onClick={handleSave} disabled={busy}>
             {phase === 'saving' ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Guardar'}
           </ModalBtn>
