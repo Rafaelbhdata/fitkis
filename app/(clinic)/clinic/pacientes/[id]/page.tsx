@@ -9,6 +9,7 @@ import { ConsultationNotesCard } from '@/components/clinic/ConsultationNotesCard
 import { generatePatientReport } from '@/components/clinic/PatientReportPDF'
 import { BigSpark } from '@/components/clinic/BigSpark'
 import { InBodyModal } from '@/components/clinic/InBodyModal'
+import { GoalBadge, GoalEditorModal, GoalProgress, type GoalType } from '@/components/clinic/GoalEditor'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPatientDetail,
@@ -18,6 +19,7 @@ import {
   loadNextAppointmentForPatient,
   loadConsultationNotes,
   loadAppointmentNotesForPatient,
+  updatePatientGoals,
   daysBetween,
   type PatientDetail,
   type PractitionerRecord,
@@ -39,61 +41,55 @@ const TABS: { k: Tab; n: string }[] = [
   { k: 'msg', n: 'Conversación' },
 ]
 
-function HeroComposition({ patient }: { patient: PatientDetail }) {
+function HeroComposition({ patient, onEditGoal }: { patient: PatientDetail; onEditGoal: () => void }) {
   const ws = patient.weight_history
   const w = ws.map((r) => r.weight_kg).filter((v): v is number => v != null)
   const f = ws.map((r) => r.body_fat_percentage).filter((v): v is number => v != null)
   const m = ws.map((r) => r.muscle_mass_kg).filter((v): v is number => v != null)
   const last = <T,>(a: T[]): T | undefined => (a.length ? a[a.length - 1] : undefined)
 
+  const currentW = last(w)
+  const currentF = last(f)
+  const currentM = last(m)
+
   const stats = [
     {
       label: 'Peso',
-      v: last(w),
+      v: currentW,
       unit: 'kg',
       delta: w.length >= 2 ? w[w.length - 1] - w[0] : undefined,
-      invert: false,
+      invert: patient.goal_weight_kg != null && currentW != null ? patient.goal_weight_kg < currentW : true,
       goal: patient.goal_weight_kg,
+      progressMetric: 'peso' as const,
     },
     {
       label: '% Grasa',
-      v: last(f),
+      v: currentF,
       unit: '%',
       delta: f.length >= 2 ? f[f.length - 1] - f[0] : undefined,
-      invert: false,
-      goal: undefined,
+      invert: true,
+      goal: patient.goal_body_fat_pct,
+      progressMetric: 'grasa' as const,
     },
     {
       label: 'Músculo',
-      v: last(m),
+      v: currentM,
       unit: 'kg',
       delta: m.length >= 2 ? m[m.length - 1] - m[0] : undefined,
-      invert: true,
-      goal: undefined,
+      invert: false,
+      goal: patient.goal_muscle_kg,
+      progressMetric: 'musculo' as const,
     },
   ]
 
   return (
-    <div
-      style={{
-        background: '#fff',
-        border: '1px solid var(--ink-7)',
-        borderRadius: 14,
-        padding: '28px 28px 24px',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          marginBottom: 6,
-          gap: 12,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div className="fk-eyebrow">
-          Composición corporal · {ws.length} medición{ws.length === 1 ? '' : 'es'}
+    <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '28px 28px 24px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10, gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="fk-eyebrow">
+            Composición corporal · {ws.length} medición{ws.length === 1 ? '' : 'es'}
+          </div>
+          <GoalBadge goalType={patient.goal_type} onEdit={onEditGoal} />
         </div>
         {ws.length > 0 && (
           <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
@@ -101,16 +97,9 @@ function HeroComposition({ patient }: { patient: PatientDetail }) {
           </span>
         )}
       </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-          gap: 36,
-          marginTop: 18,
-        }}
-      >
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 36, marginTop: 18 }}>
         {stats.map((s) => {
-          const good = s.delta == null ? null : s.invert ? s.delta > 0 : s.delta < 0
+          const good = s.delta == null ? null : s.invert ? s.delta < 0 : s.delta > 0
           const deltaCol =
             s.delta == null || Math.abs(s.delta) < 0.05
               ? 'var(--ink-4)'
@@ -123,62 +112,32 @@ function HeroComposition({ patient }: { patient: PatientDetail }) {
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
                 {s.v != null ? (
                   <>
-                    <span
-                      className="fk-serif"
-                      style={{
-                        fontSize: 54,
-                        fontWeight: 300,
-                        letterSpacing: '-0.03em',
-                        lineHeight: 1,
-                        color: 'var(--ink)',
-                      }}
-                    >
+                    <span className="fk-serif" style={{ fontSize: 54, fontWeight: 300, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--ink)' }}>
                       {s.v.toFixed(1)}
                     </span>
-                    <span
-                      className="fk-mono"
-                      style={{
-                        fontSize: 11,
-                        color: 'var(--ink-4)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                      }}
-                    >
+                    <span className="fk-mono" style={{ fontSize: 11, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                       {s.unit}
                     </span>
                   </>
                 ) : (
-                  <span
-                    className="fk-serif"
-                    style={{
-                      fontSize: 54,
-                      fontWeight: 300,
-                      lineHeight: 1,
-                      color: 'var(--ink-5)',
-                    }}
-                  >
-                    —
-                  </span>
+                  <span className="fk-serif" style={{ fontSize: 54, fontWeight: 300, lineHeight: 1, color: 'var(--ink-5)' }}>—</span>
                 )}
               </div>
               {s.delta != null && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                  <span
-                    className="fk-mono"
-                    style={{ fontSize: 11, color: deltaCol, fontWeight: 500 }}
-                  >
-                    {s.delta > 0 ? '↑' : '↓'} {Math.abs(s.delta).toFixed(1)}
-                    {s.unit} · 30d
+                  <span className="fk-mono" style={{ fontSize: 11, color: deltaCol, fontWeight: 500 }}>
+                    {s.delta > 0 ? '↑' : '↓'} {Math.abs(s.delta).toFixed(1)}{s.unit} · 30d
                   </span>
-                  {s.goal != null && (
-                    <span
-                      style={{ fontSize: 10, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)' }}
-                    >
-                      meta {s.goal}
-                      {s.unit}
-                    </span>
-                  )}
                 </div>
+              )}
+              {s.v != null && s.goal != null && (
+                <GoalProgress
+                  current={s.v}
+                  goal={s.goal}
+                  unit={s.unit}
+                  metric={s.progressMetric}
+                  invert={s.invert}
+                />
               )}
             </div>
           )
@@ -349,7 +308,7 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
             <div
               style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 6, fontFamily: 'var(--f-mono)' }}
             >
-              Ve a <a href="/agenda" style={{ color: '#ff7a00', textDecoration: 'underline' }}>agenda</a> para programar
+              Ve a <a href="/agenda" style={{ color: '#fff', textDecoration: 'underline' }}>agenda</a> para programar
             </div>
           </>
         )}
@@ -1173,6 +1132,7 @@ export default function PatientDetailPage({
   const [gymFetched, setGymFetched]     = useState(false)
 
   const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null)
+  const [goalEditorOpen, setGoalEditorOpen] = useState(false)
 
   useEffect(() => {
     if (userLoading) return
@@ -1240,6 +1200,17 @@ export default function PatientDetailPage({
     if (!practitioner) return
     const detail = await loadPatientDetail(supabase, practitioner.id, patientId)
     setPatient(detail)
+  }
+
+  async function handleSaveGoals(goals: {
+    goal_type?: GoalType
+    goal_weight_kg?: number | null
+    goal_body_fat_pct?: number | null
+    goal_muscle_kg?: number | null
+  }) {
+    if (!patient) return
+    await updatePatientGoals(supabase, patient.patient_id, goals)
+    await refreshPatient()
   }
 
   if (loading || userLoading) {
@@ -1469,7 +1440,7 @@ export default function PatientDetailPage({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {tab === 'resumen' && (
             <>
-              <HeroComposition patient={patient} />
+              <HeroComposition patient={patient} onEditGoal={() => setGoalEditorOpen(true)} />
               <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '24px 28px 18px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12, gap: 12 }}>
                   <div>
@@ -1495,6 +1466,18 @@ export default function PatientDetailPage({
 
         <RightRail patient={patient} nextAppointment={nextAppointment} />
       </div>
+
+      <GoalEditorModal
+        open={goalEditorOpen}
+        onClose={() => setGoalEditorOpen(false)}
+        onSave={handleSaveGoals}
+        initial={{
+          goal_type:         patient.goal_type,
+          goal_weight_kg:    patient.goal_weight_kg,
+          goal_body_fat_pct: patient.goal_body_fat_pct,
+          goal_muscle_kg:    patient.goal_muscle_kg,
+        }}
+      />
     </div>
   )
 }
