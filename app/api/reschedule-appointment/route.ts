@@ -11,7 +11,7 @@ const supabaseAdmin = createClient(
 const resend = process.env.RESEND_API_KEY
 	? new Resend(process.env.RESEND_API_KEY)
 	: null;
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.com';
+const SITE_URL = process.env.SERVER_URL ?? 'https://fitkis.com';
 
 const MONTHS_ES = [
 	'enero',
@@ -146,30 +146,122 @@ export async function POST(req: Request) {
 				reason === 'no_show'
 					? `Agenda tu nueva consulta con ${practitionerName}`
 					: `${practitionerName} quiere reagendar tu consulta`,
-			html: `
-        <div style="font-family: Georgia, serif; max-width: 560px; margin: 0 auto; padding: 40px 24px; color: #0a0a0a;">
-          <h1 style="font-size: 28px; font-weight: 300; margin: 0 0 8px;">Hola, ${firstName}</h1>
-          <p style="font-size: 15px; color: #737373; margin: 0 0 28px; font-family: system-ui, sans-serif; line-height: 1.6;">
-            ${bodyParagraph}
-          </p>
-          <a href="${bookingLink}"
-            style="display: inline-block; background: #ff5a1f; color: #fff; text-decoration: none;
-                   padding: 14px 28px; border-radius: 999px; font-family: system-ui, sans-serif;
-                   font-size: 14px; font-weight: 600; margin-bottom: 32px;">
-            Elegir nuevo horario →
-          </a>
-          <p style="font-size: 13px; color: #a3a3a3; font-family: system-ui, sans-serif; margin: 0;">
-            Si no puedes hacer clic en el botón, copia este enlace:<br/>
-            <a href="${bookingLink}" style="color: #ff5a1f;">${bookingLink}</a>
-          </p>
-          <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 32px 0;" />
-          <p style="font-size: 12px; color: #a3a3a3; font-family: system-ui, sans-serif; margin: 0;">
-            Enviado desde el portal Fitkis en nombre de ${practitionerName}.
-          </p>
-        </div>
-      `,
+			html: rescheduleEmailHtml({ firstName, bodyParagraph, bookingLink, practitionerName }),
 		});
 	}
 
 	return NextResponse.json({ ok: true, bookingLink });
+}
+
+function rescheduleEmailHtml({
+	firstName,
+	bodyParagraph,
+	bookingLink,
+	practitionerName,
+}: {
+	firstName: string;
+	bodyParagraph: string;
+	bookingLink: string;
+	practitionerName: string;
+}): string {
+	return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reagendar consulta · Fitkis</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f4ef;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4ef;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+
+          <!-- Logotipo -->
+          <tr>
+            <td style="padding:0 0 32px;" align="center">
+              <img
+                src="https://fitkis.com/icon.png"
+                alt="Fitkis"
+                width="56"
+                height="56"
+                style="display:block;border-radius:14px;border:0;margin:0 auto;"
+              />
+            </td>
+          </tr>
+
+          <!-- Card principal -->
+          <tr>
+            <td style="background:#ffffff;border-radius:16px;border:1px solid #e5e3db;overflow:hidden;">
+
+              <!-- Franja signal superior -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr><td style="background:#ff5a1f;height:4px;"></td></tr>
+              </table>
+
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:40px 40px 36px;">
+
+                    <!-- Eyebrow -->
+                    <p style="margin:0 0 10px;font-family:Arial,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#ff5a1f;">
+                      Consulta · Fitkis
+                    </p>
+
+                    <!-- Saludo -->
+                    <h1 style="margin:0 0 20px;font-family:Georgia,'Times New Roman',serif;font-size:34px;font-weight:300;line-height:1.1;letter-spacing:-0.02em;color:#0a0a0a;">
+                      Hola, <em>${firstName}</em>.
+                    </h1>
+
+                    <!-- Cuerpo -->
+                    <p style="margin:0 0 32px;font-size:15px;line-height:1.6;color:#404040;font-family:Arial,Helvetica,sans-serif;">
+                      ${bodyParagraph}
+                    </p>
+
+                    <!-- CTA -->
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="background:#ff5a1f;border-radius:999px;">
+                          <a href="${bookingLink}"
+                            style="display:inline-block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.04em;">
+                            Elegir nuevo horario →
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Separador + fallback link -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="border-top:1px solid #f0ede6;padding:24px 40px;">
+                    <p style="margin:0;font-size:12px;color:#a3a3a3;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">
+                      Si no puedes hacer clic en el botón, copia este enlace:<br/>
+                      <a href="${bookingLink}" style="color:#ff5a1f;word-break:break-all;">${bookingLink}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:28px 0 0;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#a3a3a3;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">
+                Enviado por <strong>Fitkis</strong> en nombre de ${practitionerName}.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
 }

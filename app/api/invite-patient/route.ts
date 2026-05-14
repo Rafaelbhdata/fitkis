@@ -109,7 +109,17 @@ export async function POST(request: Request) {
         )
       }
       patientId = linkData.user.id
-      const magicLink = linkData.properties?.action_link ?? `${SITE_URL}/download`
+      // Supabase puede embeber su Site URL configurado en el action_link
+      // ignorando el redirectTo que pasamos, si ese URL no está en la
+      // allowlist. Sobreescribimos redirect_to directamente para garantizar
+      // que el botón siempre apunte a nuestra URL de producción.
+      const rawLink = linkData.properties?.action_link ?? ''
+      const magicLink = rawLink
+        ? rawLink.replace(
+            /redirect_to=[^&]*/g,
+            `redirect_to=${encodeURIComponent(`${SITE_URL}/download`)}`,
+          )
+        : `${SITE_URL}/download`
 
       // Fire-and-forget — el insert al vínculo no depende del email
       resend.emails.send({
@@ -196,13 +206,13 @@ function inviteEmailHtml({
 
           <!-- Logotipo -->
           <tr>
-            <td style="padding:0 0 32px 8px;">
+            <td style="padding:0 0 32px;" align="center">
               <img
                 src="https://fitkis.com/icon.png"
                 alt="Fitkis"
-                width="48"
-                height="48"
-                style="display:block;border-radius:12px;border:0;"
+                width="56"
+                height="56"
+                style="display:block;border-radius:14px;border:0;margin:0 auto;"
               />
             </td>
           </tr>
