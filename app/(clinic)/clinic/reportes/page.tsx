@@ -178,7 +178,7 @@ function Card({ children, style, accent, accentBg }: {
 }) {
   return (
     <div style={{
-      background: '#FAFAF6',
+      background: '#fff',
       borderTop: '1px solid var(--ink-7)',
       borderRight: '1px solid var(--ink-7)',
       borderBottom: '1px solid var(--ink-7)',
