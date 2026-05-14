@@ -484,7 +484,7 @@ export async function loadPatientDetail(
 // =============================================================================
 
 export async function updatePatientGoals(
-  supabase: SB,
+  _supabase: SB,
   patientId: string,
   goals: {
     goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento'
@@ -493,16 +493,12 @@ export async function updatePatientGoals(
     goal_muscle_kg?: number | null
   }
 ): Promise<boolean> {
-  const { error } = await supabase
-    .from('user_profiles')
-    .update({
-      goal_type:         goals.goal_type         ?? null,
-      goal_weight_kg:    goals.goal_weight_kg    ?? null,
-      goal_body_fat_pct: goals.goal_body_fat_pct ?? null,
-      goal_muscle_kg:    goals.goal_muscle_kg    ?? null,
-    })
-    .eq('user_id', patientId)
-  return !error
+  const res = await fetch('/api/patient-goals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ patient_id: patientId, ...goals }),
+  })
+  return res.ok
 }
 
 // =============================================================================
