@@ -349,7 +349,7 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
             <div
               style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 6, fontFamily: 'var(--f-mono)' }}
             >
-              Ve a Agenda para programar
+              Ve a <a href="/agenda" style={{ color: '#ff7a00', textDecoration: 'underline' }}>agenda</a> para programar
             </div>
           </>
         )}
@@ -619,7 +619,7 @@ function TabAntropometria({
                 >
                   {history.map((row, i) => (
                     <option key={i} value={i}>
-                      {formatDateShort(row.date)}{i === 0 ? ' (hoy)' : i === history.length - 1 ? ' (inicio)' : ''}
+                      {formatDateShort(row.date)}{row.date === getTodayInTimezone() ? ' (hoy)' : i === history.length - 1 ? ' (inicio)' : ''}
                     </option>
                   ))}
                 </select>
