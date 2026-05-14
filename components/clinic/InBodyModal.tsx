@@ -241,103 +241,108 @@ export function InBodyModal({ open, onClose, onSaved, supabase, patientId, exist
 
   return (
     <ModalShell onClose={onClose} maxWidth={560}>
-      {/* header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid var(--ink-7)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div>
-          <div className="fk-eyebrow" style={{ marginBottom: 4 }}>
+          <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
             {isEdit ? 'Editar medición' : 'Registrar medición'}
           </div>
-          <div className="fk-serif" style={{ fontSize: 22, fontWeight: 300, fontStyle: 'italic' }}>
+          <div style={{ fontFamily: 'var(--f-serif)', fontSize: 20, fontWeight: 300, color: 'var(--ink)', fontStyle: 'italic' }}>
             InBody / Peso
           </div>
         </div>
         <ModalClose onClick={onClose} />
       </div>
 
-      {/* foto */}
-      <div
-        onClick={() => !busy && fileRef.current?.click()}
-        style={{
-          marginBottom: 20, borderRadius: 10, border: '1.5px dashed var(--ink-6)',
-          background: 'var(--paper-2)', cursor: busy ? 'default' : 'pointer',
-          minHeight: displayPhoto ? 'auto' : 80,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', position: 'relative',
-        }}
-      >
-        {displayPhoto ? (
-          <img src={displayPhoto} alt="InBody scan" style={{ width: '100%', maxHeight: 220, objectFit: 'contain', display: 'block' }} />
-        ) : (
-          <div style={{ padding: '18px 0', textAlign: 'center' }}>
-            <div style={{ fontSize: 22, marginBottom: 4, color: 'var(--ink-5)' }}>+</div>
-            <div className="fk-eyebrow" style={{ color: 'var(--ink-4)' }}>
-              {phase === 'analyzing' ? 'Analizando…' : 'Adjuntar foto del InBody (opcional)'}
+      {/* ── Content ────────────────────────────────────────────────────────── */}
+      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--ink-7)' }}>
+
+        {/* foto */}
+        <div
+          onClick={() => !busy && fileRef.current?.click()}
+          style={{
+            marginBottom: 20, borderRadius: 10, border: '1.5px dashed var(--ink-6)',
+            background: 'var(--paper)', cursor: busy ? 'default' : 'pointer',
+            minHeight: displayPhoto ? 'auto' : 80,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', position: 'relative',
+          }}
+        >
+          {displayPhoto ? (
+            <img src={displayPhoto} alt="InBody scan" style={{ width: '100%', maxHeight: 220, objectFit: 'contain', display: 'block' }} />
+          ) : (
+            <div style={{ padding: '18px 0', textAlign: 'center' }}>
+              <div style={{ fontSize: 22, marginBottom: 4, color: 'var(--ink-5)' }}>+</div>
+              <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {phase === 'analyzing' ? 'Analizando…' : 'Adjuntar foto del InBody (opcional)'}
+              </div>
             </div>
+          )}
+          {phase === 'analyzing' && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--signal)' }}>Leyendo InBody…</div>
+            </div>
+          )}
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+
+        {/* IA confidence badge */}
+        {confidence && (
+          <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', marginBottom: 12, textAlign: 'right', letterSpacing: '0.04em' }}>
+            Confianza IA: {confidence}{aiNotes ? ` · ${aiNotes}` : ''}
           </div>
         )}
-        {phase === 'analyzing' && (
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div className="fk-eyebrow" style={{ color: 'var(--signal)' }}>Leyendo InBody…</div>
+
+        {/* opciones de foto en edición */}
+        {isEdit && existingPhotoUrl && !file && (
+          <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontFamily: 'var(--f-mono)', fontSize: 9, color: 'var(--ink-4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Foto actual</span>
+            <button
+              onClick={() => setKeepPhoto(k => !k)}
+              style={{ fontSize: 11, fontFamily: 'var(--f-mono)', color: keepPhoto ? 'var(--leaf)' : 'var(--berry)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              {keepPhoto ? 'Conservar' : 'Quitar foto'}
+            </button>
+            <span style={{ fontSize: 11, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)' }}>·</span>
+            <button
+              onClick={() => fileRef.current?.click()}
+              style={{ fontSize: 11, fontFamily: 'var(--f-mono)', color: 'var(--ink-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            >
+              Reemplazar
+            </button>
+          </div>
+        )}
+
+        {/* campos */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <FieldLabel>Fecha *</FieldLabel>
+            <input type="date" {...field('date')} style={inputStyle} />
+          </div>
+          <NumField label="Peso (kg) *" {...field('weight_kg')} />
+          <NumField label="% Grasa"     {...field('body_fat_percentage')} />
+          <NumField label="Masa grasa (kg)"  {...field('body_fat_mass_kg')} />
+          <NumField label="Músculo (kg)"     {...field('muscle_mass_kg')} />
+          <div style={{ gridColumn: '1 / -1' }}>
+            <FieldLabel>Notas</FieldLabel>
+            <textarea
+              {...field('notes')}
+              rows={2}
+              style={{ ...inputStyle, resize: 'vertical' }}
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(255,90,31,0.08)', borderRadius: 8, fontSize: 12, color: 'var(--signal)', fontFamily: 'var(--f-sans)' }}>
+            {error}
           </div>
         )}
       </div>
-      <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
 
-      {/* IA confidence badge */}
-      {confidence && (
-        <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-4)', marginBottom: 12, textAlign: 'right' }}>
-          Confianza IA: {confidence}{aiNotes ? ` · ${aiNotes}` : ''}
-        </div>
-      )}
-
-      {/* opciones de foto en edición */}
-      {isEdit && existingPhotoUrl && !file && (
-        <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span className="fk-eyebrow" style={{ fontSize: 9, color: 'var(--ink-4)' }}>Foto actual</span>
-          <button
-            onClick={() => setKeepPhoto(k => !k)}
-            style={{ fontSize: 11, fontFamily: 'var(--f-mono)', color: keepPhoto ? 'var(--leaf)' : 'var(--berry)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-          >
-            {keepPhoto ? 'Conservar' : 'Quitar foto'}
-          </button>
-          <span style={{ fontSize: 11, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)' }}>·</span>
-          <button
-            onClick={() => fileRef.current?.click()}
-            style={{ fontSize: 11, fontFamily: 'var(--f-mono)', color: 'var(--ink-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-          >
-            Reemplazar
-          </button>
-        </div>
-      )}
-
-      {/* campos */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-        <div style={{ gridColumn: '1 / -1' }}>
-          <Label>Fecha *</Label>
-          <input type="date" {...field('date')} style={inputStyle} />
-        </div>
-        <NumField label="Peso (kg) *" {...field('weight_kg')} />
-        <NumField label="% Grasa"     {...field('body_fat_percentage')} />
-        <NumField label="Masa grasa (kg)"    {...field('body_fat_mass_kg')} />
-        <NumField label="Músculo (kg)"       {...field('muscle_mass_kg')} />
-        <div style={{ gridColumn: '1 / -1' }}>
-          <Label>Notas</Label>
-          <textarea
-            {...field('notes')}
-            rows={2}
-            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'var(--f-sans)', fontSize: 13 }}
-          />
-        </div>
-      </div>
-
-      {error && (
-        <div style={{ padding: '8px 12px', background: 'rgba(255,90,31,0.08)', borderRadius: 8, fontSize: 12, color: 'var(--signal)', marginBottom: 12, fontFamily: 'var(--f-sans)' }}>
-          {error}
-        </div>
-      )}
-
-      {/* acciones */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
+      {/* ── Footer / Acciones ──────────────────────────────────────────────── */}
+      <div style={{ padding: '14px 24px 20px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between' }}>
         <div>
           {isEdit && (
             deleteConfirm ? (
@@ -362,22 +367,25 @@ export function InBodyModal({ open, onClose, onSaved, supabase, patientId, exist
           </ModalBtn>
         </div>
       </div>
+
     </ModalShell>
   )
 }
 
 // ─── subcomponentes ───────────────────────────────────────────────────────────
 
-function Label({ children }: { children: React.ReactNode }) {
+function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fk-eyebrow" style={{ marginBottom: 5, fontSize: 9 }}>{children}</div>
+    <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
+      {children}
+    </div>
   )
 }
 
 function NumField({ label, value, onChange }: { label: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
   return (
     <div>
-      <Label>{label}</Label>
+      <FieldLabel>{label}</FieldLabel>
       <input
         type="number"
         step="0.1"
@@ -391,12 +399,12 @@ function NumField({ label, value, onChange }: { label: string; value: string; on
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
-  padding: '8px 12px',
+  padding: '10px 14px',
   borderRadius: 8,
   border: '1px solid var(--ink-7)',
-  background: 'var(--paper-2)',
+  background: 'var(--paper)',
   fontSize: 13,
-  fontFamily: 'var(--f-mono)',
+  fontFamily: 'var(--f-sans)',
   color: 'var(--ink)',
   outline: 'none',
   boxSizing: 'border-box',
