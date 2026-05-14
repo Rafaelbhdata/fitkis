@@ -87,6 +87,7 @@ export function ModalBtn({
         ...MODAL_BTN_STYLES[variant],
         borderRadius: 8, padding: '10px 16px',
         fontSize: 13, fontFamily: 'var(--f-sans)', fontWeight: 500,
+        whiteSpace: 'nowrap',
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.4 : 1,
         transition: 'opacity 0.1s',
