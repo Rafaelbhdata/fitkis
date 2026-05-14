@@ -43,7 +43,8 @@ components/
   ui/       PulseLine, Fk, Btn, Card, Segments, Toast
 
 lib/
-  clinic/calendar-utils.ts   — WeekSchedule/DaySchedule types, generateSlots,
+  clinic/calendar-utils.ts   — WeekSchedule/DaySchedule/OccupiedSlot types,
+                                generateSlots, isSlotOccupied, intervalsOverlap,
                                 scheduleHourRange, fmtShortDate/DateTime/LongDate,
                                 MONTHS_*, DAYS_*, TIME_OPTIONS
   clinic/queries.ts          — Todos los loaders/mutaciones Supabase
@@ -167,6 +168,12 @@ Recientes (Fase 3):
 ---
 
 ## Notas de implementación
+
+**Google Calendar — integración completa (14 may 2026):**
+- `NewAppointmentModal`: al seleccionar fecha hace fetch a `/api/available-slots` y filtra slots que solapan con bloques ocupados (citas existentes + Calendar). Usa `AbortController` para cancelar fetches en vuelo si el usuario cambia de fecha.
+- `/api/book-appointment`: valida contra Google Calendar server-side con `getBusyBlocks` antes de insertar. `getBusyBlocks` y la query de conflictos en BD corren en paralelo con `Promise.all`.
+- `app/agendar/[id]` (booking público): ya integraba Calendar correctamente desde antes.
+- Lógica de solapamiento centralizada en `calendar-utils.ts` (`intervalsOverlap`, `isSlotOccupied`, `OccupiedSlot`) — eliminada de tres sitios duplicados.
 
 **Agenda:** grilla 8 col (hora + 7 días), zoom 80/120/160px persistido en `localStorage`. Hora inicio/fin derivada del `practitioner.schedule` (override manual disponible).
 
