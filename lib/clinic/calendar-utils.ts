@@ -171,6 +171,23 @@ export function daysInMonth(y: number, m: number): number {
   return new Date(y, m + 1, 0).getDate()
 }
 
+// ─── Overlap helpers ──────────────────────────────────────────────────────────
+
+export type OccupiedSlot = { starts_at: string; duration_minutes: number }
+
+export function intervalsOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+  return aStart < bEnd && aEnd > bStart
+}
+
+export function isSlotOccupied(slotISO: string, occupied: OccupiedSlot[], durMin: number): boolean {
+  const s = new Date(slotISO).getTime()
+  const e = s + durMin * 60_000
+  return occupied.some(o => {
+    const oStart = new Date(o.starts_at).getTime()
+    return intervalsOverlap(s, e, oStart, oStart + o.duration_minutes * 60_000)
+  })
+}
+
 // ─── Slot generation ───────────────────────────────────────────────────────────
 
 /**

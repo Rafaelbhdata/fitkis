@@ -9,9 +9,9 @@ import {
   MONTHS_CAP, WEEK_LABELS,
   todayISO, isoDate, firstDayOfMonth, daysInMonth,
   fmtTime, fmtDateShort, generateSlots,
-  dateToDayKey,
+  dateToDayKey, isSlotOccupied,
+  type OccupiedSlot, type WeekSchedule,
 } from '@/lib/clinic/calendar-utils'
-import type { WeekSchedule } from '@/lib/clinic/calendar-utils'
 
 type PractitionerPublic = {
   id: string
@@ -21,16 +21,7 @@ type PractitionerPublic = {
   schedule: WeekSchedule | null
   default_duration: number
 }
-type OccupiedSlot = { starts_at: string; duration_minutes: number }
 type Step = 'loading' | 'calendar' | 'slots' | 'form' | 'confirmed'
-
-function isOccupied(slotISO: string, occupied: OccupiedSlot[], durMin: number) {
-  const s = new Date(slotISO).getTime(), e = s + durMin * 60_000
-  return occupied.some(o => {
-    const os = new Date(o.starts_at).getTime()
-    return s < os + o.duration_minutes * 60_000 && e > os
-  })
-}
 
 export default function BookingPage({ params }: { params: { id: string } }) {
   const practitionerId = params.id
@@ -327,7 +318,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {slots.filter(s => !isOccupied(s, occupied, duration)).map(s => {
+                  {slots.filter(s => !isSlotOccupied(s, occupied, duration)).map(s => {
                     const isSel = s === slot
                     return (
                       <button key={s} type="button"

@@ -8,8 +8,8 @@ import {
   MONTHS_CAP, WEEK_LABELS, DURATIONS,
   todayISO, isoDate, firstDayOfMonth, daysInMonth,
   fmtTime, generateSlots, dateToDayKey,
-  fmtShortDate, fmtLongDate,
-  type WeekSchedule,
+  fmtShortDate, fmtLongDate, isSlotOccupied,
+  type WeekSchedule, type OccupiedSlot,
 } from '@/lib/clinic/calendar-utils'
 
 type PatientMode = 'linked' | 'external'
@@ -55,6 +55,7 @@ export function NewAppointmentModal({ practitionerId, defaultDuration, schedule,
   const [date, setDate]     = useState<string|null>(null)
   const [duration, setDuration] = useState(defaultDuration)
   const [slot, setSlot]     = useState<string|null>(null)
+  const [occupied, setOccupied] = useState<OccupiedSlot[]>([])
 
   // Form
   const [notes, setNotes]       = useState('')
@@ -84,12 +85,23 @@ export function NewAppointmentModal({ practitionerId, defaultDuration, schedule,
     () => [...Array(firstDayOfMonth(calY,calM)).fill(null), ...Array.from({length:daysInMonth(calY,calM)},(_,i)=>i+1)],
     [calY, calM]
   )
+  useEffect(() => {
+    if (!date) { setOccupied([]); return }
+    const controller = new AbortController()
+    fetch(`/api/available-slots/${practitionerId}/${date}`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : { occupied: [] })
+      .then(data => setOccupied(data.occupied ?? []))
+      .catch(err => { if (err.name !== 'AbortError') setOccupied([]) })
+    return () => controller.abort()
+  }, [date, practitionerId])
+
   const slots = useMemo(() => {
     if (!date) return []
     const dayKey = dateToDayKey(new Date(date + 'T00:00:00'))
     const daySchedule = schedule?.[dayKey]
     return generateSlots(date, duration, daySchedule)
-  }, [date, duration, schedule])
+      .filter(s => !isSlotOccupied(s, occupied, duration))
+  }, [date, duration, schedule, occupied])
 
   const patientName  = mode==='linked' ? (selected?.patient_name??'') : extName.trim()
   const patientEmail = mode==='linked' ? (selected?.patient_email??undefined) : (extEmail.trim()||undefined)

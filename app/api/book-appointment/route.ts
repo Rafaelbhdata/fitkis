@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import {
-  DEFAULT_WEEK_SCHEDULE, dateToDayKey, minToTime, generateSlots,
+  DEFAULT_WEEK_SCHEDULE, dateToDayKey, minToTime, generateSlots, intervalsOverlap,
+  type WeekSchedule,
 } from '@/lib/clinic/calendar-utils'
-import type { WeekSchedule } from '@/lib/clinic/calendar-utils'
 import { formatDateISOInTimezone, getHourMinuteInTimezone } from '@/lib/utils'
+import { getBusyBlocks } from '@/lib/clinic/google-calendar'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,20 +68,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'El horario seleccionado no está disponible.' }, { status: 400 })
   }
 
-  // Verificar conflicto con citas existentes
-  const endDt = new Date(startDt.getTime() + duration_minutes * 60_000)
+  const endDt       = new Date(startDt.getTime() + duration_minutes * 60_000)
   const windowStart = new Date(startDt.getTime() - duration_minutes * 60_000)
 
-  const { data: conflicts } = await supabaseAdmin
-    .from('appointments')
-    .select('id')
-    .eq('practitioner_id', practitioner_id)
-    .not('status', 'in', '("cancelled","no_show")')
-    .lt('starts_at', endDt.toISOString())
-    .gt('starts_at', windowStart.toISOString())
-    .limit(1)
+  const [busyBlocks, { data: conflicts }] = await Promise.all([
+    getBusyBlocks(practitioner_id, dateISO),
+    supabaseAdmin
+      .from('appointments')
+      .select('id')
+      .eq('practitioner_id', practitioner_id)
+      .not('status', 'in', '("cancelled","no_show")')
+      .lt('starts_at', endDt.toISOString())
+      .gt('starts_at', windowStart.toISOString())
+      .limit(1),
+  ])
 
-  if (conflicts && conflicts.length > 0) {
+  const sMs = startDt.getTime(), eMs = endDt.getTime()
+  const calConflict = busyBlocks.some(b =>
+    intervalsOverlap(sMs, eMs, new Date(b.start).getTime(), new Date(b.end).getTime())
+  )
+
+  if (calConflict || (conflicts && conflicts.length > 0)) {
     return NextResponse.json({ error: 'Este horario ya está ocupado.' }, { status: 409 })
   }
 
