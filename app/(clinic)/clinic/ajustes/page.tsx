@@ -493,7 +493,7 @@ function PanelConsultorio({ practitioner }: { practitioner: PractitionerRecord }
 // ─── Booking share card ───────────────────────────────────────────────────────
 
 function BookingShareCard({ practitionerId }: { practitionerId: string }) {
-  const siteUrl    = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.app'
+  const siteUrl    = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://fitkis.com'
   const bookingUrl = `${siteUrl}/agendar/${practitionerId}`
   const [copied, setCopied] = useState(false)
 

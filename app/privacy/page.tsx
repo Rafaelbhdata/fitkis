@@ -254,7 +254,7 @@ export default function PrivacyPage() {
             <p className="leading-relaxed">
               Cualquier duda sobre esta política o sobre tus datos:{' '}
               <a href="mailto:info@fitkis.com" className="text-signal underline">
-                hola@fitkis.com
+                info@fitkis.com
               </a>.
             </p>
           </section>
