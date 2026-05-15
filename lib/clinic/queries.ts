@@ -167,7 +167,8 @@ export async function loadPatientsForPractitioner(
       .from('appointments')
       .select('patient_id, starts_at')
       .eq('practitioner_id', practitionerId)
-      .eq('status', 'completed')
+      .eq('status', 'scheduled')
+      .lt('starts_at', new Date().toISOString())
       .in('patient_id', patientIds)
       .order('starts_at', { ascending: false }),
   ])
