@@ -5,6 +5,7 @@
 - Stack: Next.js 14 (App Router) · TypeScript · Tailwind · Supabase (Postgres + Auth) · Vercel
 - **Web = portal clínico exclusivo** (rama `master`). App móvil del paciente vive en repo separado `fitkis-mobile`
 - Fase 3 ✅ completada (12 may 2026). Próximamente Fase 4 — ver pendientes abajo
+- **Flow practitioner-patient end-to-end (14 may 2026)**: nutrióloga invita desde web → mobile ve bandeja en dashboard → acepta/rechaza → "Mi nutrióloga" en Ajustes → onboarding alterno + push. Detalles abajo
 - BD compartida con `fitkis-mobile`; endpoints `/api/*` los consume el móvil
 
 ---
@@ -29,7 +30,13 @@ app/
     admin/professional       — PATCH activar/desactivar nutrióloga
     available-slots/[id]/[d] — GET slots ocupados del día
     book-appointment         — POST crear cita
+    invite-patient           — POST invitar paciente (existente o nuevo via inviteUserByEmail)
+                                + envía push si !wasNew (fire-and-forget)
     invite-professional      — POST magic link al nuevo profesional
+    invitations              — GET pending del paciente + active flag (mobile bandeja)
+    invitations/[id]/respond — POST accept|decline (transición pending→active|inactive)
+    practitioner/unlink      — POST paciente se desvincula (active→inactive)
+    push-tokens              — POST mobile registra ExponentPushToken
     reschedule-appointment   — POST reagendar + email (Resend)
   auth/callback              — Intercambia code → sesión
   download, privacy, terms   — Páginas públicas
@@ -51,6 +58,8 @@ lib/
   clinic/appointment-meta.ts — APPOINTMENT_STATUS_LABEL/COLOR, RescheduleReason
   clinic/mock-data.ts        — Referencia visual (no importado en prod)
   api-auth.ts                — Bearer JWT verify para API móvil
+  push.ts                    — sendPushToUser via Expo Push API + cleanup tokens
+                                muertos (DeviceNotRegistered)
   constants.ts               — Equivalentes SMAE, rutinas
   hooks.ts                   — useSupabase, useUser
   supabase.ts                — Cliente browser/server
@@ -137,12 +146,26 @@ habit_logs:
   value (nullable), completed BOOLEAN
 ```
 
+### Tabla de push tokens
+
+```
+expo_push_tokens:
+  user_id (→ auth.users CASCADE), token, platform ∈ ios|android
+  last_used_at, created_at
+  UNIQUE (user_id, token)
+  — RLS: user CRUD propios. Service role lee cross-user para sendPushToUser
+```
+
 ### Función helper de RLS
 
 ```
 is_practitioner_of(patient_uuid) → BOOLEAN
 — Nutriólogo activo puede SELECT weight_logs, food_logs, habit_logs,
   habits, gym_sessions, session_sets, diet_configs, user_profiles del paciente
+
+is_practitioner_of_pending_or_active(patient_uuid) → BOOLEAN  (mig 014)
+— Permite a la nutrióloga INSERT/UPDATE diet_configs incluso en pending
+  (preconfigurar el plan antes de que el paciente acepte)
 ```
 
 ---
@@ -157,17 +180,37 @@ is_practitioner_of(patient_uuid) → BOOLEAN
 
 ## Migraciones
 
-Aplicadas: **001–036** + `schedule_overrides.sql`
+Aplicadas: **001–040** + `schedule_overrides.sql`
 
 Recientes (Fase 3):
 - `033_practitioners_alert_thresholds.sql` — umbrales en BD
 - `034_consultation_notes.sql` — notas + RLS por practitioner
 - `035_library_templates.sql` — biblioteca + RLS
 - `036_patient_for_practitioner_rpc.sql` — RPC que devuelve email+nombre de un paciente
+- `037_appointment_status_simplify.sql`, `038_calendar_integration.sql`, `039_practitioner_weight_rls.sql`
+- `040_expo_push_tokens.sql` (14 may 2026) — tabla `expo_push_tokens` para push remoto desde server
 
 ---
 
 ## Notas de implementación
+
+**Flow practitioner-patient (14 may 2026):**
+- **Invitar paciente existente** (`/api/invite-patient` con email que ya tiene cuenta): solo inserta `practitioner_patients` con `status='pending'`, devuelve `wasNew: false`. Después del insert, fire-and-forget `sendPushToUser(patientId, ...)` notifica al paciente.
+- **Invitar paciente nuevo**: `admin.auth.admin.inviteUserByEmail(email, { redirectTo: SITE_URL/download })` crea cuenta + manda magic link. Después inserta `practitioner_patients` con el nuevo `user_id`. El push NO aplica (todavía no hay token registrado); ve la card en dashboard cuando abre la app por primera vez via magic link.
+- **Aceptar/rechazar** (`/api/invitations/[id]/respond`): mobile cambia status. Accept rechaza con 409 si ya hay otra activa (regla 1-activa por paciente).
+- **Desvincular** (`/api/practitioner/unlink`): paciente cambia su relación activa a inactive. No borra fila (la nutrióloga sigue viendo "inactivo").
+- **Onboarding alterno mobile**: si paciente nuevo llega via magic link con `practitioner_patients.status='pending'`, AuthGate rutea a `/onboarding/invitation-welcome` (gateado por SecureStore `invitation_welcome_seen_<userId>`). Si la nutri preconfiguró `diet_configs` (mig 014 lo permite), `/onboarding/diet` muestra banner y skipea el form.
+- **Push**: `lib/push.ts` → POST batch a `https://exp.host/--/api/v2/push/send`. Limpia tokens con `DeviceNotRegistered` automáticamente.
+
+**Email de invitación a paciente nuevo — bypass de Supabase Auth (14 may 2026):**
+- `/api/invite-patient` para usuarios nuevos ya **NO** usa `inviteUserByEmail` directo (deliverability mala del SMTP default de Supabase). En su lugar:
+  1. `admin.auth.admin.generateLink({ type: 'invite', email, options: { redirectTo: SITE_URL/download } })` → crea el user en `auth.users` y devuelve el `action_link` SIN disparar email.
+  2. Sobreescribe `redirect_to=...` del action_link para garantizar `SITE_URL/download` (Supabase puede embeber su Site URL configurado ignorando el parámetro).
+  3. Envía email de marca via Resend (`from: Fitkis <info@fitkis.com>`) con template HTML editorial inline (Georgia/Arial, paleta paper/ink/signal).
+  4. Inserta `practitioner_patients` después.
+- **Fallback**: si `RESEND_API_KEY` no está en env, cae al `inviteUserByEmail` estándar como red de seguridad.
+- Dominio `fitkis.com` debe estar verificado en Resend (DNS). `fitkis.app` también lo está (lo usa `reschedule-appointment`).
+- Alternativa que NO se tomó: configurar SMTP Resend en Supabase Auth Settings. Funcionaría, pero el template quedaría con el default de Supabase. El bypass via generateLink + Resend directo da control total del email.
 
 **Google Calendar — integración completa (14 may 2026):**
 - `NewAppointmentModal`: al seleccionar fecha hace fetch a `/api/available-slots` y filtra slots que solapan con bloques ocupados (citas existentes + Calendar). Usa `AbortController` para cancelar fetches en vuelo si el usuario cambia de fecha.
