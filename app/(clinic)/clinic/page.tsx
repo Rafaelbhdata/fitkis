@@ -402,11 +402,9 @@ export default function ClinicPatientsPage() {
                               {pct}
                               <span style={{ fontSize: 11, marginLeft: 2 }}>%</span>
                             </div>
-                            {p.streak > 0 && (
-                              <div className="fk-mono" style={{ fontSize: 9, color: 'var(--ink-4)', marginTop: 2, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                                {p.streak}d racha
-                              </div>
-                            )}
+                            <div className="fk-mono" style={{ fontSize: 9, color: 'var(--ink-4)', marginTop: 2, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                              {p.streak}d racha
+                            </div>
                           </>
                         )
                       })()}
