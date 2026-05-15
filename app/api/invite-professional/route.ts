@@ -21,6 +21,13 @@ import { isAdminUser } from '@/lib/clinic/queries'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
+function alreadyExistsError(err: { message: string }) {
+  if (err.message.toLowerCase().includes('already')) {
+    return NextResponse.json({ error: 'Este email ya tiene una cuenta en Fitkis.' }, { status: 409 })
+  }
+  return null
+}
+
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -75,16 +82,8 @@ export async function POST(request: NextRequest) {
 
     if (linkErr || !linkData?.user?.id) {
       console.error('invite-professional: generateLink error', linkErr)
-      if (linkErr?.message?.toLowerCase().includes('already')) {
-        return NextResponse.json(
-          { error: 'Este email ya tiene una cuenta en Fitkis.' },
-          { status: 409 }
-        )
-      }
-      return NextResponse.json(
-        { error: linkErr?.message ?? 'Error al generar la invitación.' },
-        { status: 500 }
-      )
+      if (linkErr) return alreadyExistsError(linkErr) ?? NextResponse.json({ error: linkErr.message }, { status: 500 })
+      return NextResponse.json({ error: 'Error al generar la invitación.' }, { status: 500 })
     }
 
     // Supabase puede ignorar redirectTo si el dominio no está en la allowlist.
@@ -112,15 +111,7 @@ export async function POST(request: NextRequest) {
     redirectTo: callbackUrl,
   })
 
-  if (error) {
-    if (error.message.toLowerCase().includes('already')) {
-      return NextResponse.json(
-        { error: 'Este email ya tiene una cuenta en Fitkis.' },
-        { status: 409 }
-      )
-    }
-    return NextResponse.json({ error: error.message }, { status: 400 })
-  }
+  if (error) return alreadyExistsError(error) ?? NextResponse.json({ error: error.message }, { status: 400 })
 
   return NextResponse.json({ ok: true })
 }

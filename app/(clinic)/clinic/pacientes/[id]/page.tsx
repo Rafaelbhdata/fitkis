@@ -33,14 +33,13 @@ import {
 import type { WeightLog } from '@/types'
 import { getTodayInTimezone, getNowPartsInTimezone, shiftDateISO } from '@/lib/utils'
 
-type Tab = 'resumen' | 'antropo' | 'alim' | 'gym' | 'plan' | 'msg'
+type Tab = 'resumen' | 'antropo' | 'alim' | 'gym' | 'msg'
 
 const TABS: { k: Tab; n: string }[] = [
   { k: 'resumen', n: 'Resumen' },
   { k: 'antropo', n: 'Antropometría' },
   { k: 'alim', n: 'Alimentación' },
   { k: 'gym', n: 'Entrenamiento' },
-  { k: 'plan', n: 'Plan vigente' },
   { k: 'msg', n: 'Conversación' },
 ]
 
@@ -156,27 +155,12 @@ function HeroComposition({ patient, onEditGoal }: { patient: PatientDetail; onEd
 
 function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextAppointment: Appointment | null }) {
   const groups = [
-    {
-      g: 'Verdura',
-      n: patient.active_diet?.verdura ?? 0,
-      c: 'var(--leaf)',
-      bg: 'var(--leaf-soft)',
-    },
-    { g: 'Fruta', n: patient.active_diet?.fruta ?? 0, c: '#b8721d', bg: '#f3e4cf' },
-    { g: 'Cereal', n: patient.active_diet?.carb ?? 0, c: 'var(--honey)', bg: 'var(--honey-soft)' },
-    {
-      g: 'Proteína',
-      n: patient.active_diet?.proteina ?? 0,
-      c: 'var(--berry)',
-      bg: 'var(--berry-soft)',
-    },
-    { g: 'Grasa', n: patient.active_diet?.grasa ?? 0, c: 'var(--ink-3)', bg: 'var(--paper-3)' },
-    {
-      g: 'Legumin.',
-      n: patient.active_diet?.leguminosa ?? 0,
-      c: 'var(--sky)',
-      bg: 'var(--sky-soft)',
-    },
+    { g: 'Verdura',  n: patient.active_diet?.verdura    ?? 0, c: 'var(--leaf)',   bg: 'var(--leaf-soft)'  },
+    { g: 'Fruta',    n: patient.active_diet?.fruta      ?? 0, c: '#b8721d',       bg: '#f3e4cf'           },
+    { g: 'Cereal',   n: patient.active_diet?.carb       ?? 0, c: 'var(--honey)',  bg: 'var(--honey-soft)' },
+    { g: 'Proteína', n: patient.active_diet?.proteina   ?? 0, c: 'var(--berry)',  bg: 'var(--berry-soft)' },
+    { g: 'Grasa',    n: patient.active_diet?.grasa      ?? 0, c: 'var(--ink-3)',  bg: 'var(--paper-3)'   },
+    { g: 'Legumin.', n: patient.active_diet?.leguminosa ?? 0, c: 'var(--sky)',    bg: 'var(--sky-soft)'  },
   ]
   const totalEquivs = groups.reduce((acc, g) => acc + g.n, 0)
   const activeMealsCount = patient.active_diet
@@ -186,14 +170,7 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Plan vigente */}
-      <div
-        style={{
-          background: '#fff',
-          border: '1px solid var(--ink-7)',
-          borderRadius: 14,
-          padding: '20px 22px',
-        }}
-      >
+      <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '20px 22px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <div className="fk-eyebrow">
             Plan {patient.active_diet ? `vigente · v${patient.active_diet.version}` : '· sin plan'}
@@ -206,53 +183,37 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
         </div>
         {patient.active_diet ? (
           <>
-            <div
-              className="fk-serif"
-              style={{
-                fontSize: 22,
-                fontWeight: 300,
-                fontStyle: 'italic',
-                marginTop: 6,
-                lineHeight: 1.1,
-              }}
-            >
-              {totalEquivs} equivalente{totalEquivs === 1 ? '' : 's'} · {activeMealsCount} comida
-              {activeMealsCount === 1 ? '' : 's'}
+            <div className="fk-serif" style={{ fontSize: 22, fontWeight: 300, fontStyle: 'italic', marginTop: 6, lineHeight: 1.1 }}>
+              {totalEquivs} equivalente{totalEquivs === 1 ? '' : 's'} · {activeMealsCount} comida{activeMealsCount === 1 ? '' : 's'}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 14 }}>
               {groups.map((g) => (
-                <div
-                  key={g.g}
-                  style={{
-                    background: g.bg,
-                    borderRadius: 8,
-                    padding: '8px 10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: g.c,
-                      fontFamily: 'var(--f-sans)',
-                      fontWeight: 500,
-                    }}
-                  >
-                    {g.g}
-                  </span>
-                  <span className="fk-serif" style={{ fontSize: 18, fontWeight: 300, color: g.c }}>
-                    {g.n}
-                  </span>
+                <div key={g.g} style={{ background: g.bg, borderRadius: 8, padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 11, color: g.c, fontFamily: 'var(--f-sans)', fontWeight: 500 }}>{g.g}</span>
+                  <span className="fk-serif" style={{ fontSize: 18, fontWeight: 300, color: g.c }}>{g.n}</span>
                 </div>
               ))}
             </div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+              {Object.entries(MEAL_LABEL).map(([k, v]) => {
+                const active = patient.active_diet!.active_meals[k] === true
+                return (
+                  <span key={k} title={v} style={{
+                    flex: 1, textAlign: 'center',
+                    padding: '5px 0',
+                    borderRadius: 8,
+                    fontSize: 10, fontFamily: 'var(--f-mono)', fontWeight: 700,
+                    background: active ? '#ff5a1f' : 'var(--paper-3)',
+                    color: active ? '#fff' : 'var(--ink-5)',
+                  }}>
+                    {k.startsWith('snack') ? `S${k.slice(-1)}` : v[0]}
+                  </span>
+                )
+              })}
+            </div>
           </>
         ) : (
-          <div
-            style={{ marginTop: 12, fontSize: 13, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)' }}
-          >
+          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)' }}>
             Este paciente aún no tiene un plan activo. Crea uno para empezar el seguimiento.
           </div>
         )}
@@ -315,7 +276,7 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
             <div
               style={{ fontSize: 12, color: 'var(--ink-5)', marginTop: 6, fontFamily: 'var(--f-mono)' }}
             >
-              Ve a <a href="/agenda" style={{ color: '#fff', textDecoration: 'underline' }}>agenda</a> para programar
+              Ve a <a href="/clinic/agenda" style={{ color: '#fff', textDecoration: 'underline' }}>agenda</a> para programar
             </div>
           </>
         )}
@@ -763,10 +724,10 @@ function TabAlimentacion({
       <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '20px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
-            <div className="fk-eyebrow" style={{ marginBottom: 4 }}>
+            <div className="fk-serif" style={{ fontSize: 22, fontWeight: 300, fontStyle: 'italic' }}>{weekLabel}</div>
+            <div className="fk-eyebrow" style={{ marginTop: 4 }}>
               {daysRegistered} de 7 días registrados
             </div>
-            <div className="fk-serif" style={{ fontSize: 22, fontWeight: 300, fontStyle: 'italic' }}>{weekLabel}</div>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
             <button onClick={() => setWeekOffset((o) => o - 1)} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid var(--ink-7)', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-3)' }}>
@@ -785,7 +746,7 @@ function TabAlimentacion({
 
         {/* Progress bar */}
         <div style={{ height: 4, background: 'var(--ink-7)', borderRadius: 999, overflow: 'hidden', marginBottom: 20 }}>
-          <div style={{ height: '100%', width: `${(daysRegistered / 7) * 100}%`, background: daysRegistered >= 6 ? 'var(--leaf)' : daysRegistered >= 4 ? 'var(--honey)' : 'var(--berry)', borderRadius: 999, transition: 'width 0.3s ease' }} />
+          <div style={{ height: '100%', width: `${(daysRegistered / 7) * 100}%`, background: 'var(--signal)', borderRadius: 999, transition: 'width 0.3s ease' }} />
         </div>
 
         {/* Grid: grupos × días */}
@@ -804,27 +765,51 @@ function TabAlimentacion({
           {/* Filas por grupo */}
           {FOOD_GROUPS.map((g) => (
             <>
-              <div key={`${g.key}-label`} style={{ display: 'flex', alignItems: 'center', gap: 6, paddingRight: 4 }}>
+              <div key={`${g.key}-label`} style={{ display: 'flex', alignItems: 'center', gap: 6, paddingRight: 4, height: 54 }}>
                 <span style={{ width: 6, height: 6, borderRadius: 999, background: g.color, flexShrink: 0 }} />
                 <span style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--f-sans)' }}>{g.label}</span>
               </div>
               {weekISODates.map((date) => {
-                const consumed = logMap[date]?.[g.key] ?? 0
-                const target   = budget[g.key] ?? 0
-                const hasData  = !!logMap[date]
-                const over     = consumed > target
-                const met      = consumed > 0 && consumed >= target
-                const partial  = consumed > 0 && consumed < target
-
-                const cellBg  = !hasData ? 'var(--paper-2)' : over ? 'var(--berry-soft)' : met ? g.bg : partial ? `${g.bg}` : 'var(--paper-2)'
-                const cellCol = !hasData ? 'var(--ink-6)'   : over ? 'var(--berry)'       : met ? g.color : partial ? g.color : 'var(--ink-5)'
-                const opacity  = partial ? 0.6 : 1
+                const consumed  = logMap[date]?.[g.key] ?? 0
+                const target    = budget[g.key] ?? 0
+                const hasData   = !!logMap[date]
+                const blocked   = target === 0  // la nutrióloga no asignó este grupo
+                const over      = !blocked && consumed > target
+                const fillPct   = !blocked && consumed > 0 ? Math.min(100, (consumed / target) * 100) : 0
+                const fillBg    = over ? 'var(--berry-soft)' : g.bg
+                const textColor = over ? 'var(--berry)' : g.color
 
                 return (
-                  <div key={`${g.key}-${date}`} style={{ aspectRatio: '1', borderRadius: 6, background: cellBg, border: '1px solid var(--ink-7)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity }}>
-                    <span className="fk-mono" style={{ fontSize: 11, color: cellCol, fontWeight: met || over ? 600 : 400 }}>
-                      {hasData ? (consumed > 0 ? consumed : '·') : ''}
-                    </span>
+                  <div key={`${g.key}-${date}`} style={{ height: 54, borderRadius: 6, border: '1px solid var(--ink-7)', position: 'relative', overflow: 'hidden', background: 'var(--paper-2)' }}>
+                    {/* Patrón diagonal: grupo sin presupuesto en el plan */}
+                    {blocked && (
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        backgroundImage: `repeating-linear-gradient(45deg, ${g.color} 0px, ${g.color} 2.5px, transparent 2.5px, transparent 9px)`,
+                        opacity: 0.2,
+                      }} />
+                    )}
+                    {/* Relleno vertical proporcional de abajo hacia arriba */}
+                    {!blocked && hasData && consumed > 0 && (
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${fillPct}%`, background: fillBg, transition: 'height 0.3s ease' }} />
+                    )}
+                    {/* Texto superpuesto */}
+                    {!blocked && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        {hasData && consumed > 0 ? (
+                          <>
+                            <span className="fk-mono" style={{ fontSize: 10, color: textColor, fontWeight: 600, lineHeight: 1 }}>
+                              {consumed}/{target}
+                            </span>
+                            <span className="fk-mono" style={{ fontSize: 9, color: textColor, lineHeight: 1 }}>
+                              {Math.round((consumed / target) * 100)}%
+                            </span>
+                          </>
+                        ) : hasData ? (
+                          <span className="fk-mono" style={{ fontSize: 11, color: 'var(--ink-5)' }}>·</span>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -838,34 +823,21 @@ function TabAlimentacion({
             { col: 'var(--leaf)',  label: 'Cumplió presupuesto' },
             { col: 'var(--berry)', label: 'Excedió presupuesto' },
             { col: 'var(--ink-5)', label: 'Parcial' },
+            { col: 'var(--ink-6)', label: 'Sin presupuesto', pattern: true },
             { col: 'var(--ink-7)', label: 'Sin registros' },
-          ].map(({ col, label }) => (
+          ].map(({ col, label, pattern }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: col, display: 'inline-block' }} />
+              <span style={{
+                width: 8, height: 8, borderRadius: 2, display: 'inline-block',
+                background: pattern ? 'var(--paper-2)' : col,
+                ...(pattern ? { backgroundImage: `repeating-linear-gradient(45deg, ${col} 0px, ${col} 2.5px, transparent 2.5px, transparent 9px)`, border: '1px solid var(--ink-7)' } : {}),
+              }} />
               <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>{label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Presupuesto de referencia */}
-      {patient.active_diet ? (
-        <div style={{ background: 'var(--cream)', border: '1px solid var(--honey-soft)', borderRadius: 14, padding: '16px 20px' }}>
-          <div className="fk-eyebrow" style={{ color: '#8a6411', marginBottom: 10 }}>Presupuesto del plan · v{patient.active_diet.version}</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {FOOD_GROUPS.map((g) => (
-              <div key={g.key} style={{ background: g.bg, borderRadius: 8, padding: '6px 10px', display: 'flex', gap: 6, alignItems: 'baseline' }}>
-                <span style={{ fontSize: 10, color: g.color, fontFamily: 'var(--f-sans)', fontWeight: 500 }}>{g.label}</span>
-                <span className="fk-serif" style={{ fontSize: 16, fontWeight: 300, color: g.color }}>{budget[g.key]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div style={{ fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)', textAlign: 'center', padding: '8px 0' }}>
-          Sin plan activo — usando valores de referencia por defecto
-        </div>
-      )}
     </div>
   )
 }
@@ -992,97 +964,6 @@ function TabGym({
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tab: Plan vigente
-// ─────────────────────────────────────────────────────────────────────────────
-
-function TabPlanVigente({ patient }: { patient: PatientDetail }) {
-  const diet = patient.active_diet
-
-  if (!diet) {
-    return (
-      <div style={{ background: 'var(--cream)', border: '1px solid var(--honey-soft)', borderRadius: 14, padding: '40px 32px', textAlign: 'center' }}>
-        <div className="fk-eyebrow" style={{ color: '#8a6411', marginBottom: 12 }}>Sin plan activo</div>
-        <p className="fk-serif" style={{ fontSize: 26, fontStyle: 'italic', fontWeight: 300, margin: '0 0 20px' }}>
-          Este paciente aún no tiene un plan asignado.
-        </p>
-        <Link href={`/clinic/pacientes/${patient.patient_id}/plan`} style={{ textDecoration: 'none' }}>
-          <Btn variant="primary" icon={<Ic.plus />}>Crear primer plan</Btn>
-        </Link>
-      </div>
-    )
-  }
-
-  const totalEquivs   = diet.verdura + diet.fruta + diet.carb + diet.proteina + diet.grasa + diet.leguminosa
-  const activeMeals   = Object.entries(diet.active_meals).filter(([, v]) => v).map(([k]) => k)
-  const kcalApprox    = Math.round(diet.verdura*25 + diet.fruta*60 + diet.carb*70 + diet.proteina*75 + diet.grasa*45 + diet.leguminosa*120)
-
-  const groupKcal: Record<string, number> = { verdura: 25, fruta: 60, carb: 70, proteina: 75, grasa: 45, leguminosa: 120 }
-  const groupValues: Record<string, number> = { verdura: diet.verdura, fruta: diet.fruta, carb: diet.carb, proteina: diet.proteina, grasa: diet.grasa, leguminosa: diet.leguminosa }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Header */}
-      <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '24px 28px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div>
-            <div className="fk-eyebrow" style={{ marginBottom: 6 }}>Plan v{diet.version} · vigente desde {formatDateShort(diet.effective_date)}</div>
-            <div className="fk-serif" style={{ fontSize: 30, fontWeight: 300, fontStyle: 'italic', lineHeight: 1.1 }}>
-              {totalEquivs} equivalentes · {activeMeals.length} comidas
-            </div>
-            <div className="fk-mono" style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 6 }}>≈ {kcalApprox} kcal/día</div>
-          </div>
-          <Link href={`/clinic/pacientes/${patient.patient_id}/plan`} style={{ textDecoration: 'none' }}>
-            <Btn variant="ghost" size="sm">Actualizar plan →</Btn>
-          </Link>
-        </div>
-
-        {/* Grupos grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {FOOD_GROUPS.map((g) => {
-            const n    = groupValues[g.key] ?? 0
-            const kcal = (groupKcal[g.key] ?? 0) * n
-            return (
-              <div key={g.key} style={{ background: g.bg, borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 11, color: g.color, fontFamily: 'var(--f-sans)', fontWeight: 500, marginBottom: 2 }}>{g.label}</div>
-                  <div style={{ fontSize: 10, color: g.color, fontFamily: 'var(--f-mono)', opacity: 0.7 }}>≈ {kcal} kcal</div>
-                </div>
-                <span className="fk-serif" style={{ fontSize: 36, fontWeight: 300, color: g.color, letterSpacing: '-0.02em', lineHeight: 1 }}>{n}</span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Comidas activas */}
-      <div style={{ background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 14, padding: '20px 24px' }}>
-        <div className="fk-eyebrow" style={{ marginBottom: 14 }}>Comidas activas · {activeMeals.length} de 6</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-          {Object.entries(MEAL_LABEL).map(([k, v]) => {
-            const isActive = diet.active_meals[k] === true
-            return (
-              <div key={k} style={{ padding: '10px 14px', borderRadius: 8, border: isActive ? '1.5px solid var(--ink)' : '1px solid var(--ink-7)', background: isActive ? 'var(--paper-2)' : '#fff', opacity: isActive ? 1 : 0.5 }}>
-                <div className="fk-serif" style={{ fontSize: 14, fontWeight: 400, color: isActive ? 'var(--ink)' : 'var(--ink-4)' }}>{v}</div>
-                <div className="fk-mono" style={{ fontSize: 9, color: isActive ? 'var(--ink-3)' : 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 2 }}>{isActive ? 'activa' : 'inactiva'}</div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Notas */}
-      {diet.notes && (
-        <div style={{ background: 'var(--cream)', border: '1px solid var(--honey-soft)', borderRadius: 14, padding: '20px 24px' }}>
-          <div className="fk-eyebrow" style={{ color: '#8a6411', marginBottom: 10 }}>Notas para el paciente</div>
-          <p className="fk-serif" style={{ fontSize: 16, fontWeight: 300, lineHeight: 1.6, color: 'var(--ink-2)', margin: 0, fontStyle: 'italic' }}>
-            "{diet.notes}"
-          </p>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab: Conversación — fuera de alcance del portal web (vive en fitkis-mobile)
@@ -1520,7 +1401,6 @@ export default function PatientDetailPage({
           {tab === 'antropo' && <TabAntropometria patient={patient} supabase={supabase} onRefresh={refreshPatient} />}
           {tab === 'alim'   && <TabAlimentacion patient={patient} foodLogs={foodLogs} loading={foodLoading} error={foodError} />}
           {tab === 'gym'    && <TabGym sessions={gymSessions} loading={gymLoading} error={gymError} />}
-          {tab === 'plan'   && <TabPlanVigente patient={patient} />}
           {tab === 'msg'    && <TabConversacion patient={patient} />}
         </div>
 

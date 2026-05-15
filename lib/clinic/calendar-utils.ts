@@ -233,3 +233,20 @@ export function fmtDateShort(iso: string): string {
   const dow = getDayOfWeekInTimezone(dt, APP_TZ)
   return `${DAYS_LONG[dow]} ${d} ${MONTHS_SHORT[m - 1]}`
 }
+
+// ── Schedule break helpers ─────────────────────────────────────────────────────
+// Funciones puras usadas en onboarding y ajustes para mutar pausas del horario.
+
+export function scheduleAddBreak(s: WeekSchedule, key: DayKey): WeekSchedule {
+  return { ...s, [key]: { ...s[key], breaks: [...s[key].breaks, { start: '13:00', end: '14:00' }] } }
+}
+
+export function scheduleRemoveBreak(s: WeekSchedule, key: DayKey, idx: number): WeekSchedule {
+  return { ...s, [key]: { ...s[key], breaks: s[key].breaks.filter((_, i) => i !== idx) } }
+}
+
+export function scheduleUpdateBreak(s: WeekSchedule, key: DayKey, idx: number, field: keyof Break, val: string): WeekSchedule {
+  const breaks = [...s[key].breaks]
+  breaks[idx] = { ...breaks[idx], [field]: val }
+  return { ...s, [key]: { ...s[key], breaks } }
+}
