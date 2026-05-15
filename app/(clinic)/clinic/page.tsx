@@ -33,9 +33,7 @@ function avatarColors(seed: number, status: MockPatient['status']) {
   return AVATAR_PALETTE[seed % AVATAR_PALETTE.length]
 }
 
-function adherenceColor(value: number): string {
-  if (value > 80) return 'var(--leaf)'
-  if (value > 60) return 'var(--honey)'
+function adherenceColor(_value: number): string {
   return 'var(--signal)'
 }
 
