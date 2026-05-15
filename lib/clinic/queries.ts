@@ -271,7 +271,7 @@ async function enrichPatient(
   const cutoffISO = shiftDateISO(todayISO, -windowDays)
 
   const allDates = new Set<string>()
-  for (const date of Array.from(activityDates ?? [])) {
+  for (const date of (activityDates ?? new Set<string>())) {
     if (date >= cutoffISO) allDates.add(date)
   }
   for (const w of weightHistory) {

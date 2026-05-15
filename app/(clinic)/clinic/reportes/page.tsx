@@ -179,8 +179,9 @@ function Card({ children, style, accent, accentBg, href }: {
 }) {
   const [hovered, setHovered] = useState(false)
 
-  const cardDiv = (
+  const inner = (
     <div style={{
+      ...(href ? { flex: 1 } : {}),
       background: '#fff',
       borderTop: '1px solid var(--ink-7)',
       borderRight: '1px solid var(--ink-7)',
@@ -188,7 +189,7 @@ function Card({ children, style, accent, accentBg, href }: {
       borderLeft: accent ? `4px solid ${accent}` : '1px solid var(--ink-7)',
       borderRadius: 14,
       transition: 'box-shadow 0.15s ease, transform 0.12s ease',
-      ...(href && hovered ? { boxShadow: '0 6px 20px rgba(0,0,0,0.08)', transform: 'translateY(-2px)' } : {}),
+      ...(hovered ? { boxShadow: '0 6px 20px rgba(0,0,0,0.08)', transform: 'translateY(-2px)' } : {}),
       ...style,
     }}>
       {children}
@@ -203,25 +204,12 @@ function Card({ children, style, accent, accentBg, href }: {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div style={{
-          flex: 1,
-          background: '#fff',
-          borderTop: '1px solid var(--ink-7)',
-          borderRight: '1px solid var(--ink-7)',
-          borderBottom: '1px solid var(--ink-7)',
-          borderLeft: accent ? `4px solid ${accent}` : '1px solid var(--ink-7)',
-          borderRadius: 14,
-          transition: 'box-shadow 0.15s ease, transform 0.12s ease',
-          ...(hovered ? { boxShadow: '0 6px 20px rgba(0,0,0,0.08)', transform: 'translateY(-2px)' } : {}),
-          ...style,
-        }}>
-          {children}
-        </div>
+        {inner}
       </Link>
     )
   }
 
-  return cardDiv
+  return inner
 }
 
 // ─── Sección 1: Hoy ───────────────────────────────────────────────────────────

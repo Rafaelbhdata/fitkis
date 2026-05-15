@@ -8,7 +8,7 @@ import { LoadingState as SharedLoadingState } from '@/components/ui/LoadingState
 import { Ic } from '@/components/clinic/Ic'
 import { ClinicTopbar } from '@/components/clinic/Topbar'
 import { MiniSpark, Delta } from '@/components/clinic/MiniSpark'
-import { PatientFilterBar, type FilterKey, type SortKey } from '@/components/clinic/PatientFilterBar'
+import { PatientFilterBar, VALID_FILTER_KEYS, type FilterKey, type SortKey } from '@/components/clinic/PatientFilterBar'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPractitionerByUser,
@@ -58,7 +58,7 @@ function PatientsContent() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter]      = useState<FilterKey>(() => {
     const f = searchParams.get('filter') as FilterKey | null
-    return f && ['todos', 'atencion', 'pending', 'archivo'].includes(f) ? f : 'todos'
+    return f && (VALID_FILTER_KEYS as string[]).includes(f) ? f : 'todos'
   })
   const [sortKey, setSortKey] = useState<SortKey>('last_seen')
   const [searchQuery, setSearch] = useState('')
