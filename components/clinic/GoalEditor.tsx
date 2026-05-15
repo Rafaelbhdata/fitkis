@@ -65,20 +65,26 @@ interface GoalProgressProps {
 }
 
 export function GoalProgress({ current, goal, unit, metric, invert = false }: GoalProgressProps) {
-  const COLOR_MAP = { peso: 'var(--ink-3)', grasa: 'var(--berry)', musculo: 'var(--leaf)' }
+  const COLOR_MAP = { peso: 'var(--ink-3)', grasa: 'var(--honey)', musculo: 'var(--leaf)' }
 
-  const pct = invert
-    ? current <= goal ? 100 : Math.max(0, (1 - (current - goal) / current) * 100)
-    : goal > 0 ? Math.min(100, (current / goal) * 100) : 0
+  const pct = Math.round(
+    invert
+      ? current <= goal ? 100 : Math.max(0, (1 - (current - goal) / current) * 100)
+      : goal > 0 ? Math.min(100, (current / goal) * 100) : 0
+  )
+
+  const monoSm: React.CSSProperties = { fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', letterSpacing: '0.04em' }
 
   return (
-    <div style={{ marginTop: 6 }}>
-      <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', marginBottom: 4, letterSpacing: '0.04em' }}>
-        meta {goal}{unit}
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={monoSm}>{current}{unit}</span>
+        <span style={monoSm}>meta {goal}{unit}</span>
       </div>
-      <div style={{ height: 3, borderRadius: 999, background: 'var(--ink-7)', overflow: 'hidden' }}>
-        <div style={{ width: `${Math.max(0, pct)}%`, height: '100%', borderRadius: 999, background: COLOR_MAP[metric], transition: 'width 0.4s ease' }} />
+      <div style={{ height: 4, borderRadius: 999, background: 'var(--ink-7)', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 999, background: COLOR_MAP[metric], transition: 'width 0.4s ease' }} />
       </div>
+      <div style={{ ...monoSm, marginTop: 3 }}>{pct}% de avance</div>
     </div>
   )
 }
