@@ -33,7 +33,9 @@ function avatarColors(seed: number, status: MockPatient['status']) {
   return AVATAR_PALETTE[seed % AVATAR_PALETTE.length]
 }
 
-function adherenceColor(_value: number): string {
+function adherenceColor(value: number): string {
+  if (value > 80) return 'var(--leaf)'
+  if (value > 60) return 'var(--honey)'
   return 'var(--signal)'
 }
 
@@ -406,7 +408,7 @@ export default function ClinicPatientsPage() {
                             }}
                           >
                             {p.adherence}
-                            <span style={{ fontSize: 11, color: 'var(--ink-4)', marginLeft: 2 }}>
+                            <span style={{ fontSize: 11, marginLeft: 2 }}>
                               %
                             </span>
                           </div>
