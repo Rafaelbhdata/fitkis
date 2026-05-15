@@ -1400,11 +1400,10 @@ export default function PatientDetailPage({
                       const res = await removePatientRelation(supabase, practitioner.id, patient.patient_id)
                       if (!res.ok) {
                         alert('Error al eliminar: ' + res.error)
-                        setRemoving(false)
                       } else {
                         router.push('/clinic/pacientes')
                       }
-                    } catch {
+                    } finally {
                       setRemoving(false)
                     }
                   }}

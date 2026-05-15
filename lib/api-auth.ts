@@ -14,6 +14,7 @@ import type { User } from '@supabase/supabase-js'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function getAuthedUser(
   request: Request
@@ -51,6 +52,43 @@ export async function getAuthedUser(
   }
 
   return { user: null, supabase: null }
+}
+
+type PracRecord = { id: string; display_name: string | null; clinic_name: string | null }
+
+export type AuthedPractitioner = {
+  user: User
+  supabase: SupabaseClient
+  prac: PracRecord
+  admin: SupabaseClient
+}
+
+/**
+ * Verifica que el caller es el practitioner indicado y devuelve el admin client.
+ * Retorna null (→ 401/403) si el caller no está autenticado o no coincide.
+ */
+export async function getAuthedPractitioner(
+  request: Request,
+  practitionerId: string,
+): Promise<AuthedPractitioner | null> {
+  const { user, supabase } = await getAuthedUser(request)
+  if (!user || !supabase) return null
+
+  const { data: prac } = await supabase
+    .from('practitioners')
+    .select('id, display_name, clinic_name')
+    .eq('user_id', user.id)
+    .eq('id', practitionerId)
+    .eq('active', true)
+    .maybeSingle()
+
+  if (!prac) return null
+
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+
+  return { user, supabase, prac: prac as PracRecord, admin }
 }
 
 // requireProTier: helper for AI endpoints. Loads the user's tier from

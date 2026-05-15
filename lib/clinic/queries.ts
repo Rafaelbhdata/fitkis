@@ -481,7 +481,7 @@ export async function loadPatientDetail(
     goal_baseline_body_fat_pct: profileWithName?.goal_baseline_body_fat_pct ?? undefined,
     goal_baseline_muscle_kg:    profileWithName?.goal_baseline_muscle_kg    ?? undefined,
     goal: formatGoal(weightArr, profileWithName?.goal_weight_kg),
-    status: (relation.status === 'inactive' && (relation as { accepted_at?: string | null }).accepted_at == null)
+    status: relation.status === 'inactive' && relation.accepted_at === null
       ? 'declined'
       : relation.status as PatientStatus,
     weight_history: weightHistory,
