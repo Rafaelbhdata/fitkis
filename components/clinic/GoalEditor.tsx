@@ -65,7 +65,7 @@ interface GoalProgressProps {
 }
 
 export function GoalProgress({ current, goal, unit, metric, invert = false }: GoalProgressProps) {
-  const COLOR_MAP = { peso: 'var(--ink-3)', grasa: 'var(--honey)', musculo: 'var(--leaf)' }
+  const COLOR_MAP = { peso: 'var(--signal)', grasa: 'var(--honey)', musculo: 'var(--signal-2)' }
 
   const pct = Math.round(
     invert
