@@ -362,16 +362,17 @@ export default function ClinicPatientsPage() {
                           : 'auto'
                         }
                       />
+                      <Delta values={p.weight} invert={p.goal_type === 'ganar_musculo'} />
                       {p.weight.length > 0 && (
                         <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>
                           actual {p.weight[p.weight.length - 1].toFixed(1)} kg
                         </div>
                       )}
-                      <Delta values={p.weight} invert={p.goal_type === 'ganar_musculo'} />
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <MiniSpark values={p.fat} color="var(--berry)" trend="down" />
+                      <Delta values={p.fat} unit="%" />
                       {p.fat.length > 0 ? (
                         <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>
                           actual {p.fat[p.fat.length - 1].toFixed(1)} %
@@ -379,11 +380,11 @@ export default function ClinicPatientsPage() {
                       ) : (
                         <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-5)' }}>sin datos</div>
                       )}
-                      <Delta values={p.fat} unit="%" />
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <MiniSpark values={p.muscle} color="var(--leaf)" trend="up" />
+                      <Delta values={p.muscle} invert />
                       {p.muscle.length > 0 ? (
                         <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>
                           actual {p.muscle[p.muscle.length - 1].toFixed(1)} kg
@@ -391,7 +392,6 @@ export default function ClinicPatientsPage() {
                       ) : (
                         <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-5)' }}>sin datos</div>
                       )}
-                      <Delta values={p.muscle} invert />
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
