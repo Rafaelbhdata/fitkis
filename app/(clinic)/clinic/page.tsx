@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Btn } from '@/components/ui/Btn'
 import { LoadingState as SharedLoadingState } from '@/components/ui/LoadingState'
@@ -40,13 +41,25 @@ function adherenceColor(value: number): string {
 }
 
 export default function ClinicPatientsPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <PatientsContent />
+    </Suspense>
+  )
+}
+
+function PatientsContent() {
   const supabase = useSupabase()
   const { user, loading: userLoading } = useUser()
+  const searchParams = useSearchParams()
   const [practitioner, setPractitioner] = useState<PractitionerRecord | null>(null)
   const [patients, setPatients] = useState<MockPatient[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter]      = useState<FilterKey>('todos')
+  const [filter, setFilter]      = useState<FilterKey>(() => {
+    const f = searchParams.get('filter') as FilterKey | null
+    return f && ['todos', 'atencion', 'pending', 'archivo'].includes(f) ? f : 'todos'
+  })
   const [sortKey, setSortKey]    = useState<SortKey>('last_seen')
   const [searchQuery, setSearch] = useState('')
   const [inviteOpen, setInviteOpen] = useState(false)

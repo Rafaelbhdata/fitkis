@@ -170,13 +170,16 @@ function numPct(n: number, total: number) {
 
 // ─── Tarjeta base ─────────────────────────────────────────────────────────────
 
-function Card({ children, style, accent, accentBg }: {
+function Card({ children, style, accent, accentBg, href }: {
   children: React.ReactNode
   style?: React.CSSProperties
   accent?: string
   accentBg?: string
+  href?: string
 }) {
-  return (
+  const [hovered, setHovered] = useState(false)
+
+  const cardDiv = (
     <div style={{
       background: '#fff',
       borderTop: '1px solid var(--ink-7)',
@@ -184,11 +187,28 @@ function Card({ children, style, accent, accentBg }: {
       borderBottom: '1px solid var(--ink-7)',
       borderLeft: accent ? `4px solid ${accent}` : '1px solid var(--ink-7)',
       borderRadius: 14,
+      transition: 'box-shadow 0.15s ease, transform 0.12s ease',
+      ...(href && hovered ? { boxShadow: '0 6px 20px rgba(0,0,0,0.08)', transform: 'translateY(-2px)' } : {}),
       ...style,
     }}>
       {children}
     </div>
   )
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        style={{ display: 'block', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {cardDiv}
+      </Link>
+    )
+  }
+
+  return cardDiv
 }
 
 // ─── Sección 1: Hoy ───────────────────────────────────────────────────────────
@@ -215,7 +235,7 @@ function TodaySection({ appts }: { appts: Appointment[] }) {
   ]
 
   return (
-    <Card style={{ padding: '24px 28px' }} accent="var(--ink)">
+    <Card style={{ padding: '24px 28px' }} accent="var(--ink)" href="/clinic/agenda">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div className="fk-eyebrow">
@@ -331,7 +351,7 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal, alertPatients }: {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
 
         {/* Pacientes activos */}
-        <Card style={{ padding: '22px 24px' }} accent="var(--sky)" accentBg="var(--sky-soft)">
+        <Card style={{ padding: '22px 24px' }} accent="var(--sky)" accentBg="var(--sky-soft)" href="/clinic">
           <div className="fk-eyebrow">Pacientes con licencia activa</div>
           <div style={{ marginTop: 10 }}>
             {/* Número + fracción */}
@@ -454,6 +474,12 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal, alertPatients }: {
                     +{alertPatients.length - 4} más
                   </span>
                 )}
+                <Link
+                  href="/clinic?filter=atencion"
+                  style={{ fontSize: 11, color: 'var(--honey)', fontFamily: 'var(--f-mono)', marginTop: 4, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  Ver todos <Ic.chevR />
+                </Link>
               </div>
             )}
           </div>
@@ -463,7 +489,7 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal, alertPatients }: {
 
       {/* Fila inferior: citas (2/3) + sin cita (1/3) */}
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12 }}>
-      <Card style={{ padding: '24px 28px' }} accent="var(--ink-5)">
+      <Card style={{ padding: '24px 28px' }} accent="var(--ink-5)" href="/clinic/agenda">
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 32, alignItems: 'center' }}>
 
           {/* Número grande de total */}
@@ -541,7 +567,7 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal, alertPatients }: {
           ? Math.round((kpis.patients_without_upcoming_appt / kpis.active_patients) * 100)
           : 0
         return (
-          <Card style={{ padding: '22px 24px' }} accent="var(--berry)">
+          <Card style={{ padding: '22px 24px' }} accent="var(--berry)" href="/clinic/agenda">
             <div className="fk-eyebrow">Pacientes sin cita · próximos 30 días</div>
             <div style={{ marginTop: 10 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -593,7 +619,7 @@ function ProgressSection({ kpis, practitioner }: {
   const progressBg = avg == null ? '#fff' : avg >= 80 ? 'var(--leaf-soft)' : avg >= 60 ? 'var(--honey-soft)' : 'var(--signal-soft)'
 
   return (
-    <Card style={{ padding: '24px 28px' }} accent={color} accentBg={progressBg}>
+    <Card style={{ padding: '24px 28px' }} accent={color} accentBg={progressBg} href="/clinic">
       <div className="fk-eyebrow" style={{ marginBottom: 24 }}>
         PROGRESO CLÍNICO · ÚLTIMOS 30 DÍAS
       </div>
