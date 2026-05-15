@@ -199,11 +199,24 @@ function Card({ children, style, accent, accentBg, href }: {
     return (
       <Link
         href={href}
-        style={{ display: 'block', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
+        style={{ display: 'flex', flexDirection: 'column', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {cardDiv}
+        <div style={{
+          flex: 1,
+          background: '#fff',
+          borderTop: '1px solid var(--ink-7)',
+          borderRight: '1px solid var(--ink-7)',
+          borderBottom: '1px solid var(--ink-7)',
+          borderLeft: accent ? `4px solid ${accent}` : '1px solid var(--ink-7)',
+          borderRadius: 14,
+          transition: 'box-shadow 0.15s ease, transform 0.12s ease',
+          ...(hovered ? { boxShadow: '0 6px 20px rgba(0,0,0,0.08)', transform: 'translateY(-2px)' } : {}),
+          ...style,
+        }}>
+          {children}
+        </div>
       </Link>
     )
   }
@@ -488,7 +501,7 @@ function ConsultoriaSection({ kpis, monthLabel, monthTotal, alertPatients }: {
       </div>
 
       {/* Fila inferior: citas (2/3) + sin cita (1/3) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12, alignItems: 'stretch' }}>
       <Card style={{ padding: '24px 28px' }} accent="var(--ink-5)" href="/clinic/agenda">
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 32, alignItems: 'center' }}>
 
