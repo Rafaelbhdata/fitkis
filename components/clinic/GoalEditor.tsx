@@ -68,15 +68,14 @@ interface GoalProgressProps {
 export function GoalProgress({ current, start, goal, unit, metric, invert = false }: GoalProgressProps) {
   const COLOR_MAP = { peso: 'var(--signal)', grasa: 'var(--signal-2)', musculo: 'var(--honey)' }
 
-  // Progreso desde el baseline hasta la meta
   const range = Math.abs(goal - start)
-  const pct = range === 0 ? 0 : Math.round(
-    Math.min(100, Math.max(0,
-      invert
-        ? ((start - current) / range) * 100   // bajar: cuánto bajó del total que necesita
-        : ((current - start) / range) * 100    // subir: cuánto subió del total que necesita
-    ))
+  const rawPct = range === 0 ? 0 : Math.round(
+    invert
+      ? ((start - current) / range) * 100
+      : ((current - start) / range) * 100
   )
+  const barPct   = Math.min(100, Math.max(0, rawPct))
+  const regressed = rawPct < 0
 
   const monoSm: React.CSSProperties = { fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', letterSpacing: '0.04em' }
 
@@ -87,9 +86,11 @@ export function GoalProgress({ current, start, goal, unit, metric, invert = fals
         <span style={monoSm}>meta {goal}{unit}</span>
       </div>
       <div style={{ height: 4, borderRadius: 999, background: 'var(--ink-7)', overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', borderRadius: 999, background: COLOR_MAP[metric], transition: 'width 0.4s ease' }} />
+        <div style={{ width: `${barPct}%`, height: '100%', borderRadius: 999, background: COLOR_MAP[metric], transition: 'width 0.4s ease' }} />
       </div>
-      <div style={{ ...monoSm, marginTop: 3 }}>{pct}% de avance</div>
+      <div style={{ ...monoSm, marginTop: 3, color: regressed ? 'var(--berry)' : 'var(--ink-4)' }}>
+        {regressed ? `${rawPct}% de retroceso` : `${barPct}% de avance`}
+      </div>
     </div>
   )
 }
