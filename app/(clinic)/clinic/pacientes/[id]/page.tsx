@@ -883,20 +883,6 @@ function TabAntropometria({
                 onSelect={() => toggleChart('bmi')}
               />
               <MetricCard
-                metricKey="bf_pct"
-                label="% Grasa"
-                value={latest!.body_fat_percentage != null ? latest!.body_fat_percentage.toFixed(1) : '—'}
-                baseValue={base !== latest && base!.body_fat_percentage != null ? base!.body_fat_percentage.toFixed(1) : undefined}
-                numericValue={latest!.body_fat_percentage ?? undefined}
-                unit="%"
-                delta={latest!.body_fat_percentage != null && base!.body_fat_percentage != null ? latest!.body_fat_percentage - base!.body_fat_percentage : undefined}
-                deltaUnit="%"
-                deltaLowerIsBetter
-                goalNumeric={patient.goal_body_fat_pct ?? undefined}
-                selected={selectedChart === 'bf_pct'}
-                onSelect={() => toggleChart('bf_pct')}
-              />
-              <MetricCard
                 metricKey="muscle"
                 label="Masa Muscular"
                 value={latest!.muscle_mass_kg != null ? latest!.muscle_mass_kg.toFixed(1) : '—'}
@@ -909,6 +895,20 @@ function TabAntropometria({
                 goalNumeric={patient.goal_muscle_kg ?? undefined}
                 selected={selectedChart === 'muscle'}
                 onSelect={() => toggleChart('muscle')}
+              />
+              <MetricCard
+                metricKey="bf_pct"
+                label="% Grasa"
+                value={latest!.body_fat_percentage != null ? latest!.body_fat_percentage.toFixed(1) : '—'}
+                baseValue={base !== latest && base!.body_fat_percentage != null ? base!.body_fat_percentage.toFixed(1) : undefined}
+                numericValue={latest!.body_fat_percentage ?? undefined}
+                unit="%"
+                delta={latest!.body_fat_percentage != null && base!.body_fat_percentage != null ? latest!.body_fat_percentage - base!.body_fat_percentage : undefined}
+                deltaUnit="%"
+                deltaLowerIsBetter
+                goalNumeric={patient.goal_body_fat_pct ?? undefined}
+                selected={selectedChart === 'bf_pct'}
+                onSelect={() => toggleChart('bf_pct')}
               />
               <MetricCard
                 metricKey="fat_mass"
@@ -953,15 +953,19 @@ function TabAntropometria({
 
               {historialOpen && (
                 <div style={{ marginTop: 14, border: '1px solid var(--ink-7)', borderRadius: 10, overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr 80px 48px', gap: 10, padding: '9px 24px', background: 'var(--paper-2)', borderBottom: '1px solid var(--ink-7)' }}>
-                    {['Fecha', 'Peso', '% Grasa', 'Masa grasa', 'Músculo', 'Notas', ''].map((h, i) => (
+                  <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr 1fr 80px 48px', gap: 10, padding: '9px 24px', background: 'var(--paper-2)', borderBottom: '1px solid var(--ink-7)' }}>
+                    {['Fecha', 'Peso', 'IMC', 'Músculo', '% Grasa', 'Masa grasa', 'Notas', ''].map((h, i) => (
                       <div key={i} className="fk-eyebrow">{h}</div>
                     ))}
                   </div>
-                  {history.map((row, i) => (
+                  {history.map((row, i) => {
+                    const rowBmi = row.weight_kg != null && patient.height_m != null
+                      ? row.weight_kg / (patient.height_m * patient.height_m)
+                      : null
+                    return (
                     <div
                       key={row.id || i}
-                      style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr 80px 48px', gap: 10, padding: '12px 24px', borderBottom: i < history.length - 1 ? '1px solid var(--ink-7)' : 'none', background: i === 0 ? 'rgba(245,244,239,0.6)' : 'transparent', alignItems: 'center' }}
+                      style={{ display: 'grid', gridTemplateColumns: '110px 1fr 1fr 1fr 1fr 1fr 80px 48px', gap: 10, padding: '12px 24px', borderBottom: i < history.length - 1 ? '1px solid var(--ink-7)' : 'none', background: i === 0 ? 'rgba(245,244,239,0.6)' : 'transparent', alignItems: 'center' }}
                     >
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -980,12 +984,13 @@ function TabAntropometria({
                       </div>
                       {([
                         { v: row.weight_kg,          unit: 'kg', col: i === 0 ? 'var(--ink)' : 'var(--ink-2)'   },
+                        { v: rowBmi,                 unit: '',   col: i === 0 ? 'var(--ink-2)' : 'var(--ink-3)' },
+                        { v: row.muscle_mass_kg,      unit: 'kg', col: i === 0 ? 'var(--leaf)'  : 'var(--ink-3)' },
                         { v: row.body_fat_percentage, unit: '%',  col: i === 0 ? 'var(--berry)' : 'var(--ink-3)' },
                         { v: row.body_fat_mass_kg,    unit: 'kg', col: i === 0 ? 'var(--berry)' : 'var(--ink-3)' },
-                        { v: row.muscle_mass_kg,      unit: 'kg', col: i === 0 ? 'var(--leaf)'  : 'var(--ink-3)' },
                       ] as { v: number | null | undefined; unit: string; col: string }[]).map(({ v, unit, col }, ci) => (
                         <div key={ci} className="fk-mono" style={{ fontSize: i === 0 ? 14 : 12, color: v != null ? col : 'var(--ink-6)', fontWeight: i === 0 ? 500 : 400 }}>
-                          {v != null ? `${v.toFixed(1)} ${unit}` : '—'}
+                          {v != null ? `${v.toFixed(1)}${unit ? ` ${unit}` : ''}` : '—'}
                         </div>
                       ))}
                       <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -999,7 +1004,8 @@ function TabAntropometria({
                         Editar
                       </button>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

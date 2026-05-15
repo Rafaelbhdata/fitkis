@@ -242,13 +242,14 @@ async function enrichPatient(
   // Oldest-to-newest for the sparkline
   const weightHistory = ((weights ?? []) as WeightLog[]).slice().reverse()
 
-  const weightArr = weightHistory.map((w) => w.weight_kg).filter((v): v is number => v != null)
-  const fatArr = weightHistory
-    .map((w) => w.body_fat_percentage)
-    .filter((v): v is number => v != null)
-  const muscleArr = weightHistory
-    .map((w) => w.muscle_mass_kg)
-    .filter((v): v is number => v != null)
+  const weightArr  = weightHistory.map((w) => w.weight_kg).filter((v): v is number => v != null)
+  const fatArr     = weightHistory.map((w) => w.body_fat_percentage).filter((v): v is number => v != null)
+  const muscleArr  = weightHistory.map((w) => w.muscle_mass_kg).filter((v): v is number => v != null)
+  const fatMassArr = weightHistory.map((w) => w.body_fat_mass_kg).filter((v): v is number => v != null)
+  const heightM    = profile?.height_cm != null ? profile.height_cm / 100 : null
+  const bmiArr     = heightM
+    ? weightHistory.map((w) => w.weight_kg != null ? w.weight_kg / (heightM * heightM) : null).filter((v): v is number => v != null)
+    : []
 
   const daysSinceActivity = computeLastActivityDays(weightHistory, lastFoodDate, lastGymDate)
   const goal      = formatGoal(weightArr, profile?.goal_weight_kg)
@@ -290,11 +291,13 @@ async function enrichPatient(
     goal,
     goal_type,
     age: undefined,
-    height_m:
-      profile?.height_cm != null ? Number((profile.height_cm / 100).toFixed(2)) : undefined,
-    weight: weightArr,
-    fat: fatArr,
-    muscle: muscleArr,
+    gender: (profile as { gender?: string } | null)?.gender ?? undefined,
+    height_m: heightM != null ? Number(heightM.toFixed(2)) : undefined,
+    weight:   weightArr,
+    fat:      fatArr,
+    muscle:   muscleArr,
+    fat_mass: fatMassArr,
+    bmi:      bmiArr,
     lastSeen,
     alert,
     adherence,

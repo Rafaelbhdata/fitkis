@@ -121,8 +121,8 @@ function PatientsContent() {
 
   const filtered = useMemo(() => {
     // 1. Tab filter
-    let list = patients
-    if (filter === 'atencion') list = patients.filter(needsAttention)
+    let list = patients.filter((p) => p.status !== 'inactive' && p.status !== 'declined')
+    if (filter === 'atencion') list = list.filter(needsAttention)
     else if (filter === 'pending') list = patients.filter((p) => p.status === 'pending')
     else if (filter === 'archivo') list = patients.filter((p) => p.status === 'inactive' || p.status === 'declined')
 
@@ -195,7 +195,7 @@ function PatientsContent() {
             sortKey={sortKey}
             onSortChange={setSortKey}
             counts={{
-              todos:    patients.length,
+              todos:    patients.filter((p) => p.status !== 'inactive' && p.status !== 'declined').length,
               atencion: attentionCount,
               pending:  pendingCount,
               archivo:  patients.filter((p) => p.status === 'inactive' || p.status === 'declined').length,
@@ -207,7 +207,7 @@ function PatientsContent() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '34px 2.2fr 1fr 1fr 1fr 1fr 0.8fr 28px',
+                gridTemplateColumns: '34px 2.2fr 1fr 1fr 1fr 0.8fr 28px',
                 gap: 24,
                 padding: '10px 14px',
                 alignItems: 'center',
@@ -215,11 +215,10 @@ function PatientsContent() {
             >
               <div></div>
               <div className="fk-eyebrow">Paciente</div>
-              <div className="fk-eyebrow">Objetivo</div>
-              <div className="fk-eyebrow">Peso · 30d</div>
-              <div className="fk-eyebrow">% Grasa</div>
-              <div className="fk-eyebrow">Músculo</div>
-              <div className="fk-eyebrow" style={{ textAlign: 'right' }}>
+              <div className="fk-eyebrow" style={{ textAlign: 'center' }}>Objetivo</div>
+              <div className="fk-eyebrow" style={{ textAlign: 'center' }}>Peso</div>
+              <div className="fk-eyebrow" style={{ textAlign: 'center' }}>IMC</div>
+              <div className="fk-eyebrow" style={{ textAlign: 'center' }}>
                 Adherencia
               </div>
               <div></div>
@@ -247,7 +246,7 @@ function PatientsContent() {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '34px 2.2fr 1fr 1fr 1fr 1fr 0.8fr 28px',
+                      gridTemplateColumns: '34px 2.2fr 1fr 1fr 1fr 0.8fr 28px',
                       gap: 24,
                       padding: '18px 14px',
                       borderBottom: '1px solid var(--ink-7)',
@@ -282,27 +281,7 @@ function PatientsContent() {
                         >
                           {p.name}
                         </span>
-                        {p.alert === 'inactividad' && (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              fontSize: 10,
-                              padding: '2px 7px',
-                              borderRadius: 999,
-                              background: 'var(--honey-soft)',
-                              color: '#8a6411',
-                              fontFamily: 'var(--f-mono)',
-                              letterSpacing: '0.08em',
-                              textTransform: 'uppercase',
-                              fontWeight: 500,
-                            }}
-                          >
-                            ● inactivo
-                          </span>
-                        )}
-                        {p.alert === 'estancamiento' && (
+                        {p.alert === 'estancamiento' && p.status !== 'pending' && (
                           <span
                             style={{
                               display: 'inline-flex',
@@ -374,13 +353,17 @@ function PatientsContent() {
                           fontFamily: 'var(--f-mono)',
                         }}
                       >
-                        <span>{p.email}</span>
-                        <span>·</span>
-                        <span>{p.lastSeen}</span>
-                        {p.plan !== '—' && (
+                        {p.age != null && <span>{p.age} años</span>}
+                        {p.gender && (
                           <>
-                            <span>·</span>
-                            <span>plan {p.plan}</span>
+                            {p.age != null && <span>·</span>}
+                            <span style={{ textTransform: 'capitalize' }}>{p.gender}</span>
+                          </>
+                        )}
+                        {p.height_m != null && (
+                          <>
+                            {(p.age != null || p.gender) && <span>·</span>}
+                            <span>{(p.height_m * 100).toFixed(0)} cm</span>
                           </>
                         )}
                       </div>
@@ -415,26 +398,17 @@ function PatientsContent() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <MiniSpark values={p.fat} color="var(--berry)" trend="down" />
-                      <Delta values={p.fat} unit="%" />
-                      {p.fat.length > 0 && (
+                      <MiniSpark values={p.bmi} color="var(--ink-3)" trend="down" />
+                      <Delta values={p.bmi} />
+                      {p.bmi.length > 0 && (
                         <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>
-                          actual {p.fat[p.fat.length - 1].toFixed(1)} %
+                          actual {p.bmi[p.bmi.length - 1].toFixed(1)}
                         </div>
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      <MiniSpark values={p.muscle} color="var(--leaf)" trend="up" />
-                      <Delta values={p.muscle} invert />
-                      {p.muscle.length > 0 && (
-                        <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>
-                          actual {p.muscle[p.muscle.length - 1].toFixed(1)} kg
-                        </div>
-                      )}
-                    </div>
 
-                    <div style={{ textAlign: 'right' }}>
+                    <div style={{ textAlign: 'center' }}>
                       {(() => {
                         const pct = p.adherence ?? 0
                         return (
