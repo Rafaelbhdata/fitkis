@@ -375,11 +375,25 @@ export default function ClinicPatientsPage() {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <MiniSpark values={p.fat} color="var(--berry)" trend="down" />
+                      {p.fat.length > 0 ? (
+                        <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>
+                          actual {p.fat[p.fat.length - 1].toFixed(1)} %
+                        </div>
+                      ) : (
+                        <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-5)' }}>sin datos</div>
+                      )}
                       <Delta values={p.fat} unit="%" />
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       <MiniSpark values={p.muscle} color="var(--leaf)" trend="up" />
+                      {p.muscle.length > 0 ? (
+                        <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>
+                          actual {p.muscle[p.muscle.length - 1].toFixed(1)} kg
+                        </div>
+                      ) : (
+                        <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-5)' }}>sin datos</div>
+                      )}
                       <Delta values={p.muscle} invert />
                     </div>
 
