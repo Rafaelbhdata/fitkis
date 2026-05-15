@@ -1349,8 +1349,7 @@ export default function PatientDetailPage({
                     <span>{patient.height_m.toFixed(2)} m</span>
                   </>
                 )}
-                <span>·</span>
-                <span>objetivo {patient.goal}</span>
+                <GoalBadge goalType={patient.goal_type} onEdit={() => setGoalEditorOpen(true)} />
               </div>
             </div>
           </div>
