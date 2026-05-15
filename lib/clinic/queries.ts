@@ -146,26 +146,35 @@ export async function loadPatientsForPractitioner(
 
   const patientIds = relations.map((r) => r.patient_id)
 
-  const cutoffISO = shiftDateISO(getTodayInTimezone(), -30)
+  const MAX_WINDOW_DAYS = 90
+  const bulkCutoffISO = shiftDateISO(getTodayInTimezone(), -MAX_WINDOW_DAYS)
 
-  // Bulk-fetch food/gym dates for last 30 days — 2 queries total regardless of list size
-  const [{ data: foodRows }, { data: gymRows }] = await Promise.all([
+  // Bulk-fetch food/gym dates (90 días) + última cita completada por paciente — 3 queries totales
+  const [{ data: foodRows }, { data: gymRows }, { data: apptRows }] = await Promise.all([
     supabase
       .from('food_logs')
       .select('user_id, date')
       .in('user_id', patientIds)
-      .gte('date', cutoffISO)
+      .gte('date', bulkCutoffISO)
       .order('date', { ascending: false }),
     supabase
       .from('gym_sessions')
       .select('user_id, date')
       .in('user_id', patientIds)
-      .gte('date', cutoffISO)
+      .gte('date', bulkCutoffISO)
       .order('date', { ascending: false }),
+    supabase
+      .from('appointments')
+      .select('patient_id, starts_at')
+      .eq('practitioner_id', practitionerId)
+      .eq('status', 'completed')
+      .in('patient_id', patientIds)
+      .order('starts_at', { ascending: false }),
   ])
 
-  const lastFoodByPatient: Record<string, string> = {}
-  const lastGymByPatient:  Record<string, string> = {}
+  const lastFoodByPatient:  Record<string, string> = {}
+  const lastGymByPatient:   Record<string, string> = {}
+  const lastApptByPatient:  Record<string, string> = {}
   const activityDatesByPatient: Record<string, Set<string>> = {}
 
   for (const row of (foodRows ?? []) as { user_id: string; date: string }[]) {
@@ -176,6 +185,10 @@ export async function loadPatientsForPractitioner(
     if (!lastGymByPatient[row.user_id]) lastGymByPatient[row.user_id] = row.date
     ;(activityDatesByPatient[row.user_id] ??= new Set()).add(row.date)
   }
+  // Ya vienen ordenadas desc — solo guardamos la primera (más reciente) por paciente
+  for (const row of (apptRows ?? []) as { patient_id: string; starts_at: string }[]) {
+    if (!lastApptByPatient[row.patient_id]) lastApptByPatient[row.patient_id] = row.starts_at
+  }
 
   const enriched = await Promise.all(
     relations.map((rel, index) =>
@@ -185,6 +198,7 @@ export async function loadPatientsForPractitioner(
         lastGymByPatient[rel.patient_id],
         activityDatesByPatient[rel.patient_id],
         thresholds.inactivityDays,
+        lastApptByPatient[rel.patient_id],
       )
     )
   )
@@ -200,6 +214,7 @@ async function enrichPatient(
   lastGymDate?: string,
   activityDates?: Set<string>,
   inactivityDays = 7,
+  lastApptDate?: string,
 ): Promise<MockPatient> {
   const [{ data: profile }, { data: weights }, { data: diet }] = await Promise.all([
     supabase
@@ -242,13 +257,26 @@ async function enrichPatient(
   const initial  = pickInitial(rel.patient_name, rel.patient_email)
   const displayName = rel.patient_name || rel.patient_email || `Paciente ${rel.patient_id.slice(0, 6)}`
 
-  // Merge weight dates (last 30 days) with food/gym dates for adherence + streak
-  const cutoffISO = shiftDateISO(getTodayInTimezone(), -30)
-  const allDates = new Set(activityDates)
+  // Ventana dinámica: desde la última cita completada (máx 90d) o 30d rolling
+  const MAX_WINDOW = 90
+  const todayISO   = getTodayInTimezone()
+  const today      = new Date()
+  let windowDays   = 30
+  if (lastApptDate) {
+    const apptDate = new Date(lastApptDate)
+    const diff = Math.floor((today.getTime() - apptDate.getTime()) / 86_400_000)
+    if (diff > 0 && diff <= MAX_WINDOW) windowDays = diff
+  }
+  const cutoffISO = shiftDateISO(todayISO, -windowDays)
+
+  const allDates = new Set<string>()
+  for (const date of (activityDates ?? [])) {
+    if (date >= cutoffISO) allDates.add(date)
+  }
   for (const w of weightHistory) {
     if (w.date >= cutoffISO) allDates.add(w.date)
   }
-  const adherence = allDates.size > 0 ? Math.round((allDates.size / 30) * 100) : null
+  const adherence = allDates.size > 0 ? Math.round((allDates.size / windowDays) * 100) : null
   const streak    = computeStreak(allDates)
 
   return {
