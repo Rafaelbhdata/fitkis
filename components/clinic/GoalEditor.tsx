@@ -17,9 +17,10 @@ const GOAL_META: Record<GoalType, { label: string; icon: string; desc: string; c
 interface GoalBadgeProps {
   goalType?: GoalType
   onEdit: () => void
+  editable?: boolean
 }
 
-export function GoalBadge({ goalType, onEdit }: GoalBadgeProps) {
+export function GoalBadge({ goalType, onEdit, editable = false }: GoalBadgeProps) {
   if (!goalType) {
     return (
       <button
@@ -38,15 +39,17 @@ export function GoalBadge({ goalType, onEdit }: GoalBadgeProps) {
       <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999, background: soft, fontFamily: 'var(--f-mono)', fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color, fontWeight: 600 }}>
         {label}
       </span>
-      <button
-        onClick={onEdit}
-        title="Editar objetivo"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: 'var(--ink-5)', lineHeight: 1 }}
-      >
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-          <path d="M11.5 2.5a1.5 1.5 0 0 1 2.12 2.12L5.5 12.74l-2.83.71.71-2.83L11.5 2.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-        </svg>
-      </button>
+      {editable && (
+        <button
+          onClick={onEdit}
+          title="Editar objetivo"
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center', color: 'var(--ink-5)', lineHeight: 1 }}
+        >
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <path d="M11.5 2.5a1.5 1.5 0 0 1 2.12 2.12L5.5 12.74l-2.83.71.71-2.83L11.5 2.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      )}
     </div>
   )
 }

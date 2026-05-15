@@ -89,7 +89,7 @@ function HeroComposition({ patient, onEditGoal }: { patient: PatientDetail; onEd
           <div className="fk-eyebrow">
             Composición corporal · {ws.length} medición{ws.length === 1 ? '' : 'es'}
           </div>
-          <GoalBadge goalType={patient.goal_type} onEdit={onEditGoal} />
+          <GoalBadge goalType={patient.goal_type} onEdit={onEditGoal} editable />
         </div>
         {ws.length > 0 && (
           <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
