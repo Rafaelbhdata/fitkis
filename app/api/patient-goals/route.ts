@@ -13,7 +13,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No autenticado.' }, { status: 401 })
   }
 
-  // Verificar que el caller es practitioner activo
   const { data: prac } = await supabase
     .from('practitioners')
     .select('id')
@@ -31,7 +30,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Falta patient_id.' }, { status: 400 })
   }
 
-  // Verificar que el paciente pertenece a este practitioner
   const { data: rel } = await supabase
     .from('practitioner_patients')
     .select('id')
@@ -42,13 +40,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Paciente no encontrado.' }, { status: 404 })
   }
 
+  // Capturar la última medición del paciente como baseline del objetivo
+  const { data: latestLog } = await adminSupabase
+    .from('weight_logs')
+    .select('weight_kg, body_fat_percentage, muscle_mass_kg')
+    .eq('user_id', patient_id)
+    .order('date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
   const { error } = await adminSupabase
     .from('user_profiles')
     .update({
-      goal_type:         goal_type         ?? null,
-      goal_weight_kg:    goal_weight_kg    ?? null,
-      goal_body_fat_pct: goal_body_fat_pct ?? null,
-      goal_muscle_kg:    goal_muscle_kg    ?? null,
+      goal_type:                  goal_type         ?? null,
+      goal_weight_kg:             goal_weight_kg    ?? null,
+      goal_body_fat_pct:          goal_body_fat_pct ?? null,
+      goal_muscle_kg:             goal_muscle_kg    ?? null,
+      goal_baseline_weight_kg:    latestLog?.weight_kg          ?? null,
+      goal_baseline_body_fat_pct: latestLog?.body_fat_percentage ?? null,
+      goal_baseline_muscle_kg:    latestLog?.muscle_mass_kg      ?? null,
     })
     .eq('user_id', patient_id)
 

@@ -60,6 +60,7 @@ function HeroComposition({ patient, onEditGoal }: { patient: PatientDetail; onEd
       delta: w.length >= 2 ? w[w.length - 1] - w[0] : undefined,
       invert: patient.goal_weight_kg != null && currentW != null ? patient.goal_weight_kg < currentW : true,
       goal: patient.goal_weight_kg,
+      baseline: patient.goal_baseline_weight_kg,
       progressMetric: 'peso' as const,
     },
     {
@@ -69,6 +70,7 @@ function HeroComposition({ patient, onEditGoal }: { patient: PatientDetail; onEd
       delta: f.length >= 2 ? f[f.length - 1] - f[0] : undefined,
       invert: true,
       goal: patient.goal_body_fat_pct,
+      baseline: patient.goal_baseline_body_fat_pct,
       progressMetric: 'grasa' as const,
     },
     {
@@ -78,6 +80,7 @@ function HeroComposition({ patient, onEditGoal }: { patient: PatientDetail; onEd
       delta: m.length >= 2 ? m[m.length - 1] - m[0] : undefined,
       invert: false,
       goal: patient.goal_muscle_kg,
+      baseline: patient.goal_baseline_muscle_kg,
       progressMetric: 'musculo' as const,
     },
   ]
@@ -133,6 +136,7 @@ function HeroComposition({ patient, onEditGoal }: { patient: PatientDetail; onEd
               {s.v != null && s.goal != null && (
                 <GoalProgress
                   current={s.v}
+                  start={s.baseline ?? s.v}
                   goal={s.goal}
                   unit={s.unit}
                   metric={s.progressMetric}

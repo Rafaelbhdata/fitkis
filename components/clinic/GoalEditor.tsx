@@ -58,19 +58,24 @@ export function GoalBadge({ goalType, onEdit, editable = false }: GoalBadgeProps
 
 interface GoalProgressProps {
   current: number
+  start: number   // valor al momento de establecer el objetivo
   goal: number
   unit: string
   metric: 'peso' | 'grasa' | 'musculo'
   invert?: boolean
 }
 
-export function GoalProgress({ current, goal, unit, metric, invert = false }: GoalProgressProps) {
+export function GoalProgress({ current, start, goal, unit, metric, invert = false }: GoalProgressProps) {
   const COLOR_MAP = { peso: 'var(--signal)', grasa: 'var(--signal-2)', musculo: 'var(--honey)' }
 
-  const pct = Math.round(
-    invert
-      ? current <= goal ? 100 : Math.max(0, (1 - (current - goal) / current) * 100)
-      : goal > 0 ? Math.min(100, (current / goal) * 100) : 0
+  // Progreso desde el baseline hasta la meta
+  const range = Math.abs(goal - start)
+  const pct = range === 0 ? 0 : Math.round(
+    Math.min(100, Math.max(0,
+      invert
+        ? ((start - current) / range) * 100   // bajar: cuánto bajó del total que necesita
+        : ((current - start) / range) * 100    // subir: cuánto subió del total que necesita
+    ))
   )
 
   const monoSm: React.CSSProperties = { fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-4)', letterSpacing: '0.04em' }
@@ -78,7 +83,7 @@ export function GoalProgress({ current, goal, unit, metric, invert = false }: Go
   return (
     <div style={{ marginTop: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-        <span style={monoSm}>{current}{unit}</span>
+        <span style={monoSm}>{start}{unit}</span>
         <span style={monoSm}>meta {goal}{unit}</span>
       </div>
       <div style={{ height: 4, borderRadius: 999, background: 'var(--ink-7)', overflow: 'hidden' }}>

@@ -328,6 +328,9 @@ export type PatientDetail = {
   goal_body_fat_pct?: number
   goal_muscle_kg?: number
   goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento'
+  goal_baseline_weight_kg?: number
+  goal_baseline_body_fat_pct?: number
+  goal_baseline_muscle_kg?: number
   goal: string
   status: PatientStatus
   weight_history: WeightLog[] // oldest → newest
@@ -387,7 +390,7 @@ export async function loadPatientDetail(
     await Promise.all([
       supabase
         .from('user_profiles')
-        .select('height_cm, goal_weight_kg, goal_body_fat_pct, goal_muscle_kg, goal_type, display_name')
+        .select('height_cm, goal_weight_kg, goal_body_fat_pct, goal_muscle_kg, goal_type, goal_baseline_weight_kg, goal_baseline_body_fat_pct, goal_baseline_muscle_kg, display_name')
         .eq('user_id', patientId)
         .maybeSingle(),
       supabase
@@ -443,7 +446,7 @@ export async function loadPatientDetail(
   const cutoffISO = shiftDateISO(todayISO_CDMX, -daysFromToday)
   const windowDays = Math.max(1, daysFromToday)
 
-  const profileWithName = profile as { height_cm?: number; goal_weight_kg?: number; goal_body_fat_pct?: number; goal_muscle_kg?: number; goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento'; display_name?: string } | null
+  const profileWithName = profile as { height_cm?: number; goal_weight_kg?: number; goal_body_fat_pct?: number; goal_muscle_kg?: number; goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento'; goal_baseline_weight_kg?: number; goal_baseline_body_fat_pct?: number; goal_baseline_muscle_kg?: number; display_name?: string } | null
   const patient = patientRow as { patient_email: string | null; patient_name: string | null } | null
 
   const email = patient?.patient_email ?? ''
@@ -470,10 +473,13 @@ export async function loadPatientDetail(
     name: displayName,
     initial: pickInitial(displayName, email),
     height_m: profileWithName?.height_cm != null ? Number((profileWithName.height_cm / 100).toFixed(2)) : undefined,
-    goal_weight_kg:    profileWithName?.goal_weight_kg    ?? undefined,
-    goal_body_fat_pct: profileWithName?.goal_body_fat_pct ?? undefined,
-    goal_muscle_kg:    profileWithName?.goal_muscle_kg    ?? undefined,
-    goal_type:         profileWithName?.goal_type         ?? undefined,
+    goal_weight_kg:             profileWithName?.goal_weight_kg             ?? undefined,
+    goal_body_fat_pct:          profileWithName?.goal_body_fat_pct          ?? undefined,
+    goal_muscle_kg:             profileWithName?.goal_muscle_kg             ?? undefined,
+    goal_type:                  profileWithName?.goal_type                  ?? undefined,
+    goal_baseline_weight_kg:    profileWithName?.goal_baseline_weight_kg    ?? undefined,
+    goal_baseline_body_fat_pct: profileWithName?.goal_baseline_body_fat_pct ?? undefined,
+    goal_baseline_muscle_kg:    profileWithName?.goal_baseline_muscle_kg    ?? undefined,
     goal: formatGoal(weightArr, profileWithName?.goal_weight_kg),
     status: relation.status,
     weight_history: weightHistory,
