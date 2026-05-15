@@ -350,14 +350,6 @@ export default function ClinicPatientsPage() {
                           if (id) window.location.href = `/clinic/pacientes/${id}`
                         }}
                       />
-                      {p.weight.length > 0 && (
-                        <div
-                          className="fk-mono"
-                          style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 4 }}
-                        >
-                          actual {p.weight[p.weight.length - 1].toFixed(1)} kg
-                        </div>
-                      )}
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -370,6 +362,11 @@ export default function ClinicPatientsPage() {
                           : 'auto'
                         }
                       />
+                      {p.weight.length > 0 && (
+                        <div className="fk-mono" style={{ fontSize: 10, color: 'var(--ink-4)' }}>
+                          actual {p.weight[p.weight.length - 1].toFixed(1)} kg
+                        </div>
+                      )}
                       <Delta values={p.weight} invert={p.goal_type === 'ganar_musculo'} />
                     </div>
 
