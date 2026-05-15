@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Btn } from '@/components/ui/Btn'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -20,6 +21,8 @@ import {
   loadConsultationNotes,
   loadAppointmentNotesForPatient,
   updatePatientGoals,
+  resendInvitation,
+  removePatientRelation,
   daysBetween,
   type PatientDetail,
   type PractitionerRecord,
@@ -262,12 +265,12 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
             padding: '10px',
             textAlign: 'center',
             borderRadius: 999,
-            border: '1px solid var(--ink-7)',
-            background: '#fff',
+            border: '1px solid #ff5a1f',
+            background: '#ff5a1f',
             fontSize: 12,
             fontFamily: 'var(--f-sans)',
             fontWeight: 500,
-            color: 'var(--ink)',
+            color: '#fff',
             textDecoration: 'none',
           }}
         >
@@ -1117,8 +1120,11 @@ export default function PatientDetailPage({
   const [patient, setPatient] = useState<PatientDetail | null>(null)
   const [practitioner, setPractitioner] = useState<PractitionerRecord | null>(null)
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   // Alimentación — carga lazy al activar la tab
   const [foodLogs, setFoodLogs]       = useState<FoodLogEntry[]>([])
@@ -1304,8 +1310,8 @@ export default function PatientDetailPage({
                 width: 64,
                 height: 64,
                 borderRadius: 999,
-                background: 'var(--leaf-soft)',
-                color: 'var(--leaf)',
+                background: patient.status === 'declined' ? 'var(--berry-soft)' : 'var(--leaf-soft)',
+                color: patient.status === 'declined' ? 'var(--berry)' : 'var(--leaf)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1318,7 +1324,10 @@ export default function PatientDetailPage({
             </div>
             <div>
               <div className="fk-eyebrow" style={{ marginBottom: 4 }}>
-                {patient.status === 'active' ? 'Paciente · activo' : `Paciente · ${patient.status}`}
+                {patient.status === 'active'   ? 'Paciente · activo'
+                  : patient.status === 'declined' ? 'Paciente · invitación rechazada'
+                  : patient.status === 'pending'  ? 'Paciente · invitación pendiente'
+                  : 'Paciente · inactivo'}
               </div>
               <h1
                 className="fk-serif"
@@ -1355,48 +1364,100 @@ export default function PatientDetailPage({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <Btn
-              variant="ghost"
-              icon={<Ic.share />}
-              disabled={!practitioner || generatingPDF}
-              onClick={async () => {
-                if (!practitioner) return
-                setGeneratingPDF(true)
-                try {
-                  const [notes, appointmentNotes] = await Promise.all([
-                    loadConsultationNotes(supabase, practitioner.id, patient.patient_id),
-                    loadAppointmentNotesForPatient(supabase, practitioner.id, patient.patient_id),
-                  ])
-                  await generatePatientReport({ patient, practitioner, notes, appointmentNotes })
-                } catch (e) {
-                  alert('No se pudo generar el reporte: ' + (e instanceof Error ? e.message : 'error'))
-                } finally {
-                  setGeneratingPDF(false)
-                }
-              }}
-            >
-              {generatingPDF ? 'Generando…' : 'Reporte PDF'}
-            </Btn>
-            <Btn
-              variant="ghost"
-              icon={<Ic.book />}
-              onClick={() => {
-                setTab('resumen')
-                setTimeout(() => {
-                  document.getElementById('consultation-notes')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }, 50)
-              }}
-            >
-              Notas de consulta
-            </Btn>
-            <Link
-              href={`/clinic/pacientes/${patient.patient_id}/plan`}
-              style={{ textDecoration: 'none' }}
-            >
-              <Btn variant="primary" icon={<Ic.plus />}>
-                {patient.active_diet ? 'Editar plan' : 'Crear plan'}
-              </Btn>
-            </Link>
+            {patient.status === 'declined' ? (
+              <>
+                <Btn
+                  variant="ghost"
+                  icon={<Ic.send />}
+                  disabled={!practitioner || resending}
+                  onClick={async () => {
+                    if (!practitioner) return
+                    if (!confirm('¿Reenviar la invitación a este paciente?')) return
+                    setResending(true)
+                    try {
+                      const res = await resendInvitation(supabase, practitioner.id, patient.patient_id)
+                      if (!res.ok) {
+                        alert('Error al reenviar: ' + res.error)
+                      } else {
+                        setPatient((p) => p ? { ...p, status: 'pending' } : p)
+                      }
+                    } finally {
+                      setResending(false)
+                    }
+                  }}
+                >
+                  {resending ? 'Reenviando…' : 'Reenviar invitación'}
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  icon={<Ic.trash />}
+                  disabled={!practitioner || removing}
+                  onClick={async () => {
+                    if (!practitioner) return
+                    if (!confirm(`¿Eliminar a ${patient.name} de tu lista? Esta acción no se puede deshacer.`)) return
+                    setRemoving(true)
+                    try {
+                      const res = await removePatientRelation(supabase, practitioner.id, patient.patient_id)
+                      if (!res.ok) {
+                        alert('Error al eliminar: ' + res.error)
+                        setRemoving(false)
+                      } else {
+                        router.push('/clinic/pacientes')
+                      }
+                    } catch {
+                      setRemoving(false)
+                    }
+                  }}
+                >
+                  {removing ? 'Eliminando…' : 'Eliminar paciente'}
+                </Btn>
+              </>
+            ) : (
+              <>
+                <Btn
+                  variant="ghost"
+                  icon={<Ic.share />}
+                  disabled={!practitioner || generatingPDF}
+                  onClick={async () => {
+                    if (!practitioner) return
+                    setGeneratingPDF(true)
+                    try {
+                      const [notes, appointmentNotes] = await Promise.all([
+                        loadConsultationNotes(supabase, practitioner.id, patient.patient_id),
+                        loadAppointmentNotesForPatient(supabase, practitioner.id, patient.patient_id),
+                      ])
+                      await generatePatientReport({ patient, practitioner, notes, appointmentNotes })
+                    } catch (e) {
+                      alert('No se pudo generar el reporte: ' + (e instanceof Error ? e.message : 'error'))
+                    } finally {
+                      setGeneratingPDF(false)
+                    }
+                  }}
+                >
+                  {generatingPDF ? 'Generando…' : 'Reporte PDF'}
+                </Btn>
+                <Btn
+                  variant="ghost"
+                  icon={<Ic.book />}
+                  onClick={() => {
+                    setTab('resumen')
+                    setTimeout(() => {
+                      document.getElementById('consultation-notes')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }, 50)
+                  }}
+                >
+                  Notas de consulta
+                </Btn>
+                <Link
+                  href={`/clinic/pacientes/${patient.patient_id}/plan`}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <Btn variant="signal" icon={<Ic.plus />}>
+                    {patient.active_diet ? 'Editar plan' : 'Crear plan'}
+                  </Btn>
+                </Link>
+              </>
+            )}
           </div>
         </div>
 

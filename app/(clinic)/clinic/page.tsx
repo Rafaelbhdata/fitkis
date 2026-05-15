@@ -30,7 +30,8 @@ const AVATAR_PALETTE: Array<{ bg: string; fg: string }> = [
 ]
 
 function avatarColors(seed: number, status: MockPatient['status']) {
-  if (status === 'pending') return { bg: 'var(--paper-3)', fg: 'var(--ink-4)' }
+  if (status === 'pending')  return { bg: 'var(--paper-3)',    fg: 'var(--ink-4)'  }
+  if (status === 'declined') return { bg: 'var(--berry-soft)', fg: 'var(--berry)'  }
   return AVATAR_PALETTE[seed % AVATAR_PALETTE.length]
 }
 
@@ -123,7 +124,7 @@ function PatientsContent() {
     let list = patients
     if (filter === 'atencion') list = patients.filter(needsAttention)
     else if (filter === 'pending') list = patients.filter((p) => p.status === 'pending')
-    else if (filter === 'archivo') list = patients.filter((p) => p.status === 'inactive')
+    else if (filter === 'archivo') list = patients.filter((p) => p.status === 'inactive' || p.status === 'declined')
 
     // 2. Search
     const q = searchQuery.trim().toLowerCase()
@@ -197,7 +198,7 @@ function PatientsContent() {
               todos:    patients.length,
               atencion: attentionCount,
               pending:  pendingCount,
-              archivo:  patients.filter((p) => p.status === 'inactive').length,
+              archivo:  patients.filter((p) => p.status === 'inactive' || p.status === 'declined').length,
             }}
           />
 
@@ -240,7 +241,7 @@ function PatientsContent() {
               filtered.map((p, idx) => {
                 const av = avatarColors(idx + 1, p.status)
                 const realId = patientRealId(p) ?? String(p.id)
-                const isClickable = p.status === 'active'
+                const isClickable = p.status === 'active' || p.status === 'declined'
 
                 const row = (
                   <div
@@ -339,6 +340,26 @@ function PatientsContent() {
                             }}
                           >
                             pendiente
+                          </span>
+                        )}
+                        {p.status === 'declined' && (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              fontSize: 10,
+                              padding: '2px 7px',
+                              borderRadius: 999,
+                              background: 'var(--berry-soft)',
+                              color: 'var(--berry)',
+                              fontFamily: 'var(--f-mono)',
+                              letterSpacing: '0.08em',
+                              textTransform: 'uppercase',
+                              fontWeight: 500,
+                            }}
+                          >
+                            rechazado
                           </span>
                         )}
                       </div>

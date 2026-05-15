@@ -15,8 +15,9 @@
 
 export type AlertKind = 'inactividad' | 'estancamiento' | null;
 
-/** Espejo del enum en BD (`practitioner_patients.status`). */
-export type PatientStatus = 'active' | 'pending' | 'inactive';
+/** Espejo del enum en BD (`practitioner_patients.status`).
+ *  'declined' es un estado derivado (client-side): status='inactive' + accepted_at=null. */
+export type PatientStatus = 'active' | 'pending' | 'inactive' | 'declined';
 
 export type MockPatient = {
 	id: number;

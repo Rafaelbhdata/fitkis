@@ -285,7 +285,7 @@ async function enrichPatient(
     name: displayName,
     email: rel.patient_email ?? '',
     initial,
-    status: rel.status,
+    status: rel.status === 'inactive' && rel.accepted_at === null ? 'declined' : rel.status,
     plan: diet?.version != null ? `v${diet.version}` : '—',
     goal,
     goal_type,
@@ -371,7 +371,7 @@ export async function loadPatientDetail(
 ): Promise<PatientDetail | null> {
   const { data: relation } = await supabase
     .from('practitioner_patients')
-    .select('id, status')
+    .select('id, status, accepted_at')
     .eq('practitioner_id', practitionerId)
     .eq('patient_id', patientId)
     .maybeSingle()
@@ -481,7 +481,9 @@ export async function loadPatientDetail(
     goal_baseline_body_fat_pct: profileWithName?.goal_baseline_body_fat_pct ?? undefined,
     goal_baseline_muscle_kg:    profileWithName?.goal_baseline_muscle_kg    ?? undefined,
     goal: formatGoal(weightArr, profileWithName?.goal_weight_kg),
-    status: relation.status,
+    status: (relation.status === 'inactive' && (relation as { accepted_at?: string | null }).accepted_at == null)
+      ? 'declined'
+      : relation.status as PatientStatus,
     weight_history: weightHistory,
     active_diet: diet
       ? {
@@ -591,8 +593,15 @@ export async function savePlanDraft(
     if (deactivateErr) return { ok: false, error: `No se pudo desactivar plan anterior: ${deactivateErr.message}` }
   }
 
-  // 3. Insert the new plan
-  const { error: insertErr } = await supabase.from('diet_configs').insert({
+  // 3. Check if a record already exists for this date (e.g. patient pre-existing account)
+  const { data: existingOnDate } = await supabase
+    .from('diet_configs')
+    .select('id, version')
+    .eq('user_id', patientId)
+    .eq('effective_date', draft.effective_date)
+    .maybeSingle()
+
+  const payload = {
     user_id: patientId,
     effective_date: draft.effective_date,
     verdura: draft.verdura,
@@ -602,22 +611,24 @@ export async function savePlanDraft(
     proteina: draft.proteina,
     grasa: draft.grasa,
     prescribed_by: practitionerId,
-    version: nextVersion,
+    version: existingOnDate ? existingOnDate.version : nextVersion,
     active: true,
     notes: draft.notes || null,
     active_meals: draft.active_meals,
-  })
+  }
 
-  if (insertErr) {
+  const { error: saveErr } = existingOnDate
+    ? await supabase.from('diet_configs').update(payload).eq('id', existingOnDate.id)
+    : await supabase.from('diet_configs').insert(payload)
+
+  if (saveErr) {
     // Compensate: reactivate the old plan so the patient is never left without one.
-    // This is a best-effort rollback — if it also fails the inconsistency is logged
-    // but not surfaced as a second error to avoid confusing the UI.
     if (current?.id) {
       await supabase.from('diet_configs').update({ active: true }).eq('id', current.id)
     }
-    return { ok: false, error: `No se pudo guardar el plan: ${insertErr.message}` }
+    return { ok: false, error: `No se pudo guardar el plan: ${saveErr.message}` }
   }
-  return { ok: true, version: nextVersion }
+  return { ok: true, version: existingOnDate ? existingOnDate.version : nextVersion }
 }
 
 // =============================================================================
@@ -666,6 +677,38 @@ export async function invitePatientByEmail(
   })
 
   if (insertErr) return { ok: false, error: insertErr.message }
+  return { ok: true }
+}
+
+/** Reenvía invitación a un paciente que rechazó — actualiza la fila a pending y envía push. */
+export async function resendInvitation(
+  _supabase: SB,
+  practitionerId: string,
+  patientId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch('/api/resend-invitation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ practitioner_id: practitionerId, patient_id: patientId }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) return { ok: false, error: data.error ?? 'Error al reenviar.' }
+  return { ok: true }
+}
+
+/** Elimina la relación practitioner–paciente (solo aplica a declined/inactive). */
+export async function removePatientRelation(
+  _supabase: SB,
+  practitionerId: string,
+  patientId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch('/api/remove-patient-relation', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ practitioner_id: practitionerId, patient_id: patientId }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) return { ok: false, error: data.error ?? 'Error al eliminar.' }
   return { ok: true }
 }
 

@@ -134,4 +134,17 @@ export const Ic = {
       <line x1="3" y1="10" x2="21" y2="10" />
     </svg>
   ),
+  send: (p: IcProps = {}) => (
+    <svg {...base()} {...p}>
+      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+    </svg>
+  ),
+  trash: (p: IcProps = {}) => (
+    <svg {...base()} {...p}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  ),
 }
