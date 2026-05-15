@@ -391,41 +391,25 @@ export default function ClinicPatientsPage() {
                     </div>
 
                     <div style={{ textAlign: 'right' }}>
-                      {p.adherence == null ? (
-                        <span className="fk-mono" style={{ fontSize: 11, color: 'var(--ink-5)' }}>
-                          —
-                        </span>
-                      ) : (
-                        <>
-                          <div
-                            className="fk-serif"
-                            style={{
-                              fontSize: 24,
-                              fontWeight: 300,
-                              color: adherenceColor(p.adherence),
-                              letterSpacing: '-0.02em',
-                              lineHeight: 1,
-                            }}
-                          >
-                            {p.adherence}
-                            <span style={{ fontSize: 11, marginLeft: 2 }}>
-                              %
-                            </span>
-                          </div>
-                          <div
-                            className="fk-mono"
-                            style={{
-                              fontSize: 9,
-                              color: 'var(--ink-4)',
-                              marginTop: 2,
-                              letterSpacing: '0.08em',
-                              textTransform: 'uppercase',
-                            }}
-                          >
-                            {p.streak}d racha
-                          </div>
-                        </>
-                      )}
+                      {(() => {
+                        const pct = p.adherence ?? 0
+                        return (
+                          <>
+                            <div
+                              className="fk-serif"
+                              style={{ fontSize: 24, fontWeight: 300, color: adherenceColor(pct), letterSpacing: '-0.02em', lineHeight: 1 }}
+                            >
+                              {pct}
+                              <span style={{ fontSize: 11, marginLeft: 2 }}>%</span>
+                            </div>
+                            {p.streak > 0 && (
+                              <div className="fk-mono" style={{ fontSize: 9, color: 'var(--ink-4)', marginTop: 2, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                {p.streak}d racha
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
 
                     <div style={{ color: 'var(--ink-5)' }}>
