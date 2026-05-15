@@ -317,6 +317,20 @@ export function patientRealId(p: MockPatient): string | null {
 // PATIENT DETAIL
 // =============================================================================
 
+type PatientProfileRow = {
+  height_cm?: number
+  goal_weight_kg?: number
+  goal_bmi?: number
+  goal_body_fat_pct?: number
+  goal_muscle_kg?: number
+  goal_fat_mass_kg?: number
+  goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento'
+  goal_baseline_weight_kg?: number
+  goal_baseline_body_fat_pct?: number
+  goal_baseline_muscle_kg?: number
+  display_name?: string
+}
+
 export type PatientDetail = {
   patient_id: string
   email: string
@@ -325,8 +339,10 @@ export type PatientDetail = {
   age?: number
   height_m?: number
   goal_weight_kg?: number
+  goal_bmi?: number
   goal_body_fat_pct?: number
   goal_muscle_kg?: number
+  goal_fat_mass_kg?: number
   goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento'
   goal_baseline_weight_kg?: number
   goal_baseline_body_fat_pct?: number
@@ -390,7 +406,7 @@ export async function loadPatientDetail(
     await Promise.all([
       supabase
         .from('user_profiles')
-        .select('height_cm, goal_weight_kg, goal_body_fat_pct, goal_muscle_kg, goal_type, goal_baseline_weight_kg, goal_baseline_body_fat_pct, goal_baseline_muscle_kg, display_name')
+        .select('height_cm, goal_weight_kg, goal_bmi, goal_body_fat_pct, goal_muscle_kg, goal_fat_mass_kg, goal_type, goal_baseline_weight_kg, goal_baseline_body_fat_pct, goal_baseline_muscle_kg, display_name')
         .eq('user_id', patientId)
         .maybeSingle(),
       supabase
@@ -446,7 +462,7 @@ export async function loadPatientDetail(
   const cutoffISO = shiftDateISO(todayISO_CDMX, -daysFromToday)
   const windowDays = Math.max(1, daysFromToday)
 
-  const profileWithName = profile as { height_cm?: number; goal_weight_kg?: number; goal_body_fat_pct?: number; goal_muscle_kg?: number; goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento'; goal_baseline_weight_kg?: number; goal_baseline_body_fat_pct?: number; goal_baseline_muscle_kg?: number; display_name?: string } | null
+  const profileWithName = profile as PatientProfileRow | null
   const patient = patientRow as { patient_email: string | null; patient_name: string | null } | null
 
   const email = patient?.patient_email ?? ''
@@ -474,8 +490,10 @@ export async function loadPatientDetail(
     initial: pickInitial(displayName, email),
     height_m: profileWithName?.height_cm != null ? Number((profileWithName.height_cm / 100).toFixed(2)) : undefined,
     goal_weight_kg:             profileWithName?.goal_weight_kg             ?? undefined,
+    goal_bmi:                   profileWithName?.goal_bmi                   ?? undefined,
     goal_body_fat_pct:          profileWithName?.goal_body_fat_pct          ?? undefined,
     goal_muscle_kg:             profileWithName?.goal_muscle_kg             ?? undefined,
+    goal_fat_mass_kg:           profileWithName?.goal_fat_mass_kg           ?? undefined,
     goal_type:                  profileWithName?.goal_type                  ?? undefined,
     goal_baseline_weight_kg:    profileWithName?.goal_baseline_weight_kg    ?? undefined,
     goal_baseline_body_fat_pct: profileWithName?.goal_baseline_body_fat_pct ?? undefined,
@@ -528,8 +546,10 @@ export async function updatePatientGoals(
   goals: {
     goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento'
     goal_weight_kg?: number | null
+    goal_bmi?: number | null
     goal_body_fat_pct?: number | null
     goal_muscle_kg?: number | null
+    goal_fat_mass_kg?: number | null
   }
 ): Promise<boolean> {
   const res = await fetch('/api/patient-goals', {

@@ -103,30 +103,45 @@ interface GoalEditorModalProps {
   onSave: (goals: {
     goal_type?: GoalType
     goal_weight_kg?: number | null
+    goal_bmi?: number | null
     goal_body_fat_pct?: number | null
     goal_muscle_kg?: number | null
+    goal_fat_mass_kg?: number | null
   }) => Promise<void>
   initial?: {
     goal_type?: GoalType
     goal_weight_kg?: number
+    goal_bmi?: number
     goal_body_fat_pct?: number
     goal_muscle_kg?: number
+    goal_fat_mass_kg?: number
+  }
+  current?: {
+    weight_kg?: number
+    bmi?: number
+    body_fat_pct?: number
+    muscle_kg?: number
+    fat_mass_kg?: number
   }
 }
 
-export function GoalEditorModal({ open, onClose, onSave, initial }: GoalEditorModalProps) {
-  const [goalType, setGoalType] = useState<GoalType | undefined>(initial?.goal_type)
-  const [weightKg, setWeightKg] = useState(initial?.goal_weight_kg?.toString() ?? '')
-  const [fatPct,   setFatPct]   = useState(initial?.goal_body_fat_pct?.toString() ?? '')
-  const [muscleKg, setMuscleKg] = useState(initial?.goal_muscle_kg?.toString() ?? '')
-  const [saving,   setSaving]   = useState(false)
+export function GoalEditorModal({ open, onClose, onSave, initial, current }: GoalEditorModalProps) {
+  const [goalType,   setGoalType]   = useState<GoalType | undefined>(initial?.goal_type)
+  const [weightKg,   setWeightKg]   = useState(initial?.goal_weight_kg?.toString() ?? '')
+  const [bmi,        setBmi]        = useState(initial?.goal_bmi?.toString() ?? '')
+  const [fatPct,     setFatPct]     = useState(initial?.goal_body_fat_pct?.toString() ?? '')
+  const [muscleKg,   setMuscleKg]   = useState(initial?.goal_muscle_kg?.toString() ?? '')
+  const [fatMassKg,  setFatMassKg]  = useState(initial?.goal_fat_mass_kg?.toString() ?? '')
+  const [saving,     setSaving]     = useState(false)
 
   useEffect(() => {
     if (!open) return
     setGoalType(initial?.goal_type)
     setWeightKg(initial?.goal_weight_kg?.toString() ?? '')
+    setBmi(initial?.goal_bmi?.toString() ?? '')
     setFatPct(initial?.goal_body_fat_pct?.toString() ?? '')
     setMuscleKg(initial?.goal_muscle_kg?.toString() ?? '')
+    setFatMassKg(initial?.goal_fat_mass_kg?.toString() ?? '')
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!open) return null
@@ -136,8 +151,10 @@ export function GoalEditorModal({ open, onClose, onSave, initial }: GoalEditorMo
     await onSave({
       goal_type:         goalType,
       goal_weight_kg:    weightKg  ? parseFloat(weightKg)  : null,
+      goal_bmi:          bmi       ? parseFloat(bmi)       : null,
       goal_body_fat_pct: fatPct    ? parseFloat(fatPct)    : null,
       goal_muscle_kg:    muscleKg  ? parseFloat(muscleKg)  : null,
+      goal_fat_mass_kg:  fatMassKg ? parseFloat(fatMassKg) : null,
     })
     setSaving(false)
     onClose()
@@ -196,27 +213,27 @@ export function GoalEditorModal({ open, onClose, onSave, initial }: GoalEditorMo
         <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
           Metas numéricas (opcional)
         </div>
-        <div style={{ display: 'flex', gap: 12 }}>
-          {[
-            { label: 'Peso meta (kg)',  value: weightKg, set: setWeightKg },
-            { label: '% Grasa meta',    value: fatPct,   set: setFatPct   },
-            { label: 'Músculo meta (kg)', value: muscleKg, set: setMuscleKg },
-          ].map(({ label, value, set }) => (
-            <div key={label} style={{ flex: 1 }}>
-              <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>
-                {label}
-              </div>
-              <input
-                type="number"
-                step="0.1"
-                value={value}
-                onChange={e => set(e.target.value)}
-                placeholder="—"
-                style={inputStyle}
-              />
+        {(() => {
+          const fields = [
+            { label: 'Peso (kg)',          value: weightKg,  set: setWeightKg,  ph: current?.weight_kg?.toFixed(1)    },
+            { label: 'IMC',                value: bmi,        set: setBmi,        ph: current?.bmi?.toFixed(1)          },
+            { label: '% Grasa',            value: fatPct,     set: setFatPct,     ph: current?.body_fat_pct?.toFixed(1) },
+            { label: 'Masa Muscular (kg)', value: muscleKg,   set: setMuscleKg,   ph: current?.muscle_kg?.toFixed(1)    },
+            { label: 'Masa Grasa (kg)',    value: fatMassKg,  set: setFatMassKg,  ph: current?.fat_mass_kg?.toFixed(1)  },
+          ]
+          const renderField = ({ label, value, set, ph }: typeof fields[0]) => (
+            <div key={label}>
+              <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 5 }}>{label}</div>
+              <input type="number" step="0.1" value={value} onChange={e => set(e.target.value)} placeholder={ph ?? '—'} style={inputStyle} />
             </div>
-          ))}
-        </div>
+          )
+          return (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>{fields.slice(0, 2).map(renderField)}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>{fields.slice(2).map(renderField)}</div>
+            </>
+          )
+        })()}
 
       </div>
 

@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null)
-  const { patient_id, goal_type, goal_weight_kg, goal_body_fat_pct, goal_muscle_kg } = body ?? {}
+  const { patient_id, goal_type, goal_weight_kg, goal_bmi, goal_body_fat_pct, goal_muscle_kg, goal_fat_mass_kg } = body ?? {}
 
   if (!patient_id) {
     return NextResponse.json({ error: 'Falta patient_id.' }, { status: 400 })
@@ -54,8 +54,10 @@ export async function POST(request: Request) {
     .update({
       goal_type:                  goal_type         ?? null,
       goal_weight_kg:             goal_weight_kg    ?? null,
+      goal_bmi:                   goal_bmi          ?? null,
       goal_body_fat_pct:          goal_body_fat_pct ?? null,
       goal_muscle_kg:             goal_muscle_kg    ?? null,
+      goal_fat_mass_kg:           goal_fat_mass_kg  ?? null,
       goal_baseline_weight_kg:    latestLog?.weight_kg          ?? null,
       goal_baseline_body_fat_pct: latestLog?.body_fat_percentage ?? null,
       goal_baseline_muscle_kg:    latestLog?.muscle_mass_kg      ?? null,
