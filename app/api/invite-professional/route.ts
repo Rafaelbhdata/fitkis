@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   )
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin
-  const callbackUrl = `${siteUrl}/auth/callback?next=/onboarding`
+  const callbackUrl = `${siteUrl}/auth/confirm?next=/onboarding`
 
   if (resend) {
     // ── Resend disponible: generateLink (sin email) → email de marca ─────────
