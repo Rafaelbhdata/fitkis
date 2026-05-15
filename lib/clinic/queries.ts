@@ -204,7 +204,7 @@ async function enrichPatient(
   const [{ data: profile }, { data: weights }, { data: diet }] = await Promise.all([
     supabase
       .from('user_profiles')
-      .select('height_cm, goal_weight_kg')
+      .select('height_cm, goal_weight_kg, goal_type')
       .eq('user_id', rel.patient_id)
       .maybeSingle(),
     supabase
@@ -235,7 +235,8 @@ async function enrichPatient(
     .filter((v): v is number => v != null)
 
   const daysSinceActivity = computeLastActivityDays(weightHistory, lastFoodDate, lastGymDate)
-  const goal     = formatGoal(weightArr, profile?.goal_weight_kg)
+  const goal      = formatGoal(weightArr, profile?.goal_weight_kg)
+  const goal_type = (profile as { goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento' } | null)?.goal_type
   const alert    = computeAlert(daysSinceActivity, weightHistory, inactivityDays)
   const lastSeen = formatLastSeen(rel, daysSinceActivity)
   const initial  = pickInitial(rel.patient_name, rel.patient_email)
@@ -258,6 +259,7 @@ async function enrichPatient(
     status: rel.status,
     plan: diet?.version != null ? `v${diet.version}` : '—',
     goal,
+    goal_type,
     age: undefined,
     height_m:
       profile?.height_cm != null ? Number((profile.height_cm / 100).toFixed(2)) : undefined,

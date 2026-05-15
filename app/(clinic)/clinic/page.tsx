@@ -17,6 +17,7 @@ import {
 } from '@/lib/clinic/queries'
 import type { MockPatient } from '@/lib/clinic/mock-data'
 import { InviteModal } from '@/components/clinic/InviteModal'
+import { GoalBadge } from '@/components/clinic/GoalEditor'
 import { getTodayInTimezone } from '@/lib/utils'
 
 const AVATAR_PALETTE: Array<{ bg: string; fg: string }> = [
@@ -342,21 +343,17 @@ export default function ClinicPatientsPage() {
                     </div>
 
                     <div>
-                      <div
-                        className="fk-serif"
-                        style={{
-                          fontSize: 18,
-                          fontWeight: 400,
-                          fontStyle: 'italic',
-                          color: 'var(--ink-2)',
+                      <GoalBadge
+                        goalType={p.goal_type}
+                        onEdit={() => {
+                          const id = patientRealId(p)
+                          if (id) window.location.href = `/clinic/pacientes/${id}`
                         }}
-                      >
-                        {p.goal}
-                      </div>
+                      />
                       {p.weight.length > 0 && (
                         <div
                           className="fk-mono"
-                          style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 2 }}
+                          style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 4 }}
                         >
                           actual {p.weight[p.weight.length - 1].toFixed(1)} kg
                         </div>
@@ -368,10 +365,12 @@ export default function ClinicPatientsPage() {
                         values={p.weight}
                         color="var(--ink-3)"
                         trend={
-                          p.goal.startsWith('-') ? 'down' : p.goal.startsWith('+') ? 'up' : 'auto'
+                          p.goal_type === 'ganar_musculo' ? 'up'
+                          : p.goal_type === 'bajar_grasa' ? 'down'
+                          : 'auto'
                         }
                       />
-                      <Delta values={p.weight} invert={p.goal.startsWith('+')} />
+                      <Delta values={p.weight} invert={p.goal_type === 'ganar_musculo'} />
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

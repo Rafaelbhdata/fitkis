@@ -26,6 +26,7 @@ export type MockPatient = {
 	status: PatientStatus;
 	plan: string;
 	goal: string;
+	goal_type?: 'bajar_grasa' | 'ganar_musculo' | 'mantenimiento' | 'rendimiento';
 	age?: number;
 	height_m?: number;
 	weight: number[];
