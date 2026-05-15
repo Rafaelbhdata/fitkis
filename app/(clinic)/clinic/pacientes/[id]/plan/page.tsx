@@ -370,7 +370,7 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
               </span>
             )}
             <Btn
-              variant="primary"
+              variant="signal"
               icon={
                 saving ? <InlinePulse /> : <Ic.check />
               }
@@ -649,8 +649,8 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
                     style={{
                       padding: '14px 16px',
                       borderRadius: 10,
-                      border: on ? '1.5px solid var(--ink)' : '1px solid var(--ink-7)',
-                      background: on ? 'var(--paper-2)' : '#fff',
+                      border: on ? '1.5px solid #ff5a1f' : '1px solid var(--ink-7)',
+                      background: on ? '#fff8f5' : '#fff',
                       textAlign: 'left',
                       cursor: 'pointer',
                     }}
@@ -678,7 +678,7 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
                           width: 16,
                           height: 16,
                           borderRadius: 999,
-                          background: on ? 'var(--ink)' : 'transparent',
+                          background: on ? '#ff5a1f' : 'transparent',
                           border: on ? 'none' : '1px solid var(--ink-6)',
                           display: 'flex',
                           alignItems: 'center',
@@ -856,36 +856,70 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
                   tu nutrióloga actualizó tu plan.
                 </div>
               </div>
-              <div
-                style={{
-                  padding: '14px 18px',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: 6,
-                }}
-              >
-                {PHONE_PREVIEW_GROUPS.map((g) => (
-                  <div key={g.k} style={{ background: g.bg, borderRadius: 8, padding: '8px 10px' }}>
-                    <div
-                      style={{
-                        fontSize: 9,
-                        color: g.c,
-                        fontFamily: 'var(--f-mono)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                      }}
-                    >
-                      {g.short}
+              {/* Donut — misma geometría que fitkis-mobile */}
+              {(() => {
+                const PLATE = [
+                  { k: 'verdura'   as GroupKey, label: 'Verdura',   color: '#4a7c3a', emoji: '🥬', bg: 'var(--leaf-soft)'  },
+                  { k: 'fruta'     as GroupKey, label: 'Frutas',    color: '#ff5a1f', emoji: '🍎', bg: '#fde8dd'           },
+                  { k: 'carb'      as GroupKey, label: 'Cereal',    color: '#d4a017', emoji: '🍞', bg: 'var(--honey-soft)' },
+                  { k: 'proteina'  as GroupKey, label: 'Proteína',  color: '#c13b5a', emoji: '🥩', bg: 'var(--berry-soft)' },
+                  { k: 'grasa'     as GroupKey, label: 'Grasa',     color: '#8b6f47', emoji: '🥑', bg: 'var(--paper-3)'    },
+                  { k: 'leguminosa'as GroupKey, label: 'Legum.',    color: '#3a6b8c', emoji: '🫘', bg: 'var(--sky-soft)'   },
+                ]
+                const SIZE = 190, SCALE = 10
+                const cx = SIZE / 2, cy = SIZE / 2
+                const rOut = SIZE * 0.46, rIn = SIZE * 0.16
+                const seg = 360 / PLATE.length
+                const radiusAt = (s: number) => rIn + (rOut - rIn) * (s / SCALE)
+                const wedgeBand = (rA: number, rB: number, a1: number, a2: number) => {
+                  const xA1 = cx + rA * Math.cos(a1), yA1 = cy + rA * Math.sin(a1)
+                  const xA2 = cx + rA * Math.cos(a2), yA2 = cy + rA * Math.sin(a2)
+                  const xB1 = cx + rB * Math.cos(a1), yB1 = cy + rB * Math.sin(a1)
+                  const xB2 = cx + rB * Math.cos(a2), yB2 = cy + rB * Math.sin(a2)
+                  return `M ${xA1} ${yA1} L ${xB1} ${yB1} A ${rB} ${rB} 0 0 1 ${xB2} ${yB2} L ${xA2} ${yA2} A ${rA} ${rA} 0 0 0 ${xA1} ${yA1} Z`
+                }
+                return (
+                  <div style={{ padding: '8px 18px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
+                        <circle cx={cx} cy={cy} r={rOut + 4} fill="none" stroke="#d4d4d4" strokeWidth={0.8} strokeDasharray="2 4" opacity={0.7} />
+                        {PLATE.map((w, i) => {
+                          const startA = i * seg, endA = (i + 1) * seg - 1.5
+                          const a1 = ((startA - 90) * Math.PI) / 180
+                          const a2 = ((endA   - 90) * Math.PI) / 180
+                          const xIn1  = cx + rIn  * Math.cos(a1), yIn1  = cy + rIn  * Math.sin(a1)
+                          const xIn2  = cx + rIn  * Math.cos(a2), yIn2  = cy + rIn  * Math.sin(a2)
+                          const xOut1 = cx + rOut * Math.cos(a1), yOut1 = cy + rOut * Math.sin(a1)
+                          const xOut2 = cx + rOut * Math.cos(a2), yOut2 = cy + rOut * Math.sin(a2)
+                          const tgt = Math.max(0, Math.min(SCALE, budget[w.k]))
+                          const rTgt = radiusAt(tgt)
+                          const midA = ((startA + endA) / 2 - 90) * Math.PI / 180
+                          const rMid = (rIn + rOut) / 2
+                          return [
+                            <path key={`bg-${w.k}`}
+                              d={`M ${xIn1} ${yIn1} L ${xOut1} ${yOut1} A ${rOut} ${rOut} 0 0 1 ${xOut2} ${yOut2} L ${xIn2} ${yIn2} A ${rIn} ${rIn} 0 0 0 ${xIn1} ${yIn1} Z`}
+                              fill={w.color} opacity={0.16}
+                            />,
+                            tgt > 0 && <path key={`fill-${w.k}`} d={wedgeBand(rIn, rTgt, a1, a2)} fill={w.color} opacity={1} />,
+                            <text key={`emoji-${w.k}`} x={cx + rMid * Math.cos(midA)} y={cy + rMid * Math.sin(midA)} textAnchor="middle" dominantBaseline="middle" fontSize={12} opacity={0.55}>{w.emoji}</text>,
+                          ]
+                        })}
+                        <circle cx={cx} cy={cy} r={rIn - 2} fill="#fff" stroke="#e5e5e5" strokeWidth={0.8} />
+                      </svg>
                     </div>
-                    <div
-                      className="fk-serif"
-                      style={{ fontSize: 20, fontWeight: 300, color: g.c, lineHeight: 1 }}
-                    >
-                      {budget[g.k]}
+                    {/* Badges de grupos */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+                      {PLATE.map((w) => (
+                        <div key={w.k} style={{ flex: '1 1 calc(33.333% - 4px)', display: 'flex', alignItems: 'center', background: '#fff', border: '1px solid var(--ink-7)', borderRadius: 999, paddingLeft: 5, paddingRight: 8, paddingTop: 3, paddingBottom: 3, gap: 4 }}>
+                          <span style={{ fontSize: 11 }}>{w.emoji}</span>
+                          <span style={{ fontSize: 8, fontFamily: 'var(--f-mono)', color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{w.label}</span>
+                          <span style={{ fontSize: 9, fontFamily: 'var(--f-mono)', color: budget[w.k] > 0 ? w.color : 'var(--ink-4)', fontWeight: 700, marginLeft: 'auto' }}>{budget[w.k]}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
+                )
+              })()}
               {notes && (
                 <div
                   style={{
@@ -938,59 +972,6 @@ export default function PlanEditorPage({ params }: { params: { id: string } }) {
             </div>
           </div>
 
-          <div
-            style={{
-              background: '#fff',
-              border: '1px solid var(--ink-7)',
-              borderRadius: 14,
-              padding: '16px 18px',
-            }}
-          >
-            <div className="fk-eyebrow">Antes de enviar</div>
-            <ul style={{ margin: '10px 0 0', padding: 0, listStyle: 'none' }}>
-              {[
-                {
-                  ok: total >= 18 && total <= 32,
-                  t: 'Total de equivalentes coherente con objetivo',
-                },
-                { ok: budget.proteina >= 6, t: 'Proteína suficiente para masa muscular' },
-                { ok: mealsOn >= 4, t: 'Comidas activas ≥ 4' },
-                { ok: notes.length > 0, t: 'Incluye notas para el paciente' },
-              ].map((c) => (
-                <li
-                  key={c.t}
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    fontSize: 12,
-                    marginBottom: 8,
-                    color: c.ok ? 'var(--ink-2)' : 'var(--honey)',
-                    fontFamily: 'var(--f-sans)',
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 16,
-                      height: 16,
-                      borderRadius: 999,
-                      background: c.ok ? 'var(--leaf-soft)' : 'var(--honey-soft)',
-                      color: c.ok ? 'var(--leaf)' : 'var(--honey)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      marginTop: 1,
-                      fontSize: 10,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {c.ok ? <Ic.check width={10} height={10} /> : '!'}
-                  </span>
-                  <span>{c.t}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </div>
     </div>
