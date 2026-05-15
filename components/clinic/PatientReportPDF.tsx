@@ -472,10 +472,13 @@ export async function generatePatientReport(args: {
             <View>
               <Text style={s.patientName}>{patient.name}</Text>
               <Text style={s.patientMeta}>{patient.email}</Text>
-              {patient.height_m != null && (
+              {(patient.height_m != null || patient.age != null || patient.gender) && (
                 <Text style={s.patientMeta}>
-                  {`Estatura ${(patient.height_m * 100).toFixed(0)} cm`}
-                  {patient.age != null ? `  ·  ${patient.age} años` : ''}
+                  {[
+                    patient.height_m != null ? `Estatura ${(patient.height_m * 100).toFixed(0)} cm` : null,
+                    patient.age != null ? `${patient.age} años` : null,
+                    patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : null,
+                  ].filter(Boolean).join('  ·  ')}
                 </Text>
               )}
               <Text style={s.patientMeta}>{`Objetivo declarado · ${patient.goal}`}</Text>

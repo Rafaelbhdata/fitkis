@@ -853,6 +853,13 @@ function TabAntropometria({
                         {d > 0 ? '↑' : '↓'} {Math.abs(d).toFixed(1)} kg
                       </span>
                     )}
+                    {patient.goal_weight_kg != null && (
+                      <>
+                        <span style={{ fontSize: 12, color: 'var(--ink-6)' }}>→</span>
+                        <span style={{ fontSize: 9, fontFamily: 'var(--f-mono)', color: 'var(--ink-5)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>objetivo</span>
+                        <span className="fk-serif" style={{ fontSize: 18, fontWeight: 300, color: 'var(--ink-3)', lineHeight: 1 }}>{patient.goal_weight_kg.toFixed(1)}</span>
+                      </>
+                    )}
                   </div>
                 )
               })()}
@@ -1617,19 +1624,25 @@ export default function PatientDetailPage({
                   color: 'var(--ink-4)',
                   marginTop: 6,
                   display: 'flex',
-                  gap: 14,
+                  gap: 10,
                   fontFamily: 'var(--f-mono)',
                   flexWrap: 'wrap',
+                  alignItems: 'center',
                 }}
               >
                 {patient.email && <span>{patient.email}</span>}
-                {patient.height_m && (
-                  <>
-                    <span>·</span>
-                    <span>{patient.height_m.toFixed(2)} m</span>
-                  </>
+                {patient.age != null && (
+                  <><span style={{ color: 'var(--ink-6)' }}>·</span><span>{patient.age} años</span></>
                 )}
-                <GoalBadge goalType={patient.goal_type} onEdit={() => setGoalEditorOpen(true)} />
+                {patient.height_m && (
+                  <><span style={{ color: 'var(--ink-6)' }}>·</span><span>{(patient.height_m * 100).toFixed(0)} cm</span></>
+                )}
+                {patient.gender && (
+                  <><span style={{ color: 'var(--ink-6)' }}>·</span><span style={{ textTransform: 'capitalize' }}>{patient.gender}</span></>
+                )}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <GoalBadge goalType={patient.goal_type} onEdit={() => setGoalEditorOpen(true)} editable />
               </div>
             </div>
           </div>

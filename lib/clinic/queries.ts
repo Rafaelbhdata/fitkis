@@ -319,6 +319,8 @@ export function patientRealId(p: MockPatient): string | null {
 
 type PatientProfileRow = {
   height_cm?: number
+  birth_date?: string
+  gender?: string
   goal_weight_kg?: number
   goal_bmi?: number
   goal_body_fat_pct?: number
@@ -337,6 +339,7 @@ export type PatientDetail = {
   name: string
   initial: string
   age?: number
+  gender?: string
   height_m?: number
   goal_weight_kg?: number
   goal_bmi?: number
@@ -406,7 +409,7 @@ export async function loadPatientDetail(
     await Promise.all([
       supabase
         .from('user_profiles')
-        .select('height_cm, goal_weight_kg, goal_bmi, goal_body_fat_pct, goal_muscle_kg, goal_fat_mass_kg, goal_type, goal_baseline_weight_kg, goal_baseline_body_fat_pct, goal_baseline_muscle_kg, display_name')
+        .select('height_cm, birth_date, gender, goal_weight_kg, goal_bmi, goal_body_fat_pct, goal_muscle_kg, goal_fat_mass_kg, goal_type, goal_baseline_weight_kg, goal_baseline_body_fat_pct, goal_baseline_muscle_kg, display_name')
         .eq('user_id', patientId)
         .maybeSingle(),
       supabase
@@ -488,6 +491,16 @@ export async function loadPatientDetail(
     email,
     name: displayName,
     initial: pickInitial(displayName, email),
+    age: profileWithName?.birth_date
+      ? (() => {
+          const b = new Date(profileWithName.birth_date)
+          const t = new Date()
+          let a = t.getFullYear() - b.getFullYear()
+          if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) a--
+          return a
+        })()
+      : undefined,
+    gender: profileWithName?.gender ?? undefined,
     height_m: profileWithName?.height_cm != null ? Number((profileWithName.height_cm / 100).toFixed(2)) : undefined,
     goal_weight_kg:             profileWithName?.goal_weight_kg             ?? undefined,
     goal_bmi:                   profileWithName?.goal_bmi                   ?? undefined,
