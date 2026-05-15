@@ -6,11 +6,12 @@ import { MailOpen } from 'lucide-react'
 import { Ic } from './Ic'
 
 export type FilterKey = 'todos' | 'atencion' | 'pending' | 'archivo'
-export type SortKey   = 'last_seen' | 'name'
+export type SortKey   = 'last_seen' | 'name' | 'adherence'
 
 const SORT_LABELS: Record<SortKey, string> = {
-  last_seen: 'Últ. registro',
-  name:      'Nombre',
+  last_seen:  'Últ. registro',
+  name:       'Nombre',
+  adherence:  '% Adherencia',
 }
 
 type TabDef = { k: FilterKey; n: string; icon: (p?: React.SVGProps<SVGSVGElement>) => JSX.Element; iconOnly?: boolean }

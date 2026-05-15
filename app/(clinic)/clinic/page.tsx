@@ -134,6 +134,12 @@ function PatientsContent() {
     // 3. Sort
     return [...list].sort((a, b) => {
       if (sortKey === 'name') return a.name.localeCompare(b.name, 'es')
+      if (sortKey === 'adherence') {
+        // mayor adherencia primero; sin datos al final
+        const aa = a.adherence ?? -1
+        const ab = b.adherence ?? -1
+        return ab - aa
+      }
       // last_seen: menor días = más reciente = primero
       const da = a.days_since_activity ?? Infinity
       const db = b.days_since_activity ?? Infinity
