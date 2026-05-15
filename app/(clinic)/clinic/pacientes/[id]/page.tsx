@@ -328,38 +328,35 @@ function RightRail({ patient, nextAppointment }: { patient: PatientDetail; nextA
             ? `${patient.adherence_window.days} d desde última cita`
             : `${patient.adherence_window.days} días`}
         </div>
-        {patient.adherence != null ? (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span className="fk-serif" style={{ fontSize: 36, fontWeight: 300, lineHeight: 1 }}>
-                {patient.adherence}
-              </span>
-              <span style={{ fontSize: 14, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>%</span>
-            </div>
-            <div style={{ marginTop: 10, height: 6, background: 'var(--paper-3)', borderRadius: 3, overflow: 'hidden' }}>
-              <div
-                style={{
-                  height: '100%',
-                  width: `${patient.adherence}%`,
-                  background: patient.adherence >= 70 ? 'var(--leaf)' : patient.adherence >= 40 ? 'var(--honey)' : 'var(--berry)',
-                  borderRadius: 3,
-                  transition: 'width 0.4s ease',
-                }}
-              />
-            </div>
-            {patient.streak > 0 && (
-              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
-                racha · {patient.streak} día{patient.streak !== 1 ? 's' : ''} consecutivo{patient.streak !== 1 ? 's' : ''}
+        {(() => {
+          const pct = patient.adherence ?? 0
+          return (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span className="fk-serif" style={{ fontSize: 36, fontWeight: 300, lineHeight: 1 }}>
+                  {pct}
+                </span>
+                <span style={{ fontSize: 14, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>%</span>
               </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ marginTop: 14, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-sans)' }}>
-            {patient.adherence_window.since_appointment
-              ? 'Sin registros desde la última consulta.'
-              : 'Sin registros en los últimos 30 días.'}
-          </div>
-        )}
+              <div style={{ marginTop: 10, height: 6, background: 'var(--paper-3)', borderRadius: 3, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${pct}%`,
+                    background: pct >= 70 ? 'var(--leaf)' : pct >= 40 ? 'var(--honey)' : 'var(--berry)',
+                    borderRadius: 3,
+                    transition: 'width 0.4s ease',
+                  }}
+                />
+              </div>
+              {patient.streak > 0 && (
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--f-mono)' }}>
+                  racha · {patient.streak} día{patient.streak !== 1 ? 's' : ''} consecutivo{patient.streak !== 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Quick link · Biblioteca */}
