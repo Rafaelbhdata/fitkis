@@ -6,6 +6,7 @@ import {
 } from '@/lib/clinic/calendar-utils'
 import { formatDateISOInTimezone, getHourMinuteInTimezone } from '@/lib/utils'
 import { getBusyBlocks } from '@/lib/clinic/google-calendar'
+import { createCalendarEvent, deleteCalendarEvent } from '@/lib/clinic/google-calendar-write'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -126,11 +127,45 @@ export async function POST(req: Request) {
   }
 
   if (reschedule_id) {
+    // Si la cita vieja tenía evento en Google, borrarlo (fire-and-forget).
+    const { data: old } = await supabaseAdmin
+      .from('appointments')
+      .select('google_event_id, google_calendar_connection_id')
+      .eq('id', reschedule_id)
+      .maybeSingle()
+    const oldEvt = old as { google_event_id?: string; google_calendar_connection_id?: string } | null
+    if (oldEvt?.google_event_id && oldEvt.google_calendar_connection_id) {
+      deleteCalendarEvent(oldEvt.google_calendar_connection_id, oldEvt.google_event_id)
+        .catch((e) => console.error('book-appointment: delete old event', e))
+    }
+
     await supabaseAdmin
       .from('appointments')
       .update({ status: 'cancelled' } as never)
       .eq('id', reschedule_id)
   }
+
+  // Crear evento en Google Calendar de la cuenta write target. No bloquea
+  // el booking: si falla (flag off, sin write target, token revocado),
+  // logueamos y seguimos. Cuando se conecta más tarde, la cita ya no se
+  // sincroniza retroactivamente — eso es deliberado para evitar sorpresas.
+  createCalendarEvent({
+    practitionerId:  practitioner_id,
+    startISO:        starts_at,
+    durationMinutes: duration_minutes,
+    patientName:     patient_name,
+    patientEmail:    patient_email,
+    notes,
+  })
+    .then(async (evt) => {
+      if (!evt) return
+      const { error: upErr } = await supabaseAdmin
+        .from('appointments')
+        .update(evt as never)
+        .eq('id', (data as { id: string }).id)
+      if (upErr) console.error('book-appointment: persist event id', upErr)
+    })
+    .catch((e) => console.error('book-appointment: create event', e))
 
   return NextResponse.json({ appointment: data })
 }

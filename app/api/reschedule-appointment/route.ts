@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { getAuthedUser } from '@/lib/api-auth';
+import { deleteCalendarEvent } from '@/lib/clinic/google-calendar-write';
 
 const supabaseAdmin = createClient(
 	process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -102,7 +103,7 @@ export async function POST(req: Request) {
 	}
 	const { data: appt } = await supabaseAdmin
 		.from('appointments')
-		.select('id, practitioner_id, patient_email')
+		.select('id, practitioner_id, patient_email, google_event_id, google_calendar_connection_id')
 		.eq('id', appointmentId)
 		.maybeSingle();
 	if (
@@ -123,6 +124,25 @@ export async function POST(req: Request) {
 
 	if (updateError) {
 		return NextResponse.json({ error: updateError.message }, { status: 500 });
+	}
+
+	// El evento del calendario ya no corresponde — borrarlo en Google.
+	// Fire-and-forget: si falla no devolvemos error al usuario.
+	const apptCal = appt as {
+		google_event_id?: string;
+		google_calendar_connection_id?: string;
+	};
+	if (apptCal.google_event_id && apptCal.google_calendar_connection_id) {
+		deleteCalendarEvent(apptCal.google_calendar_connection_id, apptCal.google_event_id)
+			.then(async (ok) => {
+				if (ok) {
+					await supabaseAdmin
+						.from('appointments')
+						.update({ google_event_id: null, google_calendar_connection_id: null } as never)
+						.eq('id', appointmentId);
+				}
+			})
+			.catch((e) => console.error('reschedule: delete event', e));
 	}
 
 	const bookingLink = `${SITE_URL}/agendar/${practitionerId}?reschedule=${appointmentId}`;
