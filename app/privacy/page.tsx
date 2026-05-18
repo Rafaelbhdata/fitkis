@@ -10,7 +10,7 @@ export const metadata = {
   description: 'Cómo FitKis maneja tus datos.',
 }
 
-const LAST_UPDATED = '13 de mayo de 2026'
+const LAST_UPDATED = '18 de mayo de 2026'
 
 export default function PrivacyPage() {
   return (
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Disponibilidad en Google Calendar (nutriólogas):</strong> si conectas tu cuenta de Google, leemos únicamente los periodos de libre/ocupado de tu calendario para evitar conflictos al agendar citas. No leemos el título, descripción ni asistentes de ningún evento.</span>
+                <span><strong>Conexión con Google Calendar (nutriólogas):</strong> si conectas una o más cuentas de Google a tu perfil de Fitkis, guardamos (a) la dirección de correo de cada cuenta — únicamente como etiqueta para que puedas distinguir tus conexiones — y (b) tokens de acceso cifrados para consultar disponibilidad y crear eventos de citas. No leemos el título, descripción ni asistentes de eventos que tú ya tengas en tu calendario.</span>
               </li>
             </ul>
           </section>
@@ -118,38 +118,96 @@ export default function PrivacyPage() {
           <section>
             <h2 className="fk-eyebrow text-ink-4 mb-3">4 · GOOGLE CALENDAR — ACCESO Y USO</h2>
             <p className="leading-relaxed mb-4">
-              Esta sección describe en detalle el acceso que FitKis solicita a Google Calendar,
-              de acuerdo con las políticas de datos de usuario de Google API Services.
+              Esta sección describe en detalle los permisos que FitKis solicita a Google y cómo
+              usa los datos del Calendario, de acuerdo con la <strong>Política de datos de
+              usuario de Google API Services</strong>, incluidos los requisitos de uso limitado
+              para scopes restringidos.
             </p>
-            <ul className="space-y-3 list-none pl-0">
+
+            <h3 className="text-base font-medium text-ink mb-2">4.1 · Quién puede conectar</h3>
+            <p className="leading-relaxed mb-4">
+              Solo las nutriólogas que usan el portal web de Fitkis pueden conectar Google
+              Calendar. Los pacientes no tienen este acceso. Cada nutrióloga puede conectar
+              <strong> una o varias cuentas de Google</strong> (por ejemplo, una personal y una
+              de su consultorio) y elegir cuál se usa para crear eventos al agendar citas.
+            </p>
+
+            <h3 className="text-base font-medium text-ink mb-2">4.2 · Permisos solicitados (scopes) y para qué se usan</h3>
+            <ul className="space-y-3 list-none pl-0 mb-4">
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Qué accedemos:</strong> únicamente la información de libre/ocupado (<code>calendar.freebusy</code>). Esto significa que sabemos si tienes un evento en un horario, pero no su nombre, descripción, ubicación ni participantes.</span>
+                <span>
+                  <strong><code>openid</code> y <code>userinfo.email</code>:</strong> obtenemos
+                  la dirección de correo electrónico de la cuenta que la nutrióloga acaba de
+                  conectar. La usamos exclusivamente como <strong>etiqueta visible en su panel
+                  de Ajustes</strong>, para que pueda distinguir entre varias cuentas
+                  conectadas. No se utiliza para enviar correos, marketing, ni se comparte
+                  con terceros.
+                </span>
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Por qué lo usamos:</strong> para que el sistema de agendamiento de Fitkis bloquee automáticamente los horarios donde ya tienes compromisos, evitando citas dobles sin que tengas que gestionar dos calendarios.</span>
+                <span>
+                  <strong><code>calendar.freebusy</code>:</strong> consultamos los bloques de
+                  libre/ocupado del calendario primario de cada cuenta conectada para que el
+                  link público de reservas (<code>fitkis.com/agendar/[id]</code>) no le ofrezca
+                  a los pacientes horarios donde la nutrióloga ya tiene compromisos.{' '}
+                  <strong>No</strong> leemos el título, descripción, ubicación, participantes
+                  ni ningún otro contenido de los eventos existentes.
+                </span>
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Quién puede conectar su calendario:</strong> solo las nutriólogas que usan el portal web de Fitkis. Los pacientes no tienen este acceso.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="text-signal">·</span>
-                <span><strong>Almacenamiento:</strong> guardamos el token de acceso de Google de forma segura en nuestra base de datos (Supabase) para consultas futuras de disponibilidad. Nunca almacenamos el contenido de los eventos.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="text-signal">·</span>
-                <span><strong>No compartimos:</strong> los datos de disponibilidad de Google Calendar no se comparten con ningún tercero, no se usan para publicidad y no se transfieren fuera del servicio de Fitkis.</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="text-signal">·</span>
-                <span><strong>Cómo revocar el acceso:</strong> puedes desconectar tu Google Calendar en cualquier momento desde Configuración → Integraciones → Google Calendar → Desconectar. También puedes revocar el acceso directamente desde <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-signal underline">myaccount.google.com/permissions</a>.</span>
+                <span>
+                  <strong><code>calendar.events</code> (restringido):</strong> cuando un
+                  paciente confirma una cita, Fitkis crea un evento en el calendario primario
+                  de la cuenta que la nutrióloga eligió como "destino de eventos". El evento
+                  contiene el nombre del paciente, fecha/hora, duración, el correo del paciente
+                  como invitado (para que reciba la invitación estándar de Google Calendar) y
+                  las notas opcionales que dejó al reservar. También usamos este permiso para{' '}
+                  <strong>actualizar</strong> el evento si la cita se reagenda y{' '}
+                  <strong>borrarlo</strong> si se marca como cancelada o no-show. Solo
+                  manejamos eventos que Fitkis creó: nunca leemos, modificamos ni borramos
+                  eventos ajenos al portal.
+                </span>
               </li>
             </ul>
-            <p className="leading-relaxed mt-4 text-sm text-ink-4">
-              El uso de FitKis de los datos obtenidos mediante las APIs de Google se rige
-              por la{' '}
+
+            <h3 className="text-base font-medium text-ink mb-2">4.3 · Almacenamiento y seguridad</h3>
+            <p className="leading-relaxed mb-4">
+              Los tokens de OAuth (access token, refresh token) se almacenan en nuestra base
+              de datos (Supabase) protegidos por <em>row-level security</em>: solo procesos del
+              backend autorizados con la clave de servicio pueden leerlos, nunca el navegador
+              ni terceros. Guardamos también el correo de la cuenta conectada, una etiqueta
+              opcional que tú escojas, y el identificador del evento que creamos en Google al
+              agendar (para poder actualizarlo o borrarlo después). No almacenamos el contenido
+              de eventos ajenos al portal.
+            </p>
+
+            <h3 className="text-base font-medium text-ink mb-2">4.4 · No compartimos, no vendemos, no entrenamos IA</h3>
+            <p className="leading-relaxed mb-4">
+              Los datos obtenidos vía Google Calendar nunca se comparten con anunciantes ni
+              terceros, no se usan para publicidad, no se transfieren fuera del servicio de
+              Fitkis, y <strong>no se utilizan para entrenar modelos de inteligencia
+              artificial</strong> — ni propios ni de terceros.
+            </p>
+
+            <h3 className="text-base font-medium text-ink mb-2">4.5 · Cómo revocar el acceso y borrar los datos</h3>
+            <p className="leading-relaxed mb-4">
+              Puedes desconectar cualquiera de tus cuentas conectadas en cualquier momento
+              desde <strong>Ajustes → Agenda → Calendarios externos → Desconectar</strong>. Al
+              hacerlo: (1) revocamos el token con Google, (2) borramos inmediatamente los
+              tokens y metadata de esa conexión de nuestra base de datos, y (3) los eventos
+              que ya hayamos creado en tu calendario permanecen ahí, pero Fitkis deja de poder
+              modificarlos o borrarlos. También puedes revocar el acceso directamente desde{' '}
+              <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="text-signal underline">
+                myaccount.google.com/permissions
+              </a>.
+            </p>
+
+            <p className="leading-relaxed text-sm text-ink-4">
+              El uso de FitKis de los datos obtenidos mediante las APIs de Google se rige por
+              la{' '}
               <a
                 href="https://developers.google.com/terms/api-services-user-data-policy"
                 target="_blank"
@@ -158,7 +216,7 @@ export default function PrivacyPage() {
               >
                 Política de datos de usuario de Google API Services
               </a>
-              , incluidos los requisitos de uso limitado.
+              , incluidos los requisitos de uso limitado para scopes restringidos.
             </p>
           </section>
 
@@ -182,7 +240,7 @@ export default function PrivacyPage() {
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
-                <span><strong>Google (Calendar API)</strong> — consulta de disponibilidad cuando la nutrióloga conecta su cuenta de Google. Ver sección 4 para detalle completo.</span>
+                <span><strong>Google (Calendar API)</strong> — consulta de disponibilidad y creación/actualización de eventos de citas cuando la nutrióloga conecta su(s) cuenta(s) de Google. Ver sección 4 para detalle completo.</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-signal">·</span>
@@ -200,8 +258,9 @@ export default function PrivacyPage() {
             <p className="leading-relaxed">
               Mantenemos tus datos mientras tu cuenta esté activa. Si decides eliminar tu
               cuenta desde Ajustes → Borrar cuenta, todos tus datos se borran de forma
-              permanente en un máximo de 30 días. Los tokens de Google Calendar se eliminan
-              inmediatamente al desconectar la integración o al borrar la cuenta.
+              permanente en un máximo de 30 días. Los tokens de Google Calendar, el correo
+              de la cuenta conectada y el identificador de cada evento creado se eliminan
+              inmediatamente al desconectar la cuenta o al borrar la cuenta de Fitkis.
             </p>
           </section>
 
