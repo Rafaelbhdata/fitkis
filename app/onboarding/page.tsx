@@ -618,8 +618,8 @@ export default function OnboardingPage() {
                     </span>
                   </div>
                   <p style={{ margin: '0 0 12px', fontFamily: 'var(--f-sans)', fontSize: 12, color: 'var(--ink-4)', lineHeight: 1.5 }}>
-                    Bloquea automáticamente los slots que ya tienes ocupados en tu calendario personal.
-                    Solo se lee libre/ocupado — Fitkis no accede al contenido de tus eventos.
+                    Bloquea automáticamente los slots ocupados en tu calendario y crea eventos al agendar citas.
+                    Si tienes más de una cuenta (personal y trabajo), podrás conectarlas todas después en Ajustes → Agenda.
                   </p>
                   <button
                     type="button"

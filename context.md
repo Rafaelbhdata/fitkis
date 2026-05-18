@@ -261,6 +261,38 @@ Crítico porque Vercel corre en UTC: `new Date().getHours()` o `.toISOString().s
 
 ---
 
+## Multi-cuenta Google Calendar (18 may 2026)
+
+Fases 1–6 completas en código. Una nutrióloga puede conectar N cuentas Google
+(ej. personal + trabajo). Cada conexión tiene:
+- `read_enabled` — si bloquea slots con sus horarios ocupados (lectura agregada
+  en paralelo desde todas las cuentas marcadas, ver `lib/clinic/google-calendar.ts`).
+- `is_write_target` — cuál cuenta recibe el evento al agendar (único por nutrióloga
+  vía índice parcial). La primera conexión queda como write target automáticamente.
+- `degraded_at` — marca conexiones con token revocado / scope insuficiente.
+
+Endpoints:
+- `GET /api/auth/google-calendar/status` — lista de conexiones.
+- `GET /api/auth/google-calendar/connect` — inicia OAuth con `prompt=select_account consent`.
+- `PATCH /api/auth/google-calendar/connections/[id]` — label, read_enabled, is_write_target.
+- `DELETE /api/auth/google-calendar/connections/[id]` — revoca una sola cuenta.
+- `DELETE /api/auth/google-calendar/disconnect` — legacy, revoca TODAS.
+
+UI nueva en `ajustes` → tab agenda. Escritura va por `lib/clinic/google-calendar-write.ts`
+(create/update/deleteCalendarEvent), gated por `CALENDAR_WRITE_ENABLED=true`.
+`book-appointment` y `reschedule-appointment` ya hookeados (fire-and-forget,
+nunca bloquean el flujo principal).
+
+### Pendiente operativo (no-código)
+
+- Volver a someter el OAuth Consent Screen a Google con el scope nuevo
+  `calendar.events` (proceso 2–6 semanas).
+- Mantener `CALENDAR_WRITE_ENABLED=false` en producción hasta aprobación.
+- Correr `node scripts/backfill-calendar-google-email.js` una vez para poblar
+  `google_email` en conexiones legacy (si las hay).
+
+---
+
 ## Variables de entorno
 
 ```
@@ -269,6 +301,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY      # invite-professional, reschedule-appointment, seeds
 NEXT_PUBLIC_SITE_URL           # http://localhost:3000 en dev
 RESEND_API_KEY                 # opcional; sin esto los emails se omiten silenciosamente
+GOOGLE_CALENDAR_CLIENT_ID      # OAuth client (proyecto Cloud)
+GOOGLE_CALENDAR_CLIENT_SECRET
+GOOGLE_CALENDAR_REDIRECT_URI   # https://fitkis.com/api/auth/google-calendar/callback
+CALENDAR_WRITE_ENABLED         # 'true' para activar creación de eventos en Google
+                               # (requiere re-verificación de scope calendar.events)
 ```
 
 ---
