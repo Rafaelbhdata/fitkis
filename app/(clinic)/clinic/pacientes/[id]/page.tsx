@@ -10,6 +10,7 @@ import { ConsultationNotesCard } from '@/components/clinic/ConsultationNotesCard
 import { generatePatientReport } from '@/components/clinic/PatientReportPDF'
 import { InBodyModal } from '@/components/clinic/InBodyModal'
 import { GoalBadge, GoalEditorModal, type GoalType } from '@/components/clinic/GoalEditor'
+import { ModalShell, ModalClose, ModalBtn } from '@/components/clinic/ui/Modal'
 import { useSupabase, useUser } from '@/lib/hooks'
 import {
   loadPatientDetail,
@@ -33,13 +34,14 @@ import {
 import type { WeightLog } from '@/types'
 import { getTodayInTimezone, getNowPartsInTimezone, shiftDateISO, calculateBMI } from '@/lib/utils'
 
-type Tab = 'resumen' | 'alim' | 'gym' | 'msg'
+type Tab = 'resumen' | 'alim' | 'gym' | 'msg' | 'licencia'
 
 const TABS: { k: Tab; n: string }[] = [
   { k: 'resumen', n: 'Resumen' },
   { k: 'alim', n: 'Alimentación' },
   { k: 'gym', n: 'Entrenamiento' },
   { k: 'msg', n: 'Conversación' },
+  { k: 'licencia', n: 'Licencia' },
 ]
 
 
@@ -1662,9 +1664,8 @@ export default function PatientDetailPage({
                   <><span style={{ color: 'var(--ink-6)' }}>·</span><span style={{ textTransform: 'capitalize' }}>{patient.gender}</span></>
                 )}
               </div>
-              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ marginTop: 8 }}>
                 <GoalBadge goalType={patient.goal_type} onEdit={() => setGoalEditorOpen(true)} editable />
-                <TierToggle tier={patient.tier} busy={tierSaving} onChange={handleTierChange} />
               </div>
             </div>
           </div>
@@ -1814,6 +1815,13 @@ export default function PatientDetailPage({
           {tab === 'alim'   && <TabAlimentacion patient={patient} foodLogs={foodLogs} loading={foodLoading} error={foodError} />}
           {tab === 'gym'    && <TabGym sessions={gymSessions} loading={gymLoading} error={gymError} />}
           {tab === 'msg'    && <TabConversacion patient={patient} />}
+          {tab === 'licencia' && (
+            <TabLicencia
+              tier={patient.tier}
+              busy={tierSaving}
+              onChange={handleTierChange}
+            />
+          )}
         </div>
 
         <RightRail patient={patient} nextAppointment={nextAppointment} />
@@ -1843,7 +1851,27 @@ export default function PatientDetailPage({
   )
 }
 
-function TierToggle({
+// ============================================================================
+// LICENCIA — comparativa de features lite vs pro, manejada desde el portal.
+// Mantener sincronizado con `lib/api-auth.ts → requireProTier` y los gates
+// del repo móvil (`lib/hooks/useTier.ts`); si se mueve una feature de lite a
+// pro o viceversa, actualizar esta tabla.
+// ============================================================================
+type LicenseFeature = { label: string; lite: boolean; pro: boolean }
+const LICENSE_FEATURES: LicenseFeature[] = [
+  { label: 'Registro de peso y mediciones',           lite: true,  pro: true  },
+  { label: 'Plan de equivalentes y registro de comidas', lite: true,  pro: true  },
+  { label: 'Rutinas y registro de gym',               lite: true,  pro: true  },
+  { label: 'Hábitos y rachas',                        lite: true,  pro: true  },
+  { label: 'Coach AI (chat conversacional)',          lite: false, pro: true  },
+  { label: 'Análisis de plato por foto',              lite: false, pro: true  },
+  { label: 'Lectura automática de InBody',            lite: false, pro: true  },
+  { label: 'Saludo personalizado en dashboard',       lite: false, pro: true  },
+  { label: 'Estimación de código de barras por AI',   lite: false, pro: true  },
+  { label: 'Onboarding generado por AI',              lite: false, pro: true  },
+]
+
+function TabLicencia({
   tier,
   busy,
   onChange,
@@ -1852,65 +1880,236 @@ function TierToggle({
   busy: boolean
   onChange: (next: 'lite' | 'pro') => void
 }) {
-  const options: Array<{ k: 'lite' | 'pro'; label: string }> = [
-    { k: 'lite', label: 'Lite' },
-    { k: 'pro',  label: 'Pro'   },
-  ]
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [selectOpen, setSelectOpen] = useState(false)
+
+  const isPro = tier === 'pro'
+
   return (
-    <div
-      role="group"
-      aria-label="Licencia del paciente"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: 2,
-        borderRadius: 999,
-        border: '1px solid var(--ink-7)',
-        background: 'var(--paper)',
-        opacity: busy ? 0.6 : 1,
-      }}
-    >
-      <span
-        className="fk-mono"
+    <>
+      <div
         style={{
-          fontSize: 9,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: 'var(--ink-5)',
-          padding: '0 8px 0 6px',
+          border: '1px solid var(--ink-7)',
+          borderRadius: 12,
+          padding: 24,
+          background: '#fff',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 20,
         }}
       >
-        Licencia
-      </span>
-      {options.map((o) => {
-        const active = tier === o.k
-        return (
-          <button
-            key={o.k}
-            type="button"
-            disabled={busy || active}
-            onClick={() => onChange(o.k)}
+        <div className="fk-eyebrow">Licencia actual</div>
+
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}>
+          <span
+            className="fk-serif"
             style={{
-              padding: '4px 12px',
-              borderRadius: 999,
-              border: 'none',
-              background: active
-                ? (o.k === 'pro' ? 'var(--signal)' : 'var(--ink)')
-                : 'transparent',
-              color: active ? 'var(--paper)' : 'var(--ink-4)',
-              fontFamily: 'var(--f-mono)',
-              fontSize: 10,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              fontWeight: 600,
-              cursor: active || busy ? 'default' : 'pointer',
+              fontSize: 44,
+              fontWeight: 300,
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+              color: isPro ? 'var(--signal)' : 'var(--ink-3)',
+              textTransform: 'capitalize',
             }}
           >
-            {o.label}
-          </button>
-        )
-      })}
-    </div>
+            {tier}
+          </span>
+          <span className="fk-mono" style={{ fontSize: 11, color: 'var(--ink-4)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            {isPro ? 'Acceso completo' : 'Sin features AI'}
+          </span>
+        </div>
+
+        <p style={{ fontSize: 14, color: 'var(--ink-3)', lineHeight: 1.5, margin: 0, maxWidth: 560 }}>
+          {isPro
+            ? 'Este paciente tiene acceso a coach AI, análisis de plato, lectura de InBody y demás features inteligentes en su app móvil.'
+            : 'Este paciente solo tiene el registro manual y los planes. Las features AI están bloqueadas — la app móvil le muestra un chip "PRO" sobre cada una.'}
+        </p>
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Btn variant="ghost" onClick={() => setCompareOpen(true)}>
+            Ver diferencias
+          </Btn>
+          <Btn variant="signal" onClick={() => setSelectOpen(true)}>
+            Cambiar licencia
+          </Btn>
+        </div>
+      </div>
+
+      {compareOpen && <LicenseCompareModal onClose={() => setCompareOpen(false)} />}
+      {selectOpen && (
+        <LicenseSelectModal
+          currentTier={tier}
+          busy={busy}
+          onClose={() => setSelectOpen(false)}
+          onConfirm={async (next) => {
+            await onChange(next)
+            setSelectOpen(false)
+          }}
+        />
+      )}
+    </>
+  )
+}
+
+function LicenseCompareModal({ onClose }: { onClose: () => void }) {
+  return (
+    <ModalShell onClose={onClose} maxWidth={560}>
+      <div style={{ padding: '20px 24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div className="fk-eyebrow" style={{ marginBottom: 6 }}>Comparativa de licencias</div>
+          <h2 className="fk-serif" style={{ fontSize: 22, fontWeight: 300, letterSpacing: '-0.01em', margin: 0 }}>
+            Lite vs <span style={{ fontStyle: 'italic', color: 'var(--signal)' }}>Pro</span>
+          </h2>
+        </div>
+        <ModalClose onClick={onClose} />
+      </div>
+
+      <div style={{ padding: '16px 24px 4px' }}>
+        <p style={{ fontSize: 13, color: 'var(--ink-4)', lineHeight: 1.5, margin: 0 }}>
+          Ambas licencias incluyen la app móvil completa de seguimiento. La diferencia es el acceso a las features que usan AI.
+        </p>
+      </div>
+
+      <div style={{ padding: '12px 24px 8px' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 60px 60px',
+            gap: 0,
+            fontSize: 9,
+            fontFamily: 'var(--f-mono)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'var(--ink-5)',
+            padding: '8px 0',
+            borderBottom: '1px solid var(--ink-7)',
+          }}
+        >
+          <span>Feature</span>
+          <span style={{ textAlign: 'center' }}>Lite</span>
+          <span style={{ textAlign: 'center', color: 'var(--signal)' }}>Pro</span>
+        </div>
+        {LICENSE_FEATURES.map((f) => (
+          <div
+            key={f.label}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 60px 60px',
+              gap: 0,
+              alignItems: 'center',
+              padding: '10px 0',
+              borderBottom: '1px solid var(--paper-3)',
+              fontSize: 13,
+              color: 'var(--ink-2)',
+            }}
+          >
+            <span>{f.label}</span>
+            <span style={{ textAlign: 'center', color: f.lite ? 'var(--leaf)' : 'var(--ink-6)' }}>
+              {f.lite ? '✓' : '—'}
+            </span>
+            <span style={{ textAlign: 'center', color: f.pro ? 'var(--signal)' : 'var(--ink-6)', fontWeight: f.pro ? 600 : 400 }}>
+              {f.pro ? '✓' : '—'}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ padding: 16, display: 'flex', gap: 8 }}>
+        <ModalBtn variant="secondary" onClick={onClose}>Cerrar</ModalBtn>
+      </div>
+    </ModalShell>
+  )
+}
+
+function LicenseSelectModal({
+  currentTier,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  currentTier: 'lite' | 'pro'
+  busy: boolean
+  onClose: () => void
+  onConfirm: (next: 'lite' | 'pro') => Promise<void> | void
+}) {
+  const [selected, setSelected] = useState<'lite' | 'pro'>(currentTier)
+  const dirty = selected !== currentTier
+
+  const options: Array<{ k: 'lite' | 'pro'; title: string; subtitle: string }> = [
+    { k: 'lite', title: 'Lite', subtitle: 'Solo seguimiento manual. Sin features AI.' },
+    { k: 'pro',  title: 'Pro',  subtitle: 'Acceso completo: coach, plato, InBody y más.' },
+  ]
+
+  return (
+    <ModalShell onClose={onClose} maxWidth={440}>
+      <div style={{ padding: '20px 24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div className="fk-eyebrow" style={{ marginBottom: 6 }}>Cambiar licencia</div>
+          <h2 className="fk-serif" style={{ fontSize: 22, fontWeight: 300, letterSpacing: '-0.01em', margin: 0 }}>
+            Selecciona el plan
+          </h2>
+        </div>
+        <ModalClose onClick={onClose} />
+      </div>
+
+      <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {options.map((o) => {
+          const active = selected === o.k
+          const isPro = o.k === 'pro'
+          return (
+            <button
+              key={o.k}
+              type="button"
+              onClick={() => setSelected(o.k)}
+              disabled={busy}
+              style={{
+                textAlign: 'left',
+                padding: 14,
+                borderRadius: 10,
+                border: active
+                  ? `2px solid ${isPro ? 'var(--signal)' : 'var(--ink)'}`
+                  : '1px solid var(--ink-7)',
+                background: active
+                  ? (isPro ? 'var(--signal-soft)' : 'var(--paper-3)')
+                  : '#fff',
+                cursor: busy ? 'default' : 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span
+                  className="fk-serif"
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 400,
+                    color: isPro ? 'var(--signal)' : 'var(--ink)',
+                  }}
+                >
+                  {o.title}
+                </span>
+                {currentTier === o.k && (
+                  <span className="fk-mono" style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-5)' }}>
+                    actual
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--ink-4)', lineHeight: 1.4 }}>
+                {o.subtitle}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ padding: 16, display: 'flex', gap: 8, borderTop: '1px solid var(--paper-3)' }}>
+        <ModalBtn variant="secondary" onClick={onClose} disabled={busy}>Cancelar</ModalBtn>
+        <ModalBtn variant="signal" onClick={() => onConfirm(selected)} disabled={busy || !dirty}>
+          {busy ? 'Guardando…' : 'Confirmar cambio'}
+        </ModalBtn>
+      </div>
+    </ModalShell>
   )
 }
 
