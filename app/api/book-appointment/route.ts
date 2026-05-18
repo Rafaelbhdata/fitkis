@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { Resend } from 'resend'
 import {
   DEFAULT_WEEK_SCHEDULE, dateToDayKey, minToTime, generateSlots, intervalsOverlap,
   type WeekSchedule,
@@ -7,11 +8,34 @@ import {
 import { formatDateISOInTimezone, getHourMinuteInTimezone } from '@/lib/utils'
 import { getBusyBlocks } from '@/lib/clinic/google-calendar'
 import { createCalendarEvent, deleteCalendarEvent } from '@/lib/clinic/google-calendar-write'
+import { emailShell } from '@/lib/email-templates'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+
+const MONTHS_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+]
+const APP_TZ = 'America/Mexico_City'
+
+function formatDateForEmail(iso: string): string {
+  const d = new Date(iso)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TZ,
+    month: '2-digit', day: '2-digit',
+    hour:  '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  const day  = Number(get('day'))
+  const mon  = Number(get('month')) - 1
+  const time = `${get('hour')}:${get('minute')}`
+  return `${day} de ${MONTHS_ES[mon]} a las ${time}`
+}
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -58,10 +82,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Fecha fuera de rango.' }, { status: 400 })
   }
 
-  // Leer practitioner: duración fija + horario
+  // Leer practitioner: duración fija + horario + nombre para email
   const { data: prac } = await supabaseAdmin
     .from('practitioners')
-    .select('id, default_duration, schedule')
+    .select('id, default_duration, schedule, display_name, clinic_name')
     .eq('id', practitioner_id)
     .eq('active', true)
     .maybeSingle()
@@ -167,5 +191,94 @@ export async function POST(req: Request) {
     })
     .catch((e) => console.error('book-appointment: create event', e))
 
+  // Email de confirmación con marca Fitkis (desde info@fitkis.com).
+  // Sin esto, el paciente no recibiría nada — Google no manda invitación
+  // automática porque pasamos sendUpdates=none al crear el evento.
+  if (resend) {
+    const pracName   = (prac as { display_name?: string }).display_name ?? 'tu nutrióloga'
+    const pracClinic = (prac as { clinic_name?: string }).clinic_name ?? null
+    const firstName  = patient_name.split(' ')[0]
+    const dateLabel  = formatDateForEmail(starts_at)
+
+    resend.emails.send({
+      from:    'Fitkis <info@fitkis.com>',
+      to:      patient_email,
+      subject: `Cita confirmada con ${pracName} · ${dateLabel}`,
+      html:    bookingConfirmationHtml({ firstName, pracName, pracClinic, dateLabel, durationMin: duration_minutes, notes }),
+    }).catch((e) => console.error('book-appointment: send confirmation email', e))
+  }
+
   return NextResponse.json({ appointment: data })
+}
+
+function bookingConfirmationHtml({
+  firstName, pracName, pracClinic, dateLabel, durationMin, notes,
+}: {
+  firstName:   string
+  pracName:    string
+  pracClinic:  string | null
+  dateLabel:   string
+  durationMin: number
+  notes?:      string
+}): string {
+  const fromLine = pracClinic ? `${pracName} · ${pracClinic}` : pracName
+
+  const inner = `
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="padding:40px 40px 36px;">
+
+        <p style="margin:0 0 10px;font-family:Arial,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#ff5a1f;">
+          Cita confirmada · Fitkis
+        </p>
+
+        <h1 style="margin:0 0 20px;font-family:Georgia,'Times New Roman',serif;font-size:34px;font-weight:300;line-height:1.1;letter-spacing:-0.02em;color:#0a0a0a;">
+          Hola, <em>${firstName}</em>.<br/>
+          Tu cita está lista.
+        </h1>
+
+        <p style="margin:0 0 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#404040;">
+          Confirmamos tu consulta con <strong>${fromLine}</strong>.
+        </p>
+
+        <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;border:1px solid #e5e3db;border-radius:12px;background:#fafaf7;">
+          <tr>
+            <td style="padding:18px 22px;">
+              <p style="margin:0 0 4px;font-family:Arial,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#a3a3a3;">
+                Fecha
+              </p>
+              <p style="margin:0 0 14px;font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#0a0a0a;">
+                ${dateLabel} hrs
+              </p>
+              <p style="margin:0 0 4px;font-family:Arial,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#a3a3a3;">
+                Duración
+              </p>
+              <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#0a0a0a;">
+                ${durationMin} minutos
+              </p>
+              ${notes ? `
+              <p style="margin:14px 0 4px;font-family:Arial,monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#a3a3a3;">
+                Tus notas
+              </p>
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#404040;line-height:1.5;">
+                ${notes.replace(/</g, '&lt;')}
+              </p>` : ''}
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;color:#737373;">
+          Si necesitas cambiar o cancelar, escribe directamente a tu nutrióloga.
+        </p>
+
+      </td>
+    </tr>
+  </table>`
+
+  return emailShell({
+    previewText: `Cita confirmada con ${pracName} · ${dateLabel}`,
+    title:       `Cita confirmada · Fitkis`,
+    innerHtml:   inner,
+    footerNote:  `Enviado por <strong>Fitkis</strong> en nombre de ${fromLine}.<br/>Hora local: México (CDMX).`,
+  })
 }

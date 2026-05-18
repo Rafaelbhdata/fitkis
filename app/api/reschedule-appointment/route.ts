@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { getAuthedUser } from '@/lib/api-auth';
+import { downloadAppCtaHtml } from '@/lib/email-templates';
 
 const supabaseAdmin = createClient(
 	process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -249,6 +250,8 @@ function rescheduleEmailHtml({
                   </td>
                 </tr>
               </table>
+
+              ${downloadAppCtaHtml()}
 
             </td>
           </tr>

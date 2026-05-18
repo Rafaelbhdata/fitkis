@@ -16,6 +16,7 @@ import { Resend } from 'resend'
 import { NextResponse } from 'next/server'
 import { getAuthedUser } from '@/lib/api-auth'
 import { sendPushToUser } from '@/lib/push'
+import { downloadAppCtaHtml } from '@/lib/email-templates'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -282,6 +283,8 @@ function inviteEmailHtml({
                   </td>
                 </tr>
               </table>
+
+              ${downloadAppCtaHtml()}
 
             </td>
           </tr>

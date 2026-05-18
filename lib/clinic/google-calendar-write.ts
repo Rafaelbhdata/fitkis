@@ -120,10 +120,12 @@ export async function createCalendarEvent(
     ? `Consulta con ${input.patientName}`
     : `Consulta · ${input.patientName}`
 
-  // sendUpdates=all: Google manda la invitación estándar al attendee
-  // (el paciente). Sin esto el evento se crea con el attendee listado
-  // pero no llega correo de invitación.
-  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events?sendUpdates=all`
+  // sendUpdates=none: Google NO envía su invitación genérica. El correo
+  // de confirmación con marca Fitkis lo manda book-appointment vía Resend
+  // (desde info@fitkis.com). El attendee queda listado en el evento para
+  // que la cita aparezca en el calendar del paciente si conecta esa
+  // cuenta, pero no le llega correo automático de Google.
+  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events?sendUpdates=none`
   const res = await fetch(url, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -188,7 +190,7 @@ export async function updateCalendarEvent(input: UpdateEventInput): Promise<bool
 
   if (Object.keys(body).length === 0) return true
 
-  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events/${encodeURIComponent(input.eventId)}?sendUpdates=all`
+  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events/${encodeURIComponent(input.eventId)}?sendUpdates=none`
   const res = await fetch(url, {
     method:  'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -209,7 +211,7 @@ export async function deleteCalendarEvent(connectionId: string, eventId: string)
   const token = await ensureFreshToken(conn)
   if (!token) return false
 
-  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`
+  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events/${encodeURIComponent(eventId)}?sendUpdates=none`
   const res = await fetch(url, {
     method:  'DELETE',
     headers: { Authorization: `Bearer ${token}` },
