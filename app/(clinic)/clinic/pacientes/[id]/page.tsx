@@ -1852,23 +1852,25 @@ export default function PatientDetailPage({
 }
 
 // ============================================================================
-// LICENCIA — comparativa de features lite vs pro, manejada desde el portal.
-// Mantener sincronizado con `lib/api-auth.ts → requireProTier` y los gates
-// del repo móvil (`lib/hooks/useTier.ts`); si se mueve una feature de lite a
-// pro o viceversa, actualizar esta tabla.
+// LICENCIA — comparativa lite vs pro. Fuente de verdad: el ProUpgradeSheet
+// del repo móvil (`components/ui/ProUpgradeSheet.tsx`), que es lo que ve el
+// paciente al tocar una feature bloqueada. Gates: web `lib/api-auth.ts →
+// requireProTier` + mobile `lib/hooks/useTier.ts`. Si cambias un gate,
+// actualiza esta tabla y el ProUpgradeSheet en paralelo.
 // ============================================================================
 type LicenseFeature = { label: string; lite: boolean; pro: boolean }
 const LICENSE_FEATURES: LicenseFeature[] = [
-  { label: 'Registro de peso y mediciones',           lite: true,  pro: true  },
-  { label: 'Plan de equivalentes y registro de comidas', lite: true,  pro: true  },
-  { label: 'Rutinas y registro de gym',               lite: true,  pro: true  },
-  { label: 'Hábitos y rachas',                        lite: true,  pro: true  },
-  { label: 'Coach AI (chat conversacional)',          lite: false, pro: true  },
-  { label: 'Análisis de plato por foto',              lite: false, pro: true  },
-  { label: 'Lectura automática de InBody',            lite: false, pro: true  },
-  { label: 'Saludo personalizado en dashboard',       lite: false, pro: true  },
-  { label: 'Estimación de código de barras por AI',   lite: false, pro: true  },
-  { label: 'Onboarding generado por AI',              lite: false, pro: true  },
+  { label: 'Registro manual de peso y mediciones',       lite: true,  pro: true  },
+  { label: 'Plan SMAE y registro de equivalentes',       lite: true,  pro: true  },
+  { label: 'Rutinas de gym y registro de sesiones',      lite: true,  pro: true  },
+  { label: 'Hábitos y rachas',                           lite: true,  pro: true  },
+  { label: 'Agenda y citas con la nutrióloga',           lite: true,  pro: true  },
+  { label: 'Coach AI 24/7 — chat con tu historial',      lite: false, pro: true  },
+  { label: 'Foto del plato → equivalentes automáticos',  lite: false, pro: true  },
+  { label: 'Análisis de InBody por foto',                lite: false, pro: true  },
+  { label: 'Saludo personalizado en el dashboard',       lite: false, pro: true  },
+  { label: 'Rutina de gym creada por AI (onboarding)',   lite: false, pro: true  },
+  { label: 'Código de barras con AI (cuando no está en la base)', lite: false, pro: true  },
 ]
 
 function TabLicencia({
