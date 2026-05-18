@@ -66,7 +66,7 @@ function TodayApptCard({ appt }: { appt: Appointment }) {
         borderRadius: 7,
         borderLeft: `3px solid ${borderColor}`,
         padding: '7px 9px',
-        background: hover ? 'var(--paper-2)' : 'var(--paper-3)',
+        background: hover ? 'var(--paper-3)' : 'var(--paper-2)',
         transition: 'background 0.12s',
         opacity: dimmed ? 0.6 : 1,
         cursor: 'pointer',
@@ -149,7 +149,8 @@ function TodayApptCard({ appt }: { appt: Appointment }) {
 }
 
 function TodayApptsSection({ appts }: { appts: Appointment[] | null }) {
-  const count = appts?.length ?? null
+  const upcoming = appts?.filter(a => new Date(a.starts_at).getTime() >= Date.now()) ?? null
+  const count = upcoming?.length ?? null
 
   return (
     <>
@@ -164,7 +165,7 @@ function TodayApptsSection({ appts }: { appts: Appointment[] | null }) {
           justifyContent: 'space-between',
         }}
       >
-        <span>Consultas hoy</span>
+        <span>Próximas consultas hoy</span>
         {count !== null && count > 0 && (
           <span
             style={{
@@ -199,7 +200,7 @@ function TodayApptsSection({ appts }: { appts: Appointment[] | null }) {
           minHeight: 0,
         }}
       >
-        {appts === null ? (
+        {upcoming === null ? (
           /* Skeleton mientras carga */
           [0.55, 0.40, 0.65].map((w, i) => (
             <div
@@ -230,7 +231,7 @@ function TodayApptsSection({ appts }: { appts: Appointment[] | null }) {
               />
             </div>
           ))
-        ) : appts.length === 0 ? (
+        ) : upcoming.length === 0 ? (
           /* Estado vacío */
           <div
             style={{
@@ -270,7 +271,7 @@ function TodayApptsSection({ appts }: { appts: Appointment[] | null }) {
           </div>
         ) : (
           <>
-            {appts.map(appt => <TodayApptCard key={appt.id} appt={appt} />)}
+            {upcoming.map(appt => <TodayApptCard key={appt.id} appt={appt} />)}
             <Link
               href="/clinic/agenda"
               className="fk-mono"

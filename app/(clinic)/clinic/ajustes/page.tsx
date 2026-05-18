@@ -371,7 +371,7 @@ function Stepper({
 
 // ─── Panel: Perfil profesional ────────────────────────────────────────────────
 
-function PanelPerfil({ practitioner }: { practitioner: PractitionerRecord }) {
+function PanelPerfil({ practitioner, userEmail }: { practitioner: PractitionerRecord; userEmail: string | null }) {
   const supabase = useSupabase()
   const [name,    setName]    = useState(practitioner.display_name)
   const [cedula,  setCedula]  = useState(practitioner.license_number ?? '')
@@ -446,6 +446,163 @@ function PanelPerfil({ practitioner }: { practitioner: PractitionerRecord }) {
       <Field label="Especialidad" value={esp} onChange={setEsp} placeholder="Nutrición clínica" />
 
       <SaveStatus state={state} error={error} />
+
+      <ChangePasswordSection userEmail={userEmail} />
+    </div>
+  )
+}
+
+// ─── Cambiar contraseña ───────────────────────────────────────────────────────
+
+function ChangePasswordSection({ userEmail }: { userEmail: string | null }) {
+  const supabase = useSupabase()
+  const [current,   setCurrent]   = useState('')
+  const [next,      setNext]      = useState('')
+  const [confirm,   setConfirm]   = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [feedback,   setFeedback]   = useState<{ ok: boolean; msg: string } | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setFeedback(null)
+    if (!userEmail) {
+      setFeedback({ ok: false, msg: 'No se pudo identificar tu cuenta.' })
+      return
+    }
+    if (next.length < 8) {
+      setFeedback({ ok: false, msg: 'La nueva contraseña debe tener al menos 8 caracteres.' })
+      return
+    }
+    if (next !== confirm) {
+      setFeedback({ ok: false, msg: 'La confirmación no coincide con la nueva contraseña.' })
+      return
+    }
+    if (next === current) {
+      setFeedback({ ok: false, msg: 'La nueva contraseña debe ser distinta a la actual.' })
+      return
+    }
+
+    setSubmitting(true)
+    // Reautenticar con la contraseña actual
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: userEmail,
+      password: current,
+    })
+    if (signInError) {
+      setSubmitting(false)
+      setFeedback({ ok: false, msg: 'La contraseña actual no es correcta.' })
+      return
+    }
+    // Actualizar la contraseña
+    const { error: updateError } = await supabase.auth.updateUser({ password: next })
+    setSubmitting(false)
+    if (updateError) {
+      setFeedback({ ok: false, msg: updateError.message || 'No se pudo actualizar la contraseña.' })
+      return
+    }
+    setCurrent('')
+    setNext('')
+    setConfirm('')
+    setFeedback({ ok: true, msg: 'Contraseña actualizada correctamente.' })
+  }
+
+  return (
+    <div style={{ marginTop: 40, paddingTop: 32, borderTop: '1px solid var(--paper-3)' }}>
+      <div
+        style={{
+          fontFamily: 'var(--f-mono)',
+          fontSize: 10,
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: 'var(--signal)',
+          marginBottom: 8,
+          fontWeight: 600,
+        }}
+      >
+        Ajustes · Seguridad
+      </div>
+      <h3
+        className="fk-serif"
+        style={{
+          fontSize: 22,
+          fontWeight: 300,
+          fontStyle: 'italic',
+          letterSpacing: '-0.02em',
+          lineHeight: 1.1,
+          margin: 0,
+          color: 'var(--ink)',
+        }}
+      >
+        Cambiar contraseña
+      </h3>
+      <p style={{ marginTop: 6, marginBottom: 24, fontFamily: 'var(--f-sans)', fontSize: 13, color: 'var(--ink-4)', lineHeight: 1.5 }}>
+        Para cambiar tu contraseña, confirma la actual e ingresa una nueva de al menos 8 caracteres.
+      </p>
+
+      <form onSubmit={handleSubmit}>
+        <Field
+          label="Contraseña actual"
+          value={current}
+          onChange={setCurrent}
+          type="password"
+          placeholder="••••••••"
+        />
+        <Field
+          label="Nueva contraseña"
+          value={next}
+          onChange={setNext}
+          type="password"
+          placeholder="Mínimo 8 caracteres"
+        />
+        <Field
+          label="Confirmar nueva contraseña"
+          value={confirm}
+          onChange={setConfirm}
+          type="password"
+          placeholder="Repite la nueva contraseña"
+        />
+
+        {feedback && (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: '10px 14px',
+              borderRadius: 8,
+              background: feedback.ok ? 'rgba(74,124,58,0.08)' : 'rgba(200,30,30,0.07)',
+              border: `1px solid ${feedback.ok ? 'rgba(74,124,58,0.3)' : 'rgba(200,30,30,0.25)'}`,
+              fontFamily: 'var(--f-sans)',
+              fontSize: 13,
+              color: feedback.ok ? '#2e6e22' : '#c81e1e',
+            }}
+          >
+            {feedback.msg}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={submitting || !current || !next || !confirm}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 20px',
+            borderRadius: 999,
+            border: 'none',
+            background: 'var(--signal)',
+            color: '#fff',
+            fontFamily: 'var(--f-mono)',
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            cursor: submitting || !current || !next || !confirm ? 'not-allowed' : 'pointer',
+            opacity: submitting || !current || !next || !confirm ? 0.5 : 1,
+            transition: 'opacity 0.15s',
+          }}
+        >
+          {submitting ? 'Actualizando…' : 'Actualizar contraseña'}
+        </button>
+      </form>
     </div>
   )
 }
@@ -1106,7 +1263,7 @@ export default function AjustesPage() {
 
           {/* Panel content */}
           <div style={{ padding: '36px 40px', maxWidth: 580 }}>
-            {active === 'perfil'      && <PanelPerfil practitioner={practitioner} />}
+            {active === 'perfil'      && <PanelPerfil practitioner={practitioner} userEmail={user?.email ?? null} />}
             {active === 'consultorio' && <PanelConsultorio practitioner={practitioner} />}
             {active === 'agenda'      && <PanelAgenda practitioner={practitioner} />}
             {active === 'umbrales'    && <PanelUmbrales practitioner={practitioner} />}

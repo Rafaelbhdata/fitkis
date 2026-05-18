@@ -156,14 +156,6 @@ function PatientDotGrid({ distribution, total }: {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function apptStatusMeta(appt: Appointment): { label: string; color: string; bg: string } {
-  if (appt.status === 'cancelled')    return { label: 'Cancelada',      color: 'var(--ink-4)',  bg: 'var(--paper-3)'     }
-  if (appt.status === 'no_show')      return { label: 'No se presentó', color: 'var(--honey)',  bg: 'var(--honey-soft)'  }
-  if (appt.status === 'rescheduling') return { label: 'Reagendando',    color: 'var(--signal)', bg: 'var(--signal-soft)' }
-  if (isCompletedAppointment(appt))   return { label: 'Completada',     color: 'var(--leaf)',   bg: 'var(--leaf-soft)'   }
-  return { label: 'Programada', color: 'var(--sky)', bg: 'var(--sky-soft)' }
-}
-
 function numPct(n: number, total: number) {
   return total === 0 ? 0 : Math.round((n / total) * 100)
 }
@@ -280,41 +272,6 @@ function TodaySection({ appts }: { appts: Appointment[] }) {
           </div>
         ))}
       </div>
-
-      {/* Lista de citas */}
-      {total > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 20 }}>
-          {appts.map(appt => {
-            const meta = apptStatusMeta(appt)
-            const time = new Date(appt.starts_at).toLocaleTimeString('es-MX', {
-              hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Mexico_City',
-            })
-            return (
-              <div key={appt.id} style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '11px 14px',
-                background: 'var(--paper)', borderRadius: 8,
-                borderLeft: `3px solid ${meta.color}`,
-              }}>
-                <span className="fk-mono" style={{
-                  fontSize: 13, fontWeight: 700,
-                  color: meta.color, minWidth: 42,
-                }}>
-                  {time}
-                </span>
-                <span style={{
-                  flex: 1, fontSize: 14, fontFamily: 'var(--f-sans)',
-                  color: appt.status === 'cancelled' ? 'var(--ink-5)' : 'var(--ink)',
-                  textDecoration: appt.status === 'cancelled' ? 'line-through' : 'none',
-                }}>
-                  {appt.patient_name}
-                </span>
-                <span style={chipStyle(meta.color, meta.bg)}>{meta.label}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
 
       {total === 0 && (
         <p style={{ fontSize: 13, color: 'var(--ink-4)', fontStyle: 'italic', margin: '16px 0 0' }}>
