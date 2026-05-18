@@ -981,56 +981,84 @@ function PanelAgenda({ practitioner }: { practitioner: PractitionerRecord }) {
 
 // ─── Calendar connect card ────────────────────────────────────────────────────
 
-function CalendarConnectCard({ practitionerId }: { practitionerId: string }) {
-  const [connected,     setConnected]     = useState<boolean | null>(null)
-  const [connectedAt,   setConnectedAt]   = useState<string | null>(null)
-  const [disconnecting, setDisconnecting] = useState(false)
-  const [feedback,      setFeedback]      = useState<{ ok: boolean; msg: string } | null>(null)
+type CalendarConnection = {
+  id:               string
+  google_email:     string | null
+  display_label:    string | null
+  is_write_target:  boolean
+  read_enabled:     boolean
+  connected_at:     string
+  degraded_at:      string | null
+}
 
-  useEffect(() => {
-    fetch('/api/auth/google-calendar/status')
-      .then(r => r.json())
-      .then(d => { setConnected(d.connected); setConnectedAt(d.connected_at ?? null) })
-      .catch(() => setConnected(false))
-  }, [])
+function CalendarConnectCard({ practitionerId: _practitionerId }: { practitionerId: string }) {
+  const [connections, setConnections] = useState<CalendarConnection[] | null>(null)
+  const [busyId,      setBusyId]      = useState<string | null>(null)
+  const [feedback,    setFeedback]    = useState<{ ok: boolean; msg: string } | null>(null)
+
+  async function refresh() {
+    try {
+      const r = await fetch('/api/auth/google-calendar/status')
+      const d = await r.json()
+      setConnections(d.connections ?? [])
+    } catch {
+      setConnections([])
+    }
+  }
+
+  useEffect(() => { refresh() }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
     const sp = new URLSearchParams(window.location.search)
     if (sp.get('calendar_connected') === '1') {
-      setFeedback({ ok: true, msg: 'Google Calendar conectado correctamente.' })
+      setFeedback({ ok: true, msg: 'Cuenta conectada correctamente.' })
       window.history.replaceState({}, '', window.location.pathname + '?tab=agenda')
     } else if (sp.get('calendar_error')) {
       setFeedback({ ok: false, msg: decodeURIComponent(sp.get('calendar_error')!) })
       window.history.replaceState({}, '', window.location.pathname + '?tab=agenda')
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function handleDisconnect() {
-    if (!confirm('¿Desconectar Google Calendar? Los horarios del calendario externo dejarán de bloquearse.')) return
-    setDisconnecting(true)
-    const r = await fetch('/api/auth/google-calendar/disconnect', { method: 'DELETE' })
+  async function patchConnection(id: string, body: Partial<{ display_label: string | null; read_enabled: boolean; is_write_target: boolean }>) {
+    setBusyId(id)
+    const r = await fetch(`/api/auth/google-calendar/connections/${id}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+    })
+    if (r.ok) await refresh()
+    else      setFeedback({ ok: false, msg: 'No se pudo actualizar la conexión.' })
+    setBusyId(null)
+  }
+
+  async function disconnectOne(c: CalendarConnection) {
+    const label = c.display_label || c.google_email || 'esta cuenta'
+    if (!confirm(`¿Desconectar ${label}? Los horarios de ese calendario dejarán de bloquearse y los eventos creados allí quedarán en Google sin tracking.`)) return
+    setBusyId(c.id)
+    const r = await fetch(`/api/auth/google-calendar/connections/${c.id}`, { method: 'DELETE' })
     if (r.ok) {
-      setConnected(false)
-      setConnectedAt(null)
-      setFeedback({ ok: true, msg: 'Calendario desconectado.' })
+      await refresh()
+      setFeedback({ ok: true, msg: 'Cuenta desconectada.' })
     } else {
       setFeedback({ ok: false, msg: 'Error al desconectar. Intenta de nuevo.' })
     }
-    setDisconnecting(false)
+    setBusyId(null)
   }
 
   const cardStyle: React.CSSProperties = {
     border: '1px solid var(--ink-7)',
     borderRadius: 12,
     padding: '18px 20px',
-    marginBottom: 24,
+    marginBottom: 12,
   }
+
+  const isLoading = connections === null
+  const hasWriteTarget = !!connections?.some((c) => c.is_write_target)
 
   return (
     <div style={{ marginTop: 32, marginBottom: 28 }}>
-      <label style={agendaLabelStyle}>Calendario externo</label>
+      <label style={agendaLabelStyle}>Calendarios externos</label>
 
       {feedback && (
         <div style={{
@@ -1039,79 +1067,185 @@ function CalendarConnectCard({ practitionerId }: { practitionerId: string }) {
           borderRadius: 8,
           background: feedback.ok ? 'rgba(74,124,58,0.08)' : 'rgba(200,30,30,0.07)',
           border: `1px solid ${feedback.ok ? 'rgba(74,124,58,0.3)' : 'rgba(200,30,30,0.25)'}`,
-          fontFamily: 'var(--f-sans)',
-          fontSize: 13,
+          fontFamily: 'var(--f-sans)', fontSize: 13,
           color: feedback.ok ? '#2e6e22' : '#c81e1e',
         }}>
           {feedback.msg}
         </div>
       )}
 
-      {connected === null ? (
+      {isLoading && (
         <div style={{ ...cardStyle, color: 'var(--ink-5)', fontFamily: 'var(--f-mono)', fontSize: 12 }}>
-          Verificando conexión…
+          Verificando conexiones…
         </div>
-      ) : connected ? (
-        <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span style={{
-                width: 8, height: 8, borderRadius: 999,
-                background: '#4a7c3a', display: 'inline-block', flexShrink: 0,
-              }} />
-              <span style={{ fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>
-                Google Calendar conectado
-              </span>
+      )}
+
+      {!isLoading && connections!.length > 0 && (
+        <>
+          {connections!.map((c) => (
+            <CalendarConnectionRow
+              key={c.id}
+              conn={c}
+              busy={busyId === c.id}
+              onPatch={(body) => patchConnection(c.id, body)}
+              onDisconnect={() => disconnectOne(c)}
+            />
+          ))}
+          {!hasWriteTarget && (
+            <div style={{
+              padding: '10px 14px', borderRadius: 8, marginBottom: 12,
+              background: 'rgba(255,90,31,0.08)', border: '1px solid rgba(255,90,31,0.3)',
+              fontFamily: 'var(--f-sans)', fontSize: 12, color: 'var(--signal)',
+            }}>
+              Ninguna cuenta está marcada para crear eventos. Las citas nuevas no se escribirán en Google hasta que elijas una.
             </div>
-            {connectedAt && (
-              <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', paddingLeft: 16 }}>
-                Conectado el {new Date(connectedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </div>
-            )}
-          </div>
-          <button
-            onClick={handleDisconnect}
-            disabled={disconnecting}
-            style={{
-              padding: '7px 14px', borderRadius: 8,
-              border: '1px solid rgba(200,30,30,0.3)',
-              background: 'rgba(200,30,30,0.05)',
-              color: '#c81e1e',
-              fontFamily: 'var(--f-sans)', fontSize: 12,
-              cursor: disconnecting ? 'default' : 'pointer',
-              opacity: disconnecting ? 0.6 : 1,
-              flexShrink: 0,
-            }}
-          >
-            {disconnecting ? 'Desconectando…' : 'Desconectar'}
-          </button>
-        </div>
-      ) : (
-        <div style={{ ...cardStyle }}>
+          )}
+        </>
+      )}
+
+      {!isLoading && (
+        <div style={{ ...cardStyle, background: '#fafaf7' }}>
           <div style={{ fontFamily: 'var(--f-sans)', fontSize: 13, color: 'var(--ink-3)', marginBottom: 14, lineHeight: 1.5 }}>
-            Conecta tu Google Calendar para que los horarios ocupados en tu calendario personal bloqueen automáticamente slots en la agenda y en el link de reservas de tus pacientes.
+            {connections!.length === 0
+              ? 'Conecta tu Google Calendar para que los horarios ocupados bloqueen slots en la agenda y se creen eventos al agendar.'
+              : 'Conecta otra cuenta Google para sumar calendarios (por ejemplo personal + trabajo).'}
           </div>
           <a
             href="/api/auth/google-calendar/connect"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               padding: '9px 18px', borderRadius: 8,
-              border: '1px solid var(--ink-6)',
-              background: '#fff',
-              color: 'var(--ink)',
-              fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500,
+              border: '1px solid var(--ink-6)', background: '#fff',
+              color: 'var(--ink)', fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500,
               textDecoration: 'none',
-              transition: 'border-color 0.12s',
             }}
           >
             <GoogleIcon />
-            Conectar Google Calendar
+            {connections!.length === 0 ? 'Conectar Google Calendar' : 'Conectar otra cuenta'}
           </a>
           <div style={{ marginTop: 10, fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', lineHeight: 1.5 }}>
-            Solo se leen horarios ocupados/libres — Fitkis no accede al contenido de tus eventos.
+            Lectura: horarios ocupados/libres. Escritura: se crean eventos cuando agendas citas — solo en la cuenta marcada como destino.
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function CalendarConnectionRow({
+  conn, busy, onPatch, onDisconnect,
+}: {
+  conn:         CalendarConnection
+  busy:         boolean
+  onPatch:      (body: Partial<{ display_label: string | null; read_enabled: boolean; is_write_target: boolean }>) => void
+  onDisconnect: () => void
+}) {
+  const [editingLabel, setEditingLabel] = useState(false)
+  const [draftLabel,   setDraftLabel]   = useState(conn.display_label ?? '')
+
+  const degraded = !!conn.degraded_at
+  const cardStyle: React.CSSProperties = {
+    border: `1px solid ${degraded ? 'rgba(200,30,30,0.35)' : 'var(--ink-7)'}`,
+    borderRadius: 12,
+    padding: '16px 18px',
+    marginBottom: 10,
+    background: degraded ? 'rgba(200,30,30,0.03)' : '#fff',
+    opacity: busy ? 0.6 : 1,
+  }
+
+  function commitLabel() {
+    setEditingLabel(false)
+    const trimmed = draftLabel.trim()
+    const value = trimmed.length === 0 ? null : trimmed
+    if (value !== (conn.display_label ?? null)) {
+      onPatch({ display_label: value })
+    }
+  }
+
+  return (
+    <div style={cardStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: 999, flexShrink: 0,
+              background: degraded ? '#c81e1e' : '#4a7c3a',
+            }} />
+            {editingLabel ? (
+              <input
+                autoFocus
+                value={draftLabel}
+                onChange={(e) => setDraftLabel(e.target.value)}
+                onBlur={commitLabel}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitLabel(); if (e.key === 'Escape') { setDraftLabel(conn.display_label ?? ''); setEditingLabel(false) } }}
+                placeholder="Etiqueta (ej. Trabajo)"
+                maxLength={60}
+                style={{
+                  border: '1px solid var(--ink-6)', borderRadius: 6, padding: '2px 8px',
+                  fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500, color: 'var(--ink)',
+                  width: 220,
+                }}
+              />
+            ) : (
+              <button
+                onClick={() => { setDraftLabel(conn.display_label ?? ''); setEditingLabel(true) }}
+                style={{
+                  border: 'none', background: 'none', padding: 0, cursor: 'pointer',
+                  fontFamily: 'var(--f-sans)', fontSize: 13, fontWeight: 500, color: 'var(--ink)',
+                  textAlign: 'left',
+                }}
+                title="Click para editar etiqueta"
+              >
+                {conn.display_label || conn.google_email || 'Cuenta sin email'}
+              </button>
+            )}
+          </div>
+          {conn.display_label && (
+            <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', paddingLeft: 16 }}>
+              {conn.google_email ?? '—'}
+            </div>
+          )}
+          <div style={{ fontFamily: 'var(--f-mono)', fontSize: 10, color: 'var(--ink-5)', paddingLeft: 16, marginTop: 2 }}>
+            Conectado el {new Date(conn.connected_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {degraded && ' · Conexión degradada — reconecta'}
+          </div>
+        </div>
+        <button
+          onClick={onDisconnect}
+          disabled={busy}
+          style={{
+            padding: '6px 12px', borderRadius: 8,
+            border: '1px solid rgba(200,30,30,0.3)',
+            background: 'rgba(200,30,30,0.05)', color: '#c81e1e',
+            fontFamily: 'var(--f-sans)', fontSize: 12, cursor: busy ? 'default' : 'pointer',
+            flexShrink: 0,
+          }}
+        >
+          Desconectar
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--f-sans)', fontSize: 12, color: 'var(--ink-3)', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={conn.read_enabled}
+            disabled={busy}
+            onChange={(e) => onPatch({ read_enabled: e.target.checked })}
+          />
+          Bloquear slots con los horarios ocupados de esta cuenta
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--f-sans)', fontSize: 12, color: 'var(--ink-3)', cursor: 'pointer' }}>
+          <input
+            type="radio"
+            name="calendar-write-target"
+            checked={conn.is_write_target}
+            disabled={busy}
+            onChange={(e) => { if (e.target.checked) onPatch({ is_write_target: true }) }}
+          />
+          Crear eventos de citas en esta cuenta
+        </label>
+      </div>
     </div>
   )
 }
