@@ -295,9 +295,9 @@ function PatientsContent() {
                             textTransform: 'uppercase',
                             fontWeight: 500,
                           }}
-                          title={p.tier === 'pro' ? 'Licencia Pro' : 'Licencia Light'}
+                          title={p.tier === 'pro' ? 'Licencia Pro' : 'Licencia Lite'}
                         >
-                          {p.tier === 'pro' ? 'pro' : 'light'}
+                          {p.tier === 'pro' ? 'pro' : 'lite'}
                         </span>
                         {p.alert === 'estancamiento' && p.status !== 'pending' && (
                           <span

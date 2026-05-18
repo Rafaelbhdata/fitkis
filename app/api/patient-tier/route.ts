@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getAuthedUser } from '@/lib/api-auth'
 
-// Actualiza el tier (light|pro) de un paciente. La nutrióloga solo puede
+// Actualiza el tier (lite|pro) de un paciente. La nutrióloga solo puede
 // modificar pacientes con relación activa. Usa service role porque la
 // policy de UPDATE en user_profiles está limitada al propio usuario.
 const adminSupabase = createClient(

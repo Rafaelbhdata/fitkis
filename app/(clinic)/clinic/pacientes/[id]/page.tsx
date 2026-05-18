@@ -1855,7 +1855,7 @@ function TierToggle({
   onChange: (next: 'lite' | 'pro') => void
 }) {
   const options: Array<{ k: 'lite' | 'pro'; label: string }> = [
-    { k: 'lite', label: 'Light' },
+    { k: 'lite', label: 'Lite' },
     { k: 'pro',  label: 'Pro'   },
   ]
   return (
