@@ -180,7 +180,7 @@ is_practitioner_of_pending_or_active(patient_uuid) → BOOLEAN  (mig 014)
 
 ## Migraciones
 
-Aplicadas: **001–040** + `schedule_overrides.sql`
+Aplicadas: **001–041** + `schedule_overrides.sql`
 
 Recientes (Fase 3):
 - `033_practitioners_alert_thresholds.sql` — umbrales en BD
@@ -189,6 +189,13 @@ Recientes (Fase 3):
 - `036_patient_for_practitioner_rpc.sql` — RPC que devuelve email+nombre de un paciente
 - `037_appointment_status_simplify.sql`, `038_calendar_integration.sql`, `039_practitioner_weight_rls.sql`
 - `040_expo_push_tokens.sql` (14 may 2026) — tabla `expo_push_tokens` para push remoto desde server
+- `041_calendar_multiple_accounts.sql` (18 may 2026) — soporte para múltiples cuentas Google
+  por nutrióloga: quita UNIQUE (practitioner_id, provider), agrega `google_email`,
+  `display_label`, `is_write_target` (índice parcial único), `read_enabled`, `degraded_at`.
+  Vincula `appointments.google_event_id` + `google_calendar_connection_id` para escritura de
+  eventos. Conexiones existentes quedan marcadas como write target automáticamente.
+  Script de backfill: `scripts/backfill-calendar-google-email.js` (correr una vez para
+  poblar `google_email` vía userinfo de Google).
 
 ---
 
