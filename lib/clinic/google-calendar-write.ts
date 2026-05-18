@@ -120,7 +120,10 @@ export async function createCalendarEvent(
     ? `Consulta con ${input.patientName}`
     : `Consulta · ${input.patientName}`
 
-  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events`
+  // sendUpdates=all: Google manda la invitación estándar al attendee
+  // (el paciente). Sin esto el evento se crea con el attendee listado
+  // pero no llega correo de invitación.
+  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events?sendUpdates=all`
   const res = await fetch(url, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -185,7 +188,7 @@ export async function updateCalendarEvent(input: UpdateEventInput): Promise<bool
 
   if (Object.keys(body).length === 0) return true
 
-  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events/${encodeURIComponent(input.eventId)}`
+  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events/${encodeURIComponent(input.eventId)}?sendUpdates=all`
   const res = await fetch(url, {
     method:  'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -206,7 +209,7 @@ export async function deleteCalendarEvent(connectionId: string, eventId: string)
   const token = await ensureFreshToken(conn)
   if (!token) return false
 
-  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events/${encodeURIComponent(eventId)}`
+  const url = `${GOOGLE_EVENTS_URL}/${encodeURIComponent(conn.calendar_id)}/events/${encodeURIComponent(eventId)}?sendUpdates=all`
   const res = await fetch(url, {
     method:  'DELETE',
     headers: { Authorization: `Bearer ${token}` },
