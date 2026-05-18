@@ -99,8 +99,9 @@ export function NewAppointmentModal({ practitionerId, defaultDuration, schedule,
     if (!date) return []
     const dayKey = dateToDayKey(new Date(date + 'T00:00:00'))
     const daySchedule = schedule?.[dayKey]
+    const nowMs = Date.now()
     return generateSlots(date, duration, daySchedule)
-      .filter(s => !isSlotOccupied(s, occupied, duration))
+      .filter(s => new Date(s).getTime() > nowMs && !isSlotOccupied(s, occupied, duration))
   }, [date, duration, schedule, occupied])
 
   const patientName  = mode==='linked' ? (selected?.patient_name??'') : extName.trim()

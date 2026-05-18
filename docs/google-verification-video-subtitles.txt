@@ -1,0 +1,118 @@
+FITKIS — GOOGLE OAUTH VERIFICATION VIDEO
+Subtitles (English) — burn into video, do not use YouTube auto-CC
+Total duration target: 4:00 – 5:00
+
+================================================================
+PRE-RECORDING CHECKLIST
+================================================================
+- Set CALENDAR_WRITE_ENABLED=true in .env.local
+- Add your Google email as test user in Google Cloud Console
+- Delete old "Consulta con..." events from the test calendar
+- Sign in to FitKis as a practitioner
+- Close unrelated browser tabs
+- Recording quality: 1080p minimum
+- No background music
+- Upload to YouTube as "Unlisted" (not Private, not Public)
+
+================================================================
+SUBTITLES
+================================================================
+
+[0:00 – 0:05]
+FitKis — B2B portal for licensed nutritionists in Mexico.
+
+[0:05 – 0:10]
+Domain: fitkis.com — OAuth client owner.
+
+[0:10 – 0:20]
+A nutritionist signs in to her FitKis account.
+
+[0:20 – 0:30]
+She goes to Settings → Calendar to optionally connect Google Calendar.
+
+[0:30 – 0:40]
+Connecting is optional and entirely user-initiated.
+
+[0:40 – 0:48]
+Click "Connect Google Calendar" to start the OAuth flow.
+
+[0:48 – 0:55]
+Google's standard account chooser appears.
+
+[0:55 – 1:05]
+She picks the Google account she wants to connect.
+
+[1:05 – 1:25]
+Google shows its standard consent screen with the three scopes FitKis requests.
+(Pause 3 full seconds here so reviewers can read each scope clearly.)
+
+[1:25 – 1:35]
+Scope 1 — userinfo.email
+Used only as a label so the nutritionist can identify which Google account she connected.
+
+[1:35 – 1:45]
+Scope 2 — calendar.freebusy
+Read free/busy blocks to avoid offering already-busy slots on the public booking page.
+
+[1:45 – 1:58]
+Scope 3 — calendar.events
+Create, update, and delete ONLY the events FitKis itself creates when patients book appointments.
+We never touch other events.
+
+[1:58 – 2:05]
+She accepts the consent and is redirected back to FitKis.
+
+[2:05 – 2:15]
+The account is now connected and labeled with its Google email.
+
+[2:15 – 2:25]
+She can choose whether to block busy slots and which account receives new events.
+
+[2:25 – 2:35]
+Now a patient opens the public booking link.
+
+[2:35 – 2:48]
+Slots already busy in her Google Calendar are automatically blocked
+(calendar.freebusy in action).
+
+[2:48 – 3:00]
+The patient picks an available slot and confirms the booking.
+
+[3:00 – 3:10]
+The booking is confirmed in FitKis.
+
+[3:10 – 3:25]
+calendar.events write in action: FitKis created the event in her Google Calendar.
+
+[3:25 – 3:35]
+The event contains only the booking data:
+title, date/time, patient as attendee, optional notes.
+
+[3:35 – 3:45]
+The nutritionist reschedules the appointment from her dashboard.
+
+[3:45 – 3:55]
+FitKis deletes the now-obsolete event from her calendar
+(calendar.events delete).
+
+[3:55 – 4:10]
+At any time she can disconnect a connected account.
+
+[4:10 – 4:20]
+FitKis revokes the token with Google and deletes it from our database immediately.
+
+[4:20 – 4:30]
+The account is fully disconnected. No further access.
+
+[4:30 – 4:45]
+She can also verify revocation directly in her Google Account permissions page
+(myaccount.google.com/permissions).
+
+[4:45 – 5:00]
+Privacy policy at fitkis.com/privacy
+Limited Use Policy compliant
+Thank you for reviewing.
+
+================================================================
+END
+================================================================

@@ -153,7 +153,18 @@ export default function AgendaPage() {
   useEffect(() => { fetchAppts() }, [fetchAppts])
 
   async function handleStatusChange(id: string, status: AppointmentStatus) {
-    await updateAppointmentStatus(supabase, id, status)
+    // 'cancelled' va por el endpoint para que también borre el evento en
+    // Google Calendar. El resto de transiciones (no_show, completed, etc.)
+    // siguen siendo solo BD.
+    if (status === 'cancelled') {
+      await fetch('/api/cancel-appointment', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ appointmentId: id }),
+      })
+    } else {
+      await updateAppointmentStatus(supabase, id, status)
+    }
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a))
   }
 

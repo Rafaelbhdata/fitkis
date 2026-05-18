@@ -318,7 +318,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {slots.filter(s => !isSlotOccupied(s, occupied, duration)).map(s => {
+                  {slots.filter(s => new Date(s).getTime() > Date.now() && !isSlotOccupied(s, occupied, duration)).map(s => {
                     const isSel = s === slot
                     return (
                       <button key={s} type="button"
