@@ -2,7 +2,8 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+const GOOGLE_TOKEN_URL    = 'https://oauth2.googleapis.com/token'
+const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
 export async function GET(req: NextRequest) {
@@ -48,6 +49,15 @@ export async function GET(req: NextRequest) {
   const tokens = await tokenRes.json()
   if (!tokens.refresh_token) return redirectFail('Google no devolvió refresh_token — intenta desconectar y reconectar')
 
+  // Identificar la cuenta conectada (sin esto no podemos distinguir N cuentas).
+  const userinfoRes = await fetch(GOOGLE_USERINFO_URL, {
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
+  })
+  if (!userinfoRes.ok) return redirectFail('No se pudo identificar la cuenta de Google')
+  const userinfo = await userinfoRes.json()
+  const googleEmail: string | undefined = userinfo.email
+  if (!googleEmail) return redirectFail('Google no devolvió el email de la cuenta')
+
   const expiry = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
   const supabase = createClient(
@@ -56,19 +66,57 @@ export async function GET(req: NextRequest) {
     { auth: { persistSession: false } }
   )
 
-  const { error } = await supabase
+  // ¿Es la primera conexión de esta nutrióloga? Si sí, marcar como write target.
+  const { data: existingForPrac } = await supabase
     .from('practitioner_calendar_connections')
-    .upsert({
-      practitioner_id: practitionerId,
-      provider:        'google',
-      access_token:    tokens.access_token,
-      refresh_token:   tokens.refresh_token,
-      token_expiry:    expiry,
-      calendar_id:     'primary',
-      connected_at:    new Date().toISOString(),
-    }, { onConflict: 'practitioner_id,provider' })
+    .select('id, is_write_target')
+    .eq('practitioner_id', practitionerId)
 
-  if (error) return redirectFail('Error al guardar la conexión')
+  const shouldBeWriteTarget =
+    !existingForPrac?.length ||
+    !existingForPrac.some((c) => (c as { is_write_target: boolean }).is_write_target)
+
+  // ¿Ya existe esta cuenta exacta? Si sí, refrescamos sus tokens (preservamos flags).
+  // Si no, insertamos nueva fila.
+  const { data: existingSameAccount } = await supabase
+    .from('practitioner_calendar_connections')
+    .select('id')
+    .eq('practitioner_id', practitionerId)
+    .eq('provider', 'google')
+    .eq('google_email', googleEmail)
+    .maybeSingle()
+
+  if (existingSameAccount) {
+    const { error } = await supabase
+      .from('practitioner_calendar_connections')
+      .update({
+        access_token:  tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        token_expiry:  expiry,
+        connected_at:  new Date().toISOString(),
+        degraded_at:   null,
+      })
+      .eq('id', (existingSameAccount as { id: string }).id)
+
+    if (error) return redirectFail('Error al actualizar la conexión')
+  } else {
+    const { error } = await supabase
+      .from('practitioner_calendar_connections')
+      .insert({
+        practitioner_id: practitionerId,
+        provider:        'google',
+        google_email:    googleEmail,
+        access_token:    tokens.access_token,
+        refresh_token:   tokens.refresh_token,
+        token_expiry:    expiry,
+        calendar_id:     'primary',
+        connected_at:    new Date().toISOString(),
+        is_write_target: shouldBeWriteTarget,
+        read_enabled:    true,
+      })
+
+    if (error) return redirectFail('Error al guardar la conexión')
+  }
 
   const res = NextResponse.redirect(`${SITE_URL}/clinic/ajustes?tab=agenda&calendar_connected=1`)
   res.cookies.delete('gc_oauth_state')

@@ -161,16 +161,20 @@ export async function getBusyBlocksRange(
 export async function revokeCalendarConnection(practitionerId: string): Promise<void> {
   const supabase = serviceClient()
 
-  const { data: conn } = await supabase
+  // Multi-cuenta: una nutrióloga puede tener N conexiones. Esta función las
+  // borra TODAS (endpoint legacy de "desconectar"). Para borrar una sola usar
+  // DELETE /api/auth/google-calendar/connections/:id.
+  const { data: conns } = await supabase
     .from('practitioner_calendar_connections')
-    .select('access_token, refresh_token')
+    .select('refresh_token')
     .eq('practitioner_id', practitionerId)
     .eq('provider', 'google')
-    .maybeSingle()
 
-  if (conn) {
-    // Intentar revocar en Google — si falla, igual eliminamos de BD
-    await fetch(`${GOOGLE_REVOKE_URL}?token=${conn.refresh_token}`, { method: 'POST' }).catch(() => {})
+  for (const c of conns ?? []) {
+    const token = (c as { refresh_token?: string }).refresh_token
+    if (token) {
+      await fetch(`${GOOGLE_REVOKE_URL}?token=${token}`, { method: 'POST' }).catch(() => {})
+    }
   }
 
   await supabase

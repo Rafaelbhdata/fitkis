@@ -12,7 +12,7 @@ export async function GET() {
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   )
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ connected: false })
+  if (!user) return NextResponse.json({ connected: false, connections: [] })
 
   const serviceSupabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,14 +25,22 @@ export async function GET() {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!prac) return NextResponse.json({ connected: false })
+  if (!prac) return NextResponse.json({ connected: false, connections: [] })
 
-  const { data: conn } = await serviceSupabase
+  const { data: conns } = await serviceSupabase
     .from('practitioner_calendar_connections')
-    .select('connected_at')
+    .select('id, google_email, display_label, is_write_target, read_enabled, connected_at, degraded_at')
     .eq('practitioner_id', prac.id)
     .eq('provider', 'google')
-    .maybeSingle()
+    .order('connected_at', { ascending: true })
 
-  return NextResponse.json({ connected: !!conn, connected_at: conn?.connected_at ?? null })
+  const list = conns ?? []
+
+  // Mantiene compatibilidad con consumidores viejos (UI antes de Fase 5).
+  const first = list[0] as { connected_at?: string } | undefined
+  return NextResponse.json({
+    connected:    list.length > 0,
+    connected_at: first?.connected_at ?? null,
+    connections:  list,
+  })
 }
