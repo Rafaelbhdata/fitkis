@@ -20,6 +20,7 @@ import {
   loadConsultationNotes,
   loadAppointmentNotesForPatient,
   updatePatientGoals,
+  updatePatientTier,
   resendInvitation,
   removePatientRelation,
   daysBetween,
@@ -1419,6 +1420,7 @@ export default function PatientDetailPage({
 
   const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null)
   const [goalEditorOpen, setGoalEditorOpen] = useState(false)
+  const [tierSaving, setTierSaving] = useState(false)
 
   useEffect(() => {
     if (userLoading) return
@@ -1647,8 +1649,24 @@ export default function PatientDetailPage({
                   <><span style={{ color: 'var(--ink-6)' }}>·</span><span style={{ textTransform: 'capitalize' }}>{patient.gender}</span></>
                 )}
               </div>
-              <div style={{ marginTop: 8 }}>
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <GoalBadge goalType={patient.goal_type} onEdit={() => setGoalEditorOpen(true)} editable />
+                <TierToggle
+                  tier={patient.tier}
+                  busy={tierSaving}
+                  onChange={async (next) => {
+                    if (next === patient.tier) return
+                    setTierSaving(true)
+                    const prev = patient.tier
+                    setPatient((p) => p ? { ...p, tier: next } : p)
+                    const res = await updatePatientTier(supabase, patient.patient_id, next)
+                    if (!res.ok) {
+                      setPatient((p) => p ? { ...p, tier: prev } : p)
+                      alert('No se pudo actualizar la licencia: ' + res.error)
+                    }
+                    setTierSaving(false)
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -1823,6 +1841,77 @@ export default function PatientDetailPage({
           fat_mass_kg:  latestMeasurement?.body_fat_mass_kg    ?? undefined,
         }}
       />
+    </div>
+  )
+}
+
+function TierToggle({
+  tier,
+  busy,
+  onChange,
+}: {
+  tier: 'lite' | 'pro'
+  busy: boolean
+  onChange: (next: 'lite' | 'pro') => void
+}) {
+  const options: Array<{ k: 'lite' | 'pro'; label: string }> = [
+    { k: 'lite', label: 'Light' },
+    { k: 'pro',  label: 'Pro'   },
+  ]
+  return (
+    <div
+      role="group"
+      aria-label="Licencia del paciente"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: 2,
+        borderRadius: 999,
+        border: '1px solid var(--ink-7)',
+        background: 'var(--paper)',
+        opacity: busy ? 0.6 : 1,
+      }}
+    >
+      <span
+        className="fk-mono"
+        style={{
+          fontSize: 9,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--ink-5)',
+          padding: '0 8px 0 6px',
+        }}
+      >
+        Licencia
+      </span>
+      {options.map((o) => {
+        const active = tier === o.k
+        return (
+          <button
+            key={o.k}
+            type="button"
+            disabled={busy || active}
+            onClick={() => onChange(o.k)}
+            style={{
+              padding: '4px 12px',
+              borderRadius: 999,
+              border: 'none',
+              background: active
+                ? (o.k === 'pro' ? 'var(--signal)' : 'var(--ink)')
+                : 'transparent',
+              color: active ? 'var(--paper)' : 'var(--ink-4)',
+              fontFamily: 'var(--f-mono)',
+              fontSize: 10,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              fontWeight: 600,
+              cursor: active || busy ? 'default' : 'pointer',
+            }}
+          >
+            {o.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

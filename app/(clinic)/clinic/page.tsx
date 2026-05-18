@@ -281,6 +281,24 @@ function PatientsContent() {
                         >
                           {p.name}
                         </span>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            fontSize: 10,
+                            padding: '2px 7px',
+                            borderRadius: 999,
+                            background: p.tier === 'pro' ? 'var(--signal-soft)' : 'var(--paper-3)',
+                            color: p.tier === 'pro' ? 'var(--signal)' : 'var(--ink-4)',
+                            fontFamily: 'var(--f-mono)',
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            fontWeight: 500,
+                          }}
+                          title={p.tier === 'pro' ? 'Licencia Pro' : 'Licencia Light'}
+                        >
+                          {p.tier === 'pro' ? 'pro' : 'light'}
+                        </span>
                         {p.alert === 'estancamiento' && p.status !== 'pending' && (
                           <span
                             style={{

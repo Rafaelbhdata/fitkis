@@ -220,7 +220,7 @@ async function enrichPatient(
   const [{ data: profile }, { data: weights }, { data: diet }] = await Promise.all([
     supabase
       .from('user_profiles')
-      .select('height_cm, goal_weight_kg, goal_type')
+      .select('height_cm, goal_weight_kg, goal_type, gender, tier')
       .eq('user_id', rel.patient_id)
       .maybeSingle(),
     supabase
@@ -303,6 +303,7 @@ async function enrichPatient(
     adherence,
     streak,
     days_since_activity: daysSinceActivity,
+    tier: (profile as { tier?: 'lite' | 'pro' } | null)?.tier === 'pro' ? 'pro' : 'lite',
     _patient_id: rel.patient_id,
   }
 }
@@ -334,6 +335,7 @@ type PatientProfileRow = {
   goal_baseline_body_fat_pct?: number
   goal_baseline_muscle_kg?: number
   display_name?: string
+  tier?: 'lite' | 'pro'
 }
 
 export type PatientDetail = {
@@ -355,6 +357,7 @@ export type PatientDetail = {
   goal_baseline_muscle_kg?: number
   goal: string
   status: PatientStatus
+  tier: 'lite' | 'pro'
   weight_history: WeightLog[] // oldest → newest
   active_diet?: ActiveDietSnapshot
   days_since_activity?: number
@@ -412,7 +415,7 @@ export async function loadPatientDetail(
     await Promise.all([
       supabase
         .from('user_profiles')
-        .select('height_cm, birth_date, gender, goal_weight_kg, goal_bmi, goal_body_fat_pct, goal_muscle_kg, goal_fat_mass_kg, goal_type, goal_baseline_weight_kg, goal_baseline_body_fat_pct, goal_baseline_muscle_kg, display_name')
+        .select('height_cm, birth_date, gender, goal_weight_kg, goal_bmi, goal_body_fat_pct, goal_muscle_kg, goal_fat_mass_kg, goal_type, goal_baseline_weight_kg, goal_baseline_body_fat_pct, goal_baseline_muscle_kg, display_name, tier')
         .eq('user_id', patientId)
         .maybeSingle(),
       supabase
@@ -518,6 +521,7 @@ export async function loadPatientDetail(
     status: relation.status === 'inactive' && relation.accepted_at === null
       ? 'declined'
       : relation.status as PatientStatus,
+    tier: profileWithName?.tier === 'pro' ? 'pro' : 'lite',
     weight_history: weightHistory,
     active_diet: diet
       ? {
@@ -574,6 +578,25 @@ export async function updatePatientGoals(
     body: JSON.stringify({ patient_id: patientId, ...goals }),
   })
   return res.ok
+}
+
+// =============================================================================
+// PATIENT TIER · UPDATE
+// =============================================================================
+
+export async function updatePatientTier(
+  _supabase: SB,
+  patientId: string,
+  tier: 'lite' | 'pro',
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch('/api/patient-tier', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ patient_id: patientId, tier }),
+  })
+  if (res.ok) return { ok: true }
+  const body = await res.json().catch(() => null)
+  return { ok: false, error: body?.error ?? 'Error al actualizar licencia.' }
 }
 
 // =============================================================================
