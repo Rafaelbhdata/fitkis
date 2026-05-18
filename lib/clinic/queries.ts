@@ -18,6 +18,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { WeightLog } from '@/types'
 import type { AlertKind, MockPatient, PatientStatus } from './mock-data'
+import type { UserTier } from '@/types'
 import type { WeekSchedule } from './calendar-utils'
 import { DEFAULT_WEEK_SCHEDULE } from './calendar-utils'
 import { getTodayInTimezone, shiftDateISO } from '@/lib/utils'
@@ -303,7 +304,7 @@ async function enrichPatient(
     adherence,
     streak,
     days_since_activity: daysSinceActivity,
-    tier: (profile as { tier?: 'lite' | 'pro' } | null)?.tier === 'pro' ? 'pro' : 'lite',
+    tier: (profile as { tier?: UserTier } | null)?.tier === 'pro' ? 'pro' : 'lite',
     _patient_id: rel.patient_id,
   }
 }
@@ -335,7 +336,7 @@ type PatientProfileRow = {
   goal_baseline_body_fat_pct?: number
   goal_baseline_muscle_kg?: number
   display_name?: string
-  tier?: 'lite' | 'pro'
+  tier?: UserTier
 }
 
 export type PatientDetail = {
@@ -357,7 +358,7 @@ export type PatientDetail = {
   goal_baseline_muscle_kg?: number
   goal: string
   status: PatientStatus
-  tier: 'lite' | 'pro'
+  tier: UserTier
   weight_history: WeightLog[] // oldest → newest
   active_diet?: ActiveDietSnapshot
   days_since_activity?: number
@@ -587,7 +588,7 @@ export async function updatePatientGoals(
 export async function updatePatientTier(
   _supabase: SB,
   patientId: string,
-  tier: 'lite' | 'pro',
+  tier: UserTier,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const res = await fetch('/api/patient-tier', {
     method: 'POST',

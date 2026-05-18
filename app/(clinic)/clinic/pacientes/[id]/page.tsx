@@ -1490,6 +1490,19 @@ export default function PatientDetailPage({
     setPatient(detail)
   }
 
+  async function handleTierChange(next: 'lite' | 'pro') {
+    if (!patient || next === patient.tier) return
+    const prev = patient.tier
+    setTierSaving(true)
+    setPatient((p) => p ? { ...p, tier: next } : p)
+    const res = await updatePatientTier(supabase, patient.patient_id, next)
+    if (!res.ok) {
+      setPatient((p) => p ? { ...p, tier: prev } : p)
+      alert('No se pudo actualizar la licencia: ' + res.error)
+    }
+    setTierSaving(false)
+  }
+
   async function handleSaveGoals(goals: {
     goal_type?: GoalType
     goal_weight_kg?: number | null
@@ -1651,22 +1664,7 @@ export default function PatientDetailPage({
               </div>
               <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <GoalBadge goalType={patient.goal_type} onEdit={() => setGoalEditorOpen(true)} editable />
-                <TierToggle
-                  tier={patient.tier}
-                  busy={tierSaving}
-                  onChange={async (next) => {
-                    if (next === patient.tier) return
-                    setTierSaving(true)
-                    const prev = patient.tier
-                    setPatient((p) => p ? { ...p, tier: next } : p)
-                    const res = await updatePatientTier(supabase, patient.patient_id, next)
-                    if (!res.ok) {
-                      setPatient((p) => p ? { ...p, tier: prev } : p)
-                      alert('No se pudo actualizar la licencia: ' + res.error)
-                    }
-                    setTierSaving(false)
-                  }}
-                />
+                <TierToggle tier={patient.tier} busy={tierSaving} onChange={handleTierChange} />
               </div>
             </div>
           </div>

@@ -41,8 +41,7 @@ export type MockPatient = {
 	adherence: number | null;
 	streak: number;
 	days_since_activity?: number;
-	/** Licencia del paciente: 'lite' = sin AI; 'pro' = features completas. Default 'lite' si la BD aún no tiene valor. */
-	tier?: 'lite' | 'pro';
+	tier?: import('@/types').UserTier;
 	/** UUID real del paciente en Supabase. Siempre presente en registros reales; undefined solo en mock puro. */
 	_patient_id?: string;
 };

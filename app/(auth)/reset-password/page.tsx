@@ -8,9 +8,8 @@ import { createClient } from '@/lib/supabase'
 import { PulseLine } from '@/components/ui/PulseLine'
 import { InlinePulse } from '@/components/ui/LoadingState'
 
-// Llega aquí después de que /auth/callback intercambia el code del email
-// por una sesión activa. Si el usuario abre la ruta sin sesión válida, lo
-// devolvemos a /forgot-password — el link probablemente expiró.
+type SessionState = 'loading' | 'ready' | 'expired'
+
 export default function ResetPasswordPage() {
 	const router = useRouter()
 	const [password, setPassword] = useState('')
@@ -18,14 +17,12 @@ export default function ResetPasswordPage() {
 	const [showPassword, setShowPassword] = useState(false)
 	const [loading, setLoading] = useState(false)
 	const [error, setError] = useState<string | null>(null)
-	const [sessionReady, setSessionReady] = useState(false)
-	const [sessionError, setSessionError] = useState(false)
+	const [sessionState, setSessionState] = useState<SessionState>('loading')
 
 	useEffect(() => {
 		const supabase = createClient()
 		supabase.auth.getSession().then(({ data }) => {
-			if (data.session) setSessionReady(true)
-			else setSessionError(true)
+			setSessionState(data.session ? 'ready' : 'expired')
 		})
 	}, [])
 
@@ -43,7 +40,7 @@ export default function ResetPasswordPage() {
 		setError(null)
 
 		const supabase = createClient()
-		const { data: { user }, error: updateError } = await supabase.auth.updateUser({ password })
+		const { error: updateError } = await supabase.auth.updateUser({ password })
 
 		if (updateError) {
 			setError(updateError.message)
@@ -51,17 +48,9 @@ export default function ResetPasswordPage() {
 			return
 		}
 
-		// Mismo branching que /login: si es nutrióloga → portal, si no → /download.
-		let destination = '/download'
-		if (user) {
-			const { data: practitioner } = await supabase
-				.from('practitioners')
-				.select('id')
-				.eq('user_id', user.id)
-				.maybeSingle()
-			if (practitioner) destination = '/clinic/reportes'
-		}
-		router.push(destination)
+		// El middleware redirige /login al destino correcto según el rol; lo
+		// reutilizamos para no duplicar la lógica de routing aquí.
+		router.push('/login')
 		router.refresh()
 	}
 
@@ -84,7 +73,7 @@ export default function ResetPasswordPage() {
 						<span className="italic text-signal">contraseña.</span>
 					</h1>
 
-					{sessionError ? (
+					{sessionState === 'expired' && (
 						<div className="space-y-4">
 							<div className="p-4 rounded-xl bg-berry-soft border border-berry/20 text-berry text-sm">
 								El enlace expiró o no es válido. Solicita uno nuevo para continuar.
@@ -96,11 +85,15 @@ export default function ResetPasswordPage() {
 								Pedir un nuevo enlace →
 							</Link>
 						</div>
-					) : !sessionReady ? (
+					)}
+
+					{sessionState === 'loading' && (
 						<div className="flex items-center gap-2 text-ink-4 text-sm">
 							<InlinePulse /> Verificando enlace...
 						</div>
-					) : (
+					)}
+
+					{sessionState === 'ready' && (
 						<form onSubmit={handleSubmit} className="space-y-4">
 							<div>
 								<label className="fk-eyebrow mb-2 block">NUEVA CONTRASEÑA</label>
