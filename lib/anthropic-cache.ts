@@ -90,9 +90,14 @@ export async function logUsage(
   input: LogUsageInput
 ): Promise<void> {
   try {
-    await supabase.from('ai_usage_logs').insert(input)
+    const { error } = await supabase.from('ai_usage_logs').insert(input)
+    if (error) {
+      // Supabase returns soft errors (table missing, RLS denial, etc.) as
+      // { error } without throwing. Log them for visibility.
+      console.error('[logUsage] insert failed:', error)
+    }
   } catch (err) {
-    // Best-effort telemetry — log for debugging but never break the route.
-    console.error('[logUsage] insert failed:', err)
+    // Hard failures (network errors, syntax issues). Still don't break the route.
+    console.error('[logUsage] insert threw:', err)
   }
 }

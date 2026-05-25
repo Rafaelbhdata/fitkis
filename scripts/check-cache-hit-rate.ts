@@ -16,9 +16,9 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 )
 
-// Sonnet 4.6 pricing (USD per million tokens)
+// Sonnet 4.6 pricing (USD per million tokens for input — we only model
+// savings on the input side because cache_read is 10% of input cost).
 const SONNET_INPUT = 3.0
-const SONNET_OUTPUT = 15.0
 // Cache read is 10% of base input; cache write is 1.25x base input.
 // Savings = (cache_read_tokens × 0.9 × $3/M) — what we would have paid without caching.
 
