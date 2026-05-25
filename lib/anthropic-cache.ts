@@ -14,6 +14,7 @@
 //   await logUsage({ ...usage, endpoint, model, user_id })
 
 import type Anthropic from '@anthropic-ai/sdk'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 type Cacheable = { cache_control?: { type: 'ephemeral' } }
 
@@ -70,5 +71,28 @@ export function extractCacheUsage(response: Anthropic.Message): CacheUsage {
     output_tokens: usage.output_tokens,
     cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
     cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+  }
+}
+
+export type LogUsageInput = CacheUsage & {
+  user_id: string
+  endpoint: string
+  model: string
+}
+
+/**
+ * Inserts a row into ai_usage_logs. Best-effort: failures are swallowed
+ * because we never want telemetry to break the user-facing API call.
+ * Call this after every Claude invocation.
+ */
+export async function logUsage(
+  supabase: SupabaseClient,
+  input: LogUsageInput
+): Promise<void> {
+  try {
+    await supabase.from('ai_usage_logs').insert(input)
+  } catch (err) {
+    // Best-effort telemetry — log for debugging but never break the route.
+    console.error('[logUsage] insert failed:', err)
   }
 }

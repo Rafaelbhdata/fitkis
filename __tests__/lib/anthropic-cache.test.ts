@@ -70,3 +70,58 @@ describe('extractCacheUsage', () => {
     expect(result.cache_read_input_tokens).toBe(0)
   })
 })
+
+describe('logUsage', () => {
+  it('inserts a row with all token counters into ai_usage_logs', async () => {
+    const { logUsage } = await import('@/lib/anthropic-cache')
+    const insertedRows: any[] = []
+    const mockSupabase = {
+      from: (table: string) => ({
+        insert: (row: any) => {
+          insertedRows.push({ table, row })
+          return Promise.resolve({ error: null })
+        },
+      }),
+    } as any
+
+    await logUsage(mockSupabase, {
+      user_id: 'user-1',
+      endpoint: 'chat',
+      model: 'claude-sonnet-4-6',
+      input_tokens: 100,
+      output_tokens: 50,
+      cache_creation_input_tokens: 2000,
+      cache_read_input_tokens: 500,
+    })
+
+    expect(insertedRows).toHaveLength(1)
+    expect(insertedRows[0].table).toBe('ai_usage_logs')
+    expect(insertedRows[0].row).toMatchObject({
+      user_id: 'user-1',
+      endpoint: 'chat',
+      input_tokens: 100,
+      cache_read_input_tokens: 500,
+    })
+  })
+
+  it('does not throw when insert fails (logging is best-effort)', async () => {
+    const { logUsage } = await import('@/lib/anthropic-cache')
+    const mockSupabase = {
+      from: () => ({
+        insert: () => Promise.resolve({ error: new Error('db down') }),
+      }),
+    } as any
+
+    await expect(
+      logUsage(mockSupabase, {
+        user_id: 'user-1',
+        endpoint: 'chat',
+        model: 'claude-sonnet-4-6',
+        input_tokens: 100,
+        output_tokens: 50,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      })
+    ).resolves.not.toThrow()
+  })
+})
