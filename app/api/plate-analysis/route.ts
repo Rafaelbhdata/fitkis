@@ -2,10 +2,18 @@ import { NextResponse } from 'next/server'
 import { getAuthedUser, requireProTier } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 import type { FoodGroup } from '@/types'
+import { extractCacheUsage, logUsage } from '@/lib/anthropic-cache'
+import { createClient } from '@supabase/supabase-js'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
+
+const adminSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)
 
 // Type for analysis result
 export interface PlateAnalysisResult {
@@ -107,6 +115,11 @@ export async function POST(request: Request) {
       }
     }
 
+    // NOTE: We do NOT wrap ANALYSIS_SYSTEM_PROMPT with cachedSystem() because
+    // the prompt is ~524 tokens — below Anthropic's 1024-token minimum for
+    // caching to activate (Sonnet). If the prompt grows past 1024 tokens in
+    // the future, switch to: system: cachedSystem(ANALYSIS_SYSTEM_PROMPT).
+
     // Call Claude Vision
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
@@ -131,6 +144,13 @@ export async function POST(request: Request) {
           ],
         },
       ],
+    })
+
+    await logUsage(adminSupabase, {
+      user_id: user.id,
+      endpoint: 'plate-analysis',
+      model: 'claude-sonnet-4-6',
+      ...extractCacheUsage(response),
     })
 
     // Extract text response

@@ -10,10 +10,18 @@ import {
 import { getTodayInTimezone, getNowPartsInTimezone } from '@/lib/utils'
 import type { FoodGroup, MealType } from '@/types'
 import { getAuthedUser, requireProTier } from '@/lib/api-auth'
+import { markLastBlockCached, extractCacheUsage, logUsage } from '@/lib/anthropic-cache'
+import { createClient } from '@supabase/supabase-js'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
+
+const adminSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)
 
 // Chat does a tool-use loop with Claude (multiple round-trips), which can
 // easily exceed Vercel's 10s default. Bump to 60s — works on Pro; on Hobby
@@ -31,7 +39,7 @@ type ClaudeParams = Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>
 
 async function callClaudeWithFallback(
   params: ClaudeParams
-): Promise<Anthropic.Message> {
+): Promise<{ response: Anthropic.Message; modelUsed: string }> {
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
   const isRetriable = (err: any) => err?.status === 529 || err?.status === 429
   let lastError: any
@@ -39,7 +47,8 @@ async function callClaudeWithFallback(
   for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        return await anthropic.messages.create({ ...params, model })
+        const response = await anthropic.messages.create({ ...params, model })
+        return { response, modelUsed: model }
       } catch (err) {
         lastError = err
         if (!isRetriable(err)) break // hard error → stop, don't try fallback
@@ -326,6 +335,8 @@ const tools: Anthropic.Tool[] = [
     },
   },
 ]
+
+const cachedTools = markLastBlockCached(tools)
 
 // Tool execution
 async function executeTool(
@@ -984,11 +995,20 @@ export async function POST(request: Request) {
     let conversationMessages = [...messages]
 
     // Initial call to Claude (with retry + fallback model on overload)
-    let response = await callClaudeWithFallback({
+    let response: Anthropic.Message
+    let modelUsed: string
+    ;({ response, modelUsed } = await callClaudeWithFallback({
       max_tokens: 1024,
       system: systemPrompt,
-      tools,
+      tools: cachedTools,
       messages: conversationMessages,
+    }))
+
+    await logUsage(adminSupabase, {
+      user_id: user.id,
+      endpoint: 'chat',
+      model: modelUsed,
+      ...extractCacheUsage(response),
     })
 
     // Process tool calls in a loop
@@ -1021,11 +1041,17 @@ export async function POST(request: Request) {
       ]
 
       // Continue the conversation with full history
-      response = await callClaudeWithFallback({
+      ;({ response, modelUsed } = await callClaudeWithFallback({
         max_tokens: 1024,
         system: systemPrompt,
-        tools,
+        tools: cachedTools,
         messages: conversationMessages,
+      }))
+      await logUsage(adminSupabase, {
+        user_id: user.id,
+        endpoint: 'chat',
+        model: modelUsed,
+        ...extractCacheUsage(response),
       })
     }
 
