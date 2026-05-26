@@ -11,6 +11,7 @@ import { getTodayInTimezone, getNowPartsInTimezone } from '@/lib/utils'
 import type { FoodGroup, MealType } from '@/types'
 import { getAuthedUser, requireProTier } from '@/lib/api-auth'
 import { markLastBlockCached, extractCacheUsage, logUsage } from '@/lib/anthropic-cache'
+import { checkCap } from '@/lib/ai-caps'
 import { createClient } from '@supabase/supabase-js'
 
 const anthropic = new Anthropic({
@@ -952,6 +953,16 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Feature requiere plan Pro', code: 'tier_required', tier: tierCheck.tier },
         { status: 403 }
+      )
+    }
+
+    // Hard cap on chat round-trips per user per UTC month. Protects Pro
+    // pricing economics against power users. See lib/ai-caps.ts.
+    const cap = await checkCap(adminSupabase, user.id, 'chat')
+    if (cap.over) {
+      return NextResponse.json(
+        { error: 'cap-exceeded', code: 'cap_exceeded', ...cap.payload },
+        { status: 429 }
       )
     }
 
