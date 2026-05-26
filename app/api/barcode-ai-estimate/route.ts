@@ -12,8 +12,17 @@ import { NextResponse } from 'next/server'
 import { getAuthedUser, requireProTier } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 import type { FoodGroup } from '@/types'
+import { createClient } from '@supabase/supabase-js'
+import { extractCacheUsage, logUsage } from '@/lib/anthropic-cache'
+import { checkCap } from '@/lib/ai-caps'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const adminSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)
 
 export const maxDuration = 30
 
@@ -70,6 +79,14 @@ export async function POST(request: Request) {
     )
   }
 
+  const cap = await checkCap(adminSupabase, user.id, 'barcode-ai-estimate')
+  if (cap.over) {
+    return NextResponse.json(
+      { error: 'cap-exceeded', code: 'cap_exceeded', ...cap.payload },
+      { status: 429 }
+    )
+  }
+
   const body = (await request.json().catch(() => ({}))) as Partial<Body>
   const productName = (body.productName ?? '').trim()
   if (!productName) {
@@ -89,6 +106,13 @@ export async function POST(request: Request) {
       max_tokens: 600,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
+    })
+
+    await logUsage(adminSupabase, {
+      user_id: user.id,
+      endpoint: 'barcode-ai-estimate',
+      model: 'claude-sonnet-4-6',
+      ...extractCacheUsage(response),
     })
 
     const textBlock = response.content.find((b) => b.type === 'text')

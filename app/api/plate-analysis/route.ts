@@ -3,6 +3,7 @@ import { getAuthedUser, requireProTier } from '@/lib/api-auth'
 import Anthropic from '@anthropic-ai/sdk'
 import type { FoodGroup } from '@/types'
 import { extractCacheUsage, logUsage } from '@/lib/anthropic-cache'
+import { checkCap } from '@/lib/ai-caps'
 import { createClient } from '@supabase/supabase-js'
 
 const anthropic = new Anthropic({
@@ -89,6 +90,14 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Feature requiere plan Pro', code: 'tier_required', tier: tierCheck.tier },
         { status: 403 }
+      )
+    }
+
+    const cap = await checkCap(adminSupabase, user.id, 'plate-analysis')
+    if (cap.over) {
+      return NextResponse.json(
+        { error: 'cap-exceeded', code: 'cap_exceeded', ...cap.payload },
+        { status: 429 }
       )
     }
 
