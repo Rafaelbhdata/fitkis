@@ -28,6 +28,7 @@ const ITEMS: Item[] = [
   { key: 'pacientes', href: '/clinic',           label: 'Pacientes',  icon: Ic.people    },
   { key: 'agenda',    href: '/clinic/agenda',    label: 'Agenda',     icon: Ic.book      },
   { key: 'biblio',    href: '/clinic/biblioteca',label: 'Biblioteca', icon: Ic.apple     },
+  { key: 'smae',      href: '/clinic/smae',      label: 'SMAE',       icon: Ic.bookOpen  },
   { key: 'ajustes',   href: '/clinic/ajustes',   label: 'Ajustes',    icon: Ic.settings  },
 ]
 

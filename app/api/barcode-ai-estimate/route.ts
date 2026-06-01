@@ -15,6 +15,7 @@ import type { FoodGroup } from '@/types'
 import { createClient } from '@supabase/supabase-js'
 import { extractCacheUsage, logUsage } from '@/lib/anthropic-cache'
 import { checkCap } from '@/lib/ai-caps'
+import { loadOverridesForUser, formatOverridesForPrompt } from '@/lib/smae-overrides'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -101,10 +102,17 @@ export async function POST(request: Request) {
   ].filter(Boolean).join('\n')
 
   try {
+    // Load practitioner SMAE overrides for this user
+    const overrides = await loadOverridesForUser(adminSupabase, user.id)
+    const overridesSection = formatOverridesForPrompt(overrides)
+    const finalSystemPrompt = overridesSection
+      ? SYSTEM_PROMPT + overridesSection
+      : SYSTEM_PROMPT
+
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 600,
-      system: SYSTEM_PROMPT,
+      system: finalSystemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     })
 
