@@ -5,6 +5,7 @@ import type { FoodGroup } from '@/types'
 import { extractCacheUsage, logUsage } from '@/lib/anthropic-cache'
 import { checkCap } from '@/lib/ai-caps'
 import { createClient } from '@supabase/supabase-js'
+import { loadOverridesForUser, formatOverridesForPrompt } from '@/lib/smae-overrides'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -129,11 +130,18 @@ export async function POST(request: Request) {
     // caching to activate (Sonnet). If the prompt grows past 1024 tokens in
     // the future, switch to: system: cachedSystem(ANALYSIS_SYSTEM_PROMPT).
 
+    // Load practitioner SMAE overrides for this user
+    const overrides = await loadOverridesForUser(adminSupabase, user.id)
+    const overridesSection = formatOverridesForPrompt(overrides)
+    const finalSystemPrompt = overridesSection
+      ? ANALYSIS_SYSTEM_PROMPT + overridesSection
+      : ANALYSIS_SYSTEM_PROMPT
+
     // Call Claude Vision
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      system: ANALYSIS_SYSTEM_PROMPT,
+      system: finalSystemPrompt,
       messages: [
         {
           role: 'user',
