@@ -11,6 +11,9 @@ const customJestConfig = {
   testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    // Stub next/server so route files can be imported in jsdom tests without
+    // requiring the Fetch API (NextRequest extends Request at class-def time).
+    '^next/server$': '<rootDir>/__mocks__/next-server.js',
   },
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/'],
 }
