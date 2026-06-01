@@ -31,7 +31,7 @@ export async function loadOverridesForUser(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<SmaeOverride[]> {
-  const { data: link } = await supabase
+  const { data: link, error: linkError } = await supabase
     .from('practitioner_patients')
     .select('practitioner_id')
     .eq('patient_id', userId)
@@ -40,10 +40,14 @@ export async function loadOverridesForUser(
     .limit(1)
     .maybeSingle()
 
+  if (linkError) {
+    console.error('[loadOverridesForUser] practitioner_patients query failed:', linkError)
+    return []
+  }
   if (!link) return []
   const practitionerId = (link as { practitioner_id: string }).practitioner_id
 
-  const { data: rows } = await supabase
+  const { data: rows, error: rowsError } = await supabase
     .from('practitioner_smae_overrides')
     .select(`
       id, food_id, name, notes,
@@ -52,6 +56,10 @@ export async function loadOverridesForUser(
     `)
     .eq('practitioner_id', practitionerId)
 
+  if (rowsError) {
+    console.error('[loadOverridesForUser] overrides query failed:', rowsError)
+    return []
+  }
   if (!rows) return []
 
   return (rows as any[]).map((row) => {

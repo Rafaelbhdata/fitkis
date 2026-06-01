@@ -123,6 +123,9 @@ WHERE NOT EXISTS (
     AND pso.food_id = feg.id
 );
 
+-- Grant SELECT on the renamed table (Postgres preserves grants by OID
+-- through rename, but we make it explicit for clarity).
+GRANT SELECT ON food_equivalents_global TO authenticated, anon;
 GRANT SELECT ON food_equivalents TO authenticated, anon;
 
 -- 4) RLS para practitioner_smae_overrides.
