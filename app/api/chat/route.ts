@@ -13,6 +13,7 @@ import { getAuthedUser, requireProTier } from '@/lib/api-auth'
 import { markLastBlockCached, extractCacheUsage, logUsage } from '@/lib/anthropic-cache'
 import { checkCap } from '@/lib/ai-caps'
 import { createClient } from '@supabase/supabase-js'
+import { loadOverridesForUser, formatOverridesForPrompt } from '@/lib/smae-overrides'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -1002,6 +1003,15 @@ export async function POST(request: Request) {
     }
     const systemPrompt = buildSystemPrompt(patientContext)
 
+    // Inject practitioner-scoped SMAE overrides as a high-priority rules
+    // section at the end of the system prompt. Loaded ONCE per user message
+    // (before the tool-use loop), not per round-trip.
+    const overrides = await loadOverridesForUser(adminSupabase, user.id)
+    const overridesSection = formatOverridesForPrompt(overrides)
+    const finalSystemPrompt = overridesSection
+      ? systemPrompt + overridesSection
+      : systemPrompt
+
     // Maintain conversation history through tool-use loop
     let conversationMessages = [...messages]
 
@@ -1010,7 +1020,7 @@ export async function POST(request: Request) {
     let modelUsed: string
     ;({ response, modelUsed } = await callClaudeWithFallback({
       max_tokens: 1024,
-      system: systemPrompt,
+      system: finalSystemPrompt,
       tools: cachedTools,
       messages: conversationMessages,
     }))
@@ -1054,7 +1064,7 @@ export async function POST(request: Request) {
       // Continue the conversation with full history
       ;({ response, modelUsed } = await callClaudeWithFallback({
         max_tokens: 1024,
-        system: systemPrompt,
+        system: finalSystemPrompt,
         tools: cachedTools,
         messages: conversationMessages,
       }))
