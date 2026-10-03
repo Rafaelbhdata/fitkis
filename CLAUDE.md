@@ -10,7 +10,7 @@ Este archivo es la fuente de verdad del proyecto.
 
 **Este repo (`fitkis`, web) es exclusivamente el portal de nutriólogas.** La app del paciente vive en otro repo (`fitkis-mobile`). Comparten la misma BD Supabase y los endpoints `/api/*` de este repo.
 
-- Rutas del paciente (`app/(app)/*`, `app/onboarding/*`) → en `legacy/`, congeladas, fuera del build
+- Rutas del paciente (`app/(app)/*`) → en `legacy/`, congeladas, fuera del build. `app/onboarding/` es el alta de la nutrióloga invitada (activa)
 - Portal clínico v5 "Paper & Pulse" vive en `app/(clinic)/` sobre `master`
 - Datos: cableados a Supabase. Fase 3 ✅ completada (notas, biblioteca, reportes, PDF, RPCs). Próximamente Fase 4 — ver `context.md`
 - La sección **Módulos del paciente** abajo documenta lógica compartida con `fitkis-mobile` y la BD, **no** features del web actual
@@ -39,8 +39,6 @@ npm test         # Jest
 ## ⚠️ Gotchas de desarrollo
 
 - Rutas con paréntesis en bash SIEMPRE entre comillas dobles: `git add "app/(clinic)/..."`, `ls "app/(clinic)/clinic/"`
-- Verificar que un archivo no existe antes de crearlo — varias páginas (`privacy`, `terms`) ya estaban implementadas
-- El tool `Edit` requiere coincidencia exacta de indentación — si falla con "string not found", re-leer el archivo antes de reintentar
 
 ---
 
@@ -74,13 +72,13 @@ fitkis/
 │   │   ├── biblioteca/        # Recursos para pacientes
 │   │   └── ajustes/           # Configuración de la cuenta
 │   ├── api/                   # Endpoints REST — consumidos por fitkis-mobile
-│   │   └── auth/google-calendar/  # OAuth Google Calendar (connect/callback/status/disconnect)
+│   │   └── auth/google-calendar/  # OAuth Google Calendar (connect/callback/status/connections/[id]/disconnect)
 │   ├── agendar/               # Página pública de agendamiento (pacientes)
 │   ├── privacy/               # Política de privacidad (pública)
 │   ├── terms/                 # Términos de uso (públicos)
 │   └── download/              # Redirect para usuarios no-nutriólogas
 ├── components/
-│   ├── ui/                    # Componentes base (Button, Input, Card, etc.)
+│   ├── ui/                    # Componentes base (Btn, Card, Segments, Toast, PulseLine, etc.)
 │   └── clinic/                # Componentes del portal clínico
 │       ├── Sidebar.tsx / Topbar.tsx
 │       ├── AppointmentDetailModal.tsx / NewAppointmentModal.tsx
@@ -164,7 +162,7 @@ Viernes:   Lower B — Isquiotibiales, Glúteos, Core
 - Mostrar banner al inicio del ejercicio: "Completaste todo las últimas 2 veces. ¿Subimos a X lbs?"
 - Usuario acepta o ignora — nunca forzar
 
-### Historial de sesiones ya registradas (cargar como seed data)
+### Historial de sesiones ya registradas (referencia; el sembrado vivía en `legacy/app/(app)/admin/seed/page.tsx`)
 
 **Sesión 1 — Upper A — 23 de marzo 2026**
 - Press Banca (Smith): Serie1: 90lbs/-, Serie2: 80lbs/8, Serie3: 80lbs/7, Serie4: 80lbs/5 | Muy pesado
@@ -210,7 +208,7 @@ Viernes:   Lower B — Isquiotibiales, Glúteos, Core
 - Alcohol: 1 copa = 1 carbohidrato
 - Si no cocina con aceite, puede usarlo como grasa para comer
 
-### Base de datos de equivalentes (cargar en constants.ts)
+### Base de datos de equivalentes (vive en `lib/constants.ts`; esta copia es referencia)
 
 ```typescript
 // FRUTAS
@@ -350,7 +348,7 @@ Viernes:   Lower B — Isquiotibiales, Glúteos, Core
 
 ## 🧘 Módulo Hábitos
 
-### Hábitos iniciales (cargar como seed para el usuario)
+### Hábitos iniciales (sembrados en `supabase/migrations/002_seed_data.sql`; plantilla en `DEFAULT_HABITS` de `lib/constants.ts`)
 
 | Hábito | Tipo | Meta |
 |---|---|---|
@@ -370,135 +368,6 @@ Viernes:   Lower B — Isquiotibiales, Glúteos, Core
 
 ---
 
-## 🤖 Sistema de agentes
-
-**Regla universal para todos los agentes:**
-1. Leer `CLAUDE.md` completo
-2. Leer `context.md` completo
-3. Ejecutar la tarea
-4. Hacer commit con mensaje descriptivo
-5. Actualizar `context.md` con lo que se hizo
-
-### Agentes definidos
-
-#### `agent:setup`
-**Responsabilidad:** Inicialización del proyecto desde cero.
-**Tareas:** Crear repo en GitHub, instalar dependencias (Next.js 14, Tailwind, Supabase client, TypeScript), configurar Supabase (proyecto + tablas + RLS), configurar Vercel, crear estructura de carpetas base, crear `.env.example`, cargar datos estáticos en `constants.ts` (equivalentes y ejercicios), crear `context.md` inicial.
-**Cuándo usarlo:** Solo una vez al inicio.
-**Commit al terminar:** `feat: project setup — Next.js, Supabase, Vercel configured`
-
-#### `agent:db`
-**Responsabilidad:** Base de datos y migraciones.
-**Tareas:** Crear/modificar tablas, escribir migraciones SQL, definir RLS, crear índices de performance.
-**Antes de actuar:** Leer schema en CLAUDE.md + estado de DB en context.md para no duplicar.
-**Commit al terminar:** `feat(db): [descripción del cambio]`
-
-#### `agent:auth`
-**Responsabilidad:** Autenticación y sesión.
-**Tareas:** Páginas de login/registro, middleware de rutas protegidas, manejo de sesión con Supabase Auth, redirect logic.
-**Commit al terminar:** `feat(auth): login and register flow`
-
-#### `agent:ui`
-**Responsabilidad:** Sistema de diseño y componentes base.
-**Lineamientos:** Mobile-first, tema oscuro, estética atlética. Fondo #0f0f0f, acento verde-lima (#e8ff47). Fuente display: Barlow Condensed. Fuente cuerpo: Barlow o similar. Nav bottom con 4 tabs: Dashboard, Gym, Food, Hábitos.
-**Tareas:** Tokens de diseño (colores, tipografía, espaciado), componentes base (Button, Input, Card, Modal, ProgressBar, BottomNav), estados de carga y error.
-**Commit al terminar:** `feat(ui): design system and base components`
-
-#### `agent:gym`
-**Responsabilidad:** Módulo gym completo.
-**Tareas:** Pantalla "rutina del día" (qué toca hoy), tracker activo de sesión (series, reps, lbs, feeling, timer descanso), lógica de sustitución de ejercicios, lógica de progresión automática (+5 lbs), historial de sesiones, gráfica de progresión por ejercicio, seed de las 2 sesiones ya registradas.
-**Antes de actuar:** Leer sección Módulo Gym completa incluyendo historial de sesiones.
-**Commit al terminar:** `feat(gym): [feature específico]`
-
-#### `agent:food`
-**Responsabilidad:** Módulo de alimentación por equivalentes.
-**Tareas:** Vista del día dividida en 4 comidas, búsqueda de alimentos en lista de equivalentes, sistema de favoritos (guardar y usar de un tap), barras de progreso por grupo, resumen del día.
-**Antes de actuar:** Leer sección Módulo Alimentación completa incluyendo toda la base de equivalentes.
-**Commit al terminar:** `feat(food): [feature específico]`
-
-#### `agent:weight`
-**Responsabilidad:** Módulo de peso corporal.
-**Tareas:** Formulario de registro, gráfica de tendencia, cálculo de progreso desde inicio (86 kg), proyección a meta.
-**Commit al terminar:** `feat(weight): weight tracking module`
-
-#### `agent:habits`
-**Responsabilidad:** Módulo de hábitos.
-**Tareas:** CRUD de hábitos, log diario, gráficas de racha y progreso, vista resumen del día, seed de hábitos iniciales (agua, lectura, creatina).
-**Commit al terminar:** `feat(habits): habits module`
-
-#### `agent:dashboard`
-**Responsabilidad:** Pantalla principal integrando todos los módulos.
-**Tareas:** Resumen del día (rutina de hoy, equivalentes restantes por grupo, agua, hábitos pendientes, peso más reciente).
-**Depende de:** gym, food, weight y habits al menos parcialmente implementados.
-**Commit al terminar:** `feat(dashboard): main dashboard`
-
-#### `agent:fix`
-**Responsabilidad:** Corrección de bugs puntuales.
-**Antes de actuar:** Leer context.md para entender estado actual, reproducir el bug.
-**Commit al terminar:** `fix: [descripción del bug] — causa: [causa raíz]`
-
----
-
-## 📋 context.md — Estructura requerida
-
-```markdown
-# FitLife — Context
-
-## Estado general
-[qué está listo ✅, en progreso 🔄, pendiente ⏳]
-
-## Último agente
-Agente: [nombre]
-Fecha: [fecha]
-Qué hizo: [descripción]
-
-## Módulos
-### Setup: [estado]
-### Auth: [estado]
-### UI: [estado]
-### Gym: [estado]
-### Food: [estado]
-### Weight: [estado]
-### Habits: [estado]
-### Dashboard: [estado]
-
-## Schema actual
-[Diferencias vs CLAUDE.md si las hay]
-
-## Variables de entorno requeridas
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-
-## Repositorio
-URL: https://github.com/[usuario]/fitlife
-
-## Deploy
-URL Vercel: [url]
-
-## Bugs conocidos / deuda técnica
-[lista]
-
-## Próximos pasos recomendados
-[lista ordenada]
-```
-
----
-
-## 🚀 Orden de desarrollo recomendado
-
-1. `agent:setup` — Repo, estructura, Supabase, Vercel
-2. `agent:db` — Todas las tablas + RLS
-3. `agent:ui` — Sistema de diseño y componentes base
-4. `agent:auth` — Login y registro
-5. `agent:gym` — Módulo gym (el más crítico)
-6. `agent:food` — Módulo alimentación
-7. `agent:habits` — Módulo hábitos
-8. `agent:weight` — Módulo peso
-9. `agent:dashboard` — Dashboard final
-
----
-
 ## 🔧 Variables de entorno
 
 Ver `context.md` para la lista completa y actualizada. Plantilla en `.env.example`. Nunca commitear `.env.local`.
@@ -512,8 +381,7 @@ Ver `context.md` para la lista completa y actualizada. Plantilla en `.env.exampl
 - **Datos estáticos en constants.ts:** Equivalentes y ejercicios no cambian frecuentemente, no necesitan DB
 - **RLS en Supabase:** Seguridad a nivel de base de datos, cada usuario solo ve sus datos
 - **API compartida:** Los endpoints `/api/*` de este repo sirven tanto al portal web como a `fitkis-mobile` — no duplicar lógica en el repo móvil
-- **Google Calendar:** scope `calendar.freebusy` — solo libre/ocupado, nunca contenido de eventos. Token almacenado en Supabase por nutrióloga
-- **Sistema de agentes:** Separación de responsabilidades, cada agente lee contexto antes de actuar y documenta al terminar, garantizando que el proyecto pueda retomarse en cualquier momento sin perder estado
+- **Google Calendar:** varias cuentas por nutrióloga. Lectura con `calendar.freebusy` (solo libre/ocupado); escritura de eventos con `calendar.events`, activa solo con `CALENDAR_WRITE_ENABLED=true` (`lib/clinic/google-calendar-write.ts`). Tokens en Supabase por conexión
 
 ---
 
@@ -529,7 +397,7 @@ Tareas fuera del código que bloquean funcionalidad en producción. Deben hacers
 
 ### 2. Completar OAuth Consent Screen en Google Cloud Console
 - Dominio `fitkis.com` ya verificado ✅
-- Falta agregar: correo de contacto, URL de privacy policy (`https://fitkis.com/privacy`), scopes (`calendar.freebusy`)
+- Falta agregar: correo de contacto, URL de privacy policy (`https://fitkis.com/privacy`), scopes (`calendar.freebusy` y `calendar.events`)
 - **Requiere:** paso 1 (correo activo)
 - **Bloquea:** el paso 3
 

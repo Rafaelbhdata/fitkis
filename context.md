@@ -338,3 +338,10 @@ Seeds de demo (opcional): `node scripts/seed-demo-clinic.js` + `node scripts/see
 - Clases utilitarias: `.fk-eyebrow` (mono 10px uppercase), `.fk-serif`, `.fk-mono`
 - `PulseLine` es la firma visual — loading states
 - Patrón de pantallas: Client Component + `useEffect` para datos + estados loading/error/empty
+
+## Deuda técnica detectada
+
+- [ ] [Media] Modelos de Claude fijados en generación anterior — `app/api/{chat,inbody-analysis,plate-analysis,barcode-ai-estimate,daily-quote,exercises/translate,coach/*}/route.ts`
+  - Problema: el código fija `claude-sonnet-4-6` y `claude-haiku-4-5`; hay generaciones más nuevas (Sonnet 5.5) con cambios de API (thinking, tool_choice forzado, prefill).
+  - Solución propuesta: migración con evals por endpoint (`/claude-api migrate`), midiendo calidad y costo antes de cambiar.
+  - Por qué quedó pendiente: detectado en la auditoría de prompts del 2026-10-03, fuera de su alcance.
